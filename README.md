@@ -50,6 +50,19 @@ cd /Users/popwind/Documents/Master/graduation/rs-vqa/apps/web && npm run build
 
 截至 v0.1.0：Python 测试 8 项通过、Java 网关测试 2 项通过、Vue 生产构建通过；浏览器已验证受支持问法与不支持问法两条路径。
 
+## 本地测试遥感影像
+
+为单图演示和未来批量流程提供了一个本地影像包：12 张单图 smoke 样本和 192 张批量样本，共 204 张。它们来自 USGS National Map 的 `USGSImageryOnly` 正射影像服务，主要是美国本土 NAIP/USGS 影像；图片保存在 `data/test-images`，被 Git 忽略，不会推送到仓库。
+
+```bash
+cd /Users/popwind/Documents/Master/graduation/rs-vqa
+python3 scripts/download_usgs_test_imagery.py
+```
+
+下载完成后，单图演示样本位于 `data/test-images/single`，批量样本位于 `data/test-images/batch`，来源、边界框、哈希和下载状态写入 `data/test-images/manifest.csv`。详细的数据边界与使用方式见 [测试影像说明](data/test-images/README.md)。
+
+这些影像仅用于工程验证：上传、图像预处理、接口、批量任务、错误处理和 UI。它们不是 RSVQA-HR 的带标注测试集，不能用于报告本研究模型的 OA/AA、比较模型优劣或声称泛化效果。
+
 ## 不在 v0.1.0 范围内
 
 - Agent、RAG、向量数据库、外部通用 VLM

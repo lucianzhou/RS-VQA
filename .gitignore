@@ -9,6 +9,8 @@
 apps/gateway/target/
 
 # Python
+__pycache__/
+*.py[cod]
 services/model-service/.venv/
 services/model-service/__pycache__/
 services/model-service/**/*.pyc
@@ -30,3 +32,8 @@ checkpoints/
 model-releases/
 *.jsonl
 *.pdf
+
+# Local remote-sensing engineering test images. Keep only their documentation and
+# reproducible manifest in Git; never commit the downloaded image files.
+data/test-images/single/
+data/test-images/batch/
