@@ -1,0 +1,32 @@
+.DS_Store
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+
+# Java
+apps/gateway/target/
+
+# Python
+services/model-service/.venv/
+services/model-service/__pycache__/
+services/model-service/**/*.pyc
+services/model-service/.pytest_cache/
+services/model-service/htmlcov/
+*.egg-info/
+
+# Node / Vue
+apps/web/node_modules/
+apps/web/dist/
+apps/web/.vite/
+
+# Runtime artifacts, data, and logs
+data/raw/
+data/processed/
+outputs/
+logs/
+checkpoints/
+model-releases/
+*.jsonl
+*.pdf
