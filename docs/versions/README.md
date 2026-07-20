@@ -16,4 +16,4 @@
 
 版本完成时，将状态改为“已完成”，写入实际验证结果；不要把计划中的能力写成已经交付的能力。
 
-当前版本：[`v0.1.1-test-image-pack.md`](v0.1.1-test-image-pack.md)。
+当前版本：[`v0.1.2-frontend-workbench.md`](v0.1.2-frontend-workbench.md)。
