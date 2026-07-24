@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from functools import lru_cache
 import hashlib
 import io
 import os
 from pathlib import Path
+from threading import RLock
 from time import perf_counter, sleep
 from uuid import uuid4
 
@@ -43,6 +43,10 @@ app = FastAPI(
     description="Release-contract-aware runtime adapter for RSVQA-HR closed-set VQA.",
 )
 
+_RUNTIME_CACHE_LOCK = RLock()
+_VERIFIED_RELEASE_CACHE: dict[str, VerifiedRelease] = {}
+_RESEARCH_BACKEND_CACHE: dict[str, ResearchRuntimeBackend] = {}
+
 
 def _runtime_mode() -> RuntimeMode:
     if MODEL_MODE == "mock":
@@ -72,16 +76,25 @@ def _verified_release() -> tuple[VerifiedRelease | None, str | None]:
         return None, str(error)
 
 
-@lru_cache(maxsize=1)
 def _load_verified_release(manifest_path: str) -> VerifiedRelease:
     """Verify immutable artifacts once per process; release changes require restart."""
-    return load_and_verify_release(Path(manifest_path))
+    with _RUNTIME_CACHE_LOCK:
+        release = _VERIFIED_RELEASE_CACHE.get(manifest_path)
+        if release is None:
+            release = load_and_verify_release(Path(manifest_path))
+            _VERIFIED_RELEASE_CACHE[manifest_path] = release
+        return release
 
 
-@lru_cache(maxsize=1)
 def _load_research_backend(manifest_path: str) -> ResearchRuntimeBackend:
-    release = _load_verified_release(manifest_path)
-    return ResearchRuntimeBackend(release)
+    # Health checks can overlap while a CPU model is still loading. Keep
+    # verification, construction, and warmup single-flight per process.
+    with _RUNTIME_CACHE_LOCK:
+        backend = _RESEARCH_BACKEND_CACHE.get(manifest_path)
+        if backend is None:
+            backend = ResearchRuntimeBackend(_load_verified_release(manifest_path))
+            _RESEARCH_BACKEND_CACHE[manifest_path] = backend
+        return backend
 
 
 def _validate_image(raw: bytes, content_type: str | None) -> None:

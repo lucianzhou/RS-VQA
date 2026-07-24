@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import hashlib
 import io
 from importlib import import_module, invalidate_caches
+import inspect
 import os
 from pathlib import Path
 import sys
@@ -88,6 +89,7 @@ class ResearchRuntimeBackend:
             module_path = str(getattr(module, "__file__", ""))
             if wheel_path not in module_path:
                 raise ModelReleaseUnavailable("研究运行时没有从已验证 wheel 加载。")
+            _install_runtime_compatibility(module)
             factory = getattr(module, factory_name)
             adapter = factory(
                 release_dir=release.root,
@@ -175,3 +177,40 @@ class ResearchRuntimeBackend:
             raise ModelReleaseUnavailable("独立推理适配器返回的题型概率无效。")
         if abs(sum(probabilities.values()) - 1.0) > 1e-4:
             raise ModelReleaseUnavailable("独立推理适配器返回的题型概率未归一化。")
+
+
+def _install_runtime_compatibility(module: Any) -> None:
+    """Bridge the released ViLT layer patch to current Transformers call conventions.
+
+    The immutable release wheel's patched layer accepts ``hidden_states``,
+    ``attention_mask`` and ``output_attentions``. Transformers invokes a layer
+    with an additional ``head_mask`` positional argument across supported
+    versions. The release implementation did not use head masking, so this
+    adapter preserves its behavior while accepting the framework's call shape.
+    """
+    if getattr(module, "_rsvqa_runtime_compatibility_installed", False):
+        return
+    original_patch = getattr(module, "_patch_vilt_layer", None)
+    if not callable(original_patch):
+        return
+
+    def compatible_patch(torch: Any, layer: Any) -> None:
+        original_patch(torch, layer)
+        original_forward = layer.forward
+        parameters = tuple(inspect.signature(original_forward).parameters.values())
+        if len(parameters) >= 4:
+            return
+
+        def forward(
+            hidden_states: Any,
+            attention_mask: Any = None,
+            head_mask: Any = None,
+            output_attentions: bool = False,
+        ) -> Any:
+            del head_mask
+            return original_forward(hidden_states, attention_mask, output_attentions)
+
+        layer.forward = forward
+
+    module._patch_vilt_layer = compatible_patch
+    module._rsvqa_runtime_compatibility_installed = True

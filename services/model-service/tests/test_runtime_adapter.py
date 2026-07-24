@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 import io
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import sys
+from threading import Lock
+from time import sleep
+from types import SimpleNamespace
 import zipfile
 
 from PIL import Image
 import pytest
 
-from app.backends import ModelReleaseUnavailable, ResearchRuntimeBackend
+from app.backends import ModelReleaseUnavailable, ResearchRuntimeBackend, _install_runtime_compatibility
+from app import main
 from app.release_manifest import load_and_verify_release
 from release_fixture import write_release
 
@@ -68,3 +73,49 @@ def test_rejects_runtime_result_with_wrong_checkpoint_hash(tmp_path: Path) -> No
 
     with pytest.raises(ModelReleaseUnavailable, match="checkpoint SHA-256"):
         ResearchRuntimeBackend(tampered_release).predict(image_bytes(), "Is there a road?")
+
+
+def test_runtime_compatibility_accepts_transformers_head_mask_argument() -> None:
+    calls = []
+
+    def patch_layer(_torch, layer) -> None:
+        def legacy_forward(hidden_states, attention_mask=None, output_attentions=False):
+            calls.append((hidden_states, attention_mask, output_attentions))
+            return "ok"
+
+        layer.forward = legacy_forward
+
+    module = SimpleNamespace(_patch_vilt_layer=patch_layer)
+    _install_runtime_compatibility(module)
+    layer = SimpleNamespace()
+    module._patch_vilt_layer(None, layer)
+
+    assert layer.forward("hidden", "mask", "head-mask", True) == "ok"
+    assert calls == [("hidden", "mask", True)]
+
+
+def test_research_backend_initialization_is_single_flight(monkeypatch) -> None:
+    created = 0
+    created_lock = Lock()
+
+    class FakeBackend:
+        def __init__(self, release) -> None:
+            nonlocal created
+            with created_lock:
+                created += 1
+            sleep(0.03)
+
+    monkeypatch.setattr(main, "ResearchRuntimeBackend", FakeBackend)
+    monkeypatch.setattr(main, "_load_verified_release", lambda _: object())
+    with main._RUNTIME_CACHE_LOCK:
+        main._RESEARCH_BACKEND_CACHE.clear()
+
+    try:
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            backends = list(executor.map(main._load_research_backend, ["release.json"] * 8))
+
+        assert created == 1
+        assert len({id(backend) for backend in backends}) == 1
+    finally:
+        with main._RUNTIME_CACHE_LOCK:
+            main._RESEARCH_BACKEND_CACHE.clear()

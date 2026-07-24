@@ -1,14 +1,16 @@
 FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DEFAULT_TIMEOUT=180 \
+    PIP_RETRIES=5
+ARG PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
 WORKDIR /opt/rsvqa/model-service
-COPY pyproject.toml ./
+COPY pyproject.toml requirements-real.txt ./
+RUN pip install --index-url "${PYTORCH_INDEX_URL}" --timeout 180 --retries 5 "torch>=2.2,<3.0" \
+    && pip install --timeout 180 --retries 5 -r requirements-real.txt
 COPY app ./app
-RUN pip install . \
-    "torch>=2.2,<3.0" \
-    "transformers>=4.40,<5.0" \
-    "peft>=0.10,<1.0"
+RUN pip install --no-deps .
 RUN addgroup --system rsvqa && adduser --system --ingroup rsvqa rsvqa \
     && chown -R rsvqa:rsvqa /opt/rsvqa
 USER rsvqa
