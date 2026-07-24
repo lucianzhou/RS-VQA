@@ -25,10 +25,23 @@ public class McpClientBoundaryService {
     private static final Set<String> READ_ONLY_ALLOWLIST = Set.of(
             "current_model_release",
             "supported_question_types",
+            "model_capabilities",
             "system_health",
             "conversation_history",
+            "conversation_vqa_results",
+            "project_summary",
+            "project_conversations",
+            "project_vqa_statistics",
             "batch_job_status",
-            "search_knowledge"
+            "batch_result_statistics",
+            "confidence_distribution",
+            "unsupported_question_summary",
+            "failed_invocation_summary",
+            "report_draft_data",
+            "search_knowledge",
+            "knowledge_search",
+            "audit_lookup",
+            "create_batch_plan"
     );
 
     private final ObjectProvider<List<McpSyncClient>> clients;

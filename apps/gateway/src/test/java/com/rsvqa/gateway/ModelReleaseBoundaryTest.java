@@ -2,12 +2,13 @@ package com.rsvqa.gateway;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Arrays;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+
 class ModelReleaseBoundaryTest {
 
     @Test
@@ -18,6 +19,7 @@ class ModelReleaseBoundaryTest {
                 Mockito.mock(BatchService.class),
                 Mockito.mock(KnowledgeService.class),
                 Mockito.mock(AnalyticsService.class),
+                Mockito.mock(AuditReadService.class),
                 new com.fasterxml.jackson.databind.ObjectMapper()
         );
 
@@ -37,6 +39,7 @@ class ModelReleaseBoundaryTest {
                 Mockito.mock(BatchService.class),
                 Mockito.mock(KnowledgeService.class),
                 Mockito.mock(AnalyticsService.class),
+                Mockito.mock(AuditReadService.class),
                 new com.fasterxml.jackson.databind.ObjectMapper()
         );
 
@@ -48,13 +51,23 @@ class ModelReleaseBoundaryTest {
         assertThat(names).containsExactlyInAnyOrder(
                 "current_model_release",
                 "supported_question_types",
+                "model_capabilities",
                 "system_health",
                 "conversation_history",
+                "conversation_vqa_results",
+                "project_summary",
+                "project_conversations",
                 "batch_job_status",
                 "project_vqa_statistics",
                 "batch_result_statistics",
+                "confidence_distribution",
+                "unsupported_question_summary",
+                "failed_invocation_summary",
                 "report_draft_data",
-                "search_knowledge"
+                "search_knowledge",
+                "knowledge_search",
+                "audit_lookup",
+                "create_batch_plan"
         );
     }
 
@@ -66,6 +79,7 @@ class ModelReleaseBoundaryTest {
                 Mockito.mock(BatchService.class),
                 Mockito.mock(KnowledgeService.class),
                 Mockito.mock(AnalyticsService.class),
+                Mockito.mock(AuditReadService.class),
                 new com.fasterxml.jackson.databind.ObjectMapper()
         );
         AgentToolRegistry registry = new AgentToolRegistry(
@@ -78,6 +92,6 @@ class ModelReleaseBoundaryTest {
                 .toList();
 
         assertThat(names).contains("single_image_vqa");
-        assertThat(names).hasSize(10);
+        assertThat(names).hasSize(20);
     }
 }
