@@ -1,0 +1,191 @@
+name: rs-vqa
+
+services:
+  postgres:
+    image: postgres:17.5-alpine
+    environment:
+      POSTGRES_DB: rsvqa
+      POSTGRES_USER: rsvqa
+      POSTGRES_PASSWORD: ${RSVQA_DATABASE_PASSWORD:-rsvqa_dev_only}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rsvqa -d rsvqa"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${RSVQA_POSTGRES_PORT:-15432}:5432"
+    networks: [backend]
+
+  redis:
+    image: redis:8.0-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:${RSVQA_REDIS_PORT:-16379}:6379"
+    networks: [backend]
+
+  model-service:
+    build:
+      context: ./services/model-service
+    environment:
+      RSVQA_MODEL_MODE: ${RSVQA_MODEL_MODE:-mock}
+      RSVQA_MOCK_LATENCY_MS: ${RSVQA_MOCK_LATENCY_MS:-0}
+      RSVQA_RELEASE_MANIFEST: ${RSVQA_RELEASE_MANIFEST:-}
+      RSVQA_RUNTIME_ENTRYPOINT: ${RSVQA_RUNTIME_ENTRYPOINT:-}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+    volumes:
+      - ${RSVQA_MODEL_RELEASES_DIR:-./model-releases}:/opt/rsvqa/model-releases:ro
+    networks: [backend]
+
+  gateway:
+    build:
+      context: ./apps/gateway
+    environment:
+      RSVQA_DATABASE_URL: jdbc:postgresql://postgres:5432/rsvqa
+      RSVQA_DATABASE_USER: rsvqa
+      RSVQA_DATABASE_PASSWORD: ${RSVQA_DATABASE_PASSWORD:-rsvqa_dev_only}
+      RSVQA_REDIS_HOST: redis
+      RSVQA_MODEL_SERVICE_URL: http://model-service:8000
+      RSVQA_KNOWLEDGE_SERVICE_URL: ${RSVQA_KNOWLEDGE_SERVICE_URL:-http://knowledge-service:8010}
+      RSVQA_KNOWLEDGE_INDEX_VERSION: ${RSVQA_KNOWLEDGE_INDEX_VERSION:-rsvqa-knowledge-v1}
+      RSVQA_STORAGE_ROOT: /opt/rsvqa/uploads
+      RSVQA_DEMO_AUTH: ${RSVQA_DEMO_AUTH:-true}
+      RSVQA_MCP_CLIENT_ENABLED: ${RSVQA_MCP_CLIENT_ENABLED:-false}
+      RSVQA_MCP_REMOTE_URL: ${RSVQA_MCP_REMOTE_URL:-http://host.docker.internal:18080}
+      RSVQA_MCP_REMOTE_ENDPOINT: ${RSVQA_MCP_REMOTE_ENDPOINT:-/mcp}
+      SPRING_PROFILES_ACTIVE: ${RSVQA_SPRING_PROFILE:-demo}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      model-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 8s
+      timeout: 4s
+      retries: 20
+    volumes:
+      - uploads_data:/opt/rsvqa/uploads
+    networks: [backend]
+
+  web:
+    build:
+      context: ./apps/web
+    depends_on:
+      gateway:
+        condition: service_healthy
+    ports:
+      - "${RSVQA_WEB_PORT:-8088}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 8s
+      timeout: 3s
+      retries: 15
+    networks: [backend]
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.25
+    profiles: [rag]
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: "1000"
+      ETCD_QUOTA_BACKEND_BYTES: "4294967296"
+      ETCD_SNAPSHOT_COUNT: "50000"
+    command: ["etcd", "-advertise-client-urls=http://etcd:2379", "-listen-client-urls", "http://0.0.0.0:2379", "--data-dir", "/etcd"]
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 20s
+      timeout: 10s
+      retries: 8
+    volumes:
+      - etcd_data:/etcd
+    networks: [backend]
+
+  minio:
+    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    profiles: [rag]
+    environment:
+      MINIO_ACCESS_KEY: ${RSVQA_MINIO_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${RSVQA_MINIO_PASSWORD:-minioadmin}
+    command: ["minio", "server", "/minio_data", "--console-address", ":9001"]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 20s
+      timeout: 10s
+      retries: 8
+    volumes:
+      - minio_data:/minio_data
+    networks: [backend]
+
+  milvus:
+    image: milvusdb/milvus:v2.6.20
+    profiles: [rag]
+    command: ["milvus", "run", "standalone"]
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+      MQ_TYPE: woodpecker
+    depends_on:
+      etcd:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9091/healthz"]
+      interval: 20s
+      start_period: 90s
+      timeout: 10s
+      retries: 10
+    volumes:
+      - milvus_data:/var/lib/milvus
+    networks: [backend]
+
+  knowledge-service:
+    build:
+      context: ./services/knowledge-service
+    profiles: [rag]
+    environment:
+      RSVQA_BGE_MODEL: ${RSVQA_BGE_MODEL:-BAAI/bge-small-zh-v1.5}
+      RSVQA_MILVUS_URI: http://milvus:19530
+      RSVQA_MILVUS_COLLECTION: ${RSVQA_MILVUS_COLLECTION:-rsvqa_knowledge_v1}
+    depends_on:
+      milvus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/ready', timeout=10)"]
+      interval: 20s
+      start_period: 180s
+      timeout: 15s
+      retries: 15
+    volumes:
+      - bge_model_cache:/opt/rsvqa/model-cache
+    networks: [backend]
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
+  etcd_data:
+  minio_data:
+  milvus_data:
+  bge_model_cache:

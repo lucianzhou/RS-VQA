@@ -1,0 +1,8 @@
+ALTER TABLE image_asset
+    ALTER COLUMN sha256 TYPE VARCHAR(64);
+
+ALTER TABLE batch_item
+    ALTER COLUMN sha256 TYPE VARCHAR(64);
+
+ALTER TABLE knowledge_document
+    ALTER COLUMN sha256 TYPE VARCHAR(64);

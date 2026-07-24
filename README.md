@@ -1,77 +1,154 @@
 # RS-VQA
 
-RS-VQA 是论文《跨模态特征融合机制及微调策略研究与应用》的独立应用工程。它消费 rs-vqa-fusion 发布的、通过契约校验的模型运行时；它不训练模型，也不导入研究仓库的训练脚本。
+RS-VQA 是论文《跨模态特征融合机制及微调策略研究与应用》的独立应用工程。它把遥感视觉问答研究封装为可演示、可追踪、可部署的应用，但不训练模型，也不导入 `rs-vqa-fusion` 的训练脚本。
 
-## 当前版本
+当前版本为 **v0.3.0**。前端已迁移到 React + TypeScript，并实现 Mineral Forest 视觉体系；业务后端使用 Java 21 / Spring Boot / Spring AI；模型运行时和知识检索分别由 FastAPI 服务提供。
 
-v0.1.2 当前提供“图片 + 问题 -> 闭集回答”的 MVP 主路径：
+## 能做什么
 
-1. 用户上传图像并输入中文或英文问题。
-2. 模型服务只接受可确定映射到 RSVQA-HR 已验证问题范围的问法。
-3. Spring 网关转发请求至 Python 模型服务。
-4. 前端以答案为中心展示响应，并明确模型来源。
+- 本地演示身份、注册/登录边界、项目和历史会话
+- 上传、预览、更换和移除遥感图像
+- 在同一图像下自由输入并连续提出多个问题
+- 可信展示答案、置信度、来源、release ID、耗时和请求编号
+- 对低置信度、超出能力范围和未配置 Provider 给出明确提示
+- 使用 Spring AI 只读/受控 VQA 工具运行可信单 Agent，并通过 SSE 展示阶段和支持取消
+- 使用 BGE + Milvus 导入、检索知识文档并展示来源引用
+- 使用 MCP 发布并调用六个只读工具；提供可选 Spring AI MCP Client 边界
+- 创建、取消、失败重试和导出批量 VQA 任务
+- 使用 PostgreSQL 保存业务事实、Redis 协调短期任务状态、Flyway 管理 Schema
+- 通过 Nginx 和 Docker Compose 运行完整论文演示环境
 
-当前本机没有已发布的 predicted-soft 运行时或 checkpoint。开发模式使用明确标注为 `mock_demo` 的后端来验证接口和页面；它绝不是论文研究模型的输出。
+## 研究模型边界
 
-完整设计、验收结果与限制见 [v0.1.0 MVP 版本说明](docs/versions/v0.1.0-mvp.md)。v0.1.2 将界面重构为遥感图像对话工作台，说明见 [v0.1.2 前端工作台版本说明](docs/versions/v0.1.2-frontend-workbench.md)。后续每一个可交付版本均须在 [`docs/versions`](docs/versions) 新建独立的技术方案与功能介绍文档。
+正式部署候选只能是 `qdrop15 + predicted-soft`：RSVQA-HR grouped-answer ViLT 闭集分类器。推理输入仅为“图像 + 问题文本”，不得读取人工 `question_type_id`。
 
-## 本机启动
+已核准指标是：
 
-需要 Python 3.12、Java 21、Node.js。首次使用时，在三个终端分别执行：
+- test OA/AA：`0.8401412 / 0.8390032`
+- test_phili OA/AA：`0.8031558 / 0.7975786`
+- 题型预测 accuracy/macro-F1：`1.0 / 1.0`
+
+soft-vs-none 配对置信区间包含 0，因此不能宣称 predicted-soft 带来显著提升；系统也不声称 SOTA。它不是开放式 VQA、通用视觉助手、目标检测、变化检测、零样本识别或风险自动判定系统。
+
+当前仓库没有通过不可变 manifest 与 SHA-256 校验的真实 release，因此默认运行 `mock_demo`。Mock 只验证工程闭环，绝不是论文模型输出。外部通用视觉模型保持 Provider 抽象，未配置时明确显示“未配置”。
+
+## 一条命令启动
+
+需要 Docker Desktop。完整 Mock + RAG 演示：
 
 ```bash
-cd /Users/popwind/Documents/Master/graduation/rs-vqa/services/model-service
-python3.12 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-uvicorn app.main:app --host 127.0.0.1 --port 8000
+cd /Users/popwind/Documents/Master/graduation/rs-vqa
+docker-compose --profile rag up -d --build
 ```
 
+首次启动知识服务会下载 CPU 版 PyTorch 和 `BAAI/bge-small-zh-v1.5`；模型缓存保存在 Docker volume。所有服务健康后打开：
+
+<http://127.0.0.1:8088>
+
+查看状态：
+
 ```bash
-cd /Users/popwind/Documents/Master/graduation/rs-vqa/apps/gateway
+docker-compose --profile rag ps
+curl http://127.0.0.1:8088/actuator/health/readiness
+curl http://127.0.0.1:8088/actuator/prometheus
+```
+
+停止但保留数据：
+
+```bash
+docker-compose --profile rag down
+```
+
+不要在需要保留演示数据时追加 `-v`。
+
+## Mock 与 Real 模式
+
+Mock 是默认、安全且无需 checkpoint 的完整演示模式：
+
+```bash
+docker-compose --profile rag up -d
+```
+
+Real 模式只接受研究仓库发布的不可变运行时。先将 release 放入被忽略的 `model-releases/`，再通过未跟踪的环境配置提供：
+
+```bash
+RSVQA_RELEASE_MANIFEST=/opt/rsvqa/model-releases/<release>/model-release.json \
+RSVQA_RUNTIME_ENTRYPOINT=package.module:factory \
+docker-compose -f compose.yaml -f compose.real.yaml --profile rag up -d --build
+```
+
+Real Runtime 会 fail closed：契约版本、`type_source_mode=predicted_soft`、checkpoint/词表/运行时 SHA-256、禁用 oracle/routed 协议、预热和输出 Schema 任一不满足，`/ready` 即不会通过。详细规范见 [模型发布消费者契约](docs/architecture/model-release-consumer.md)。
+
+## 本地开发
+
+基础设施：
+
+```bash
+docker-compose up -d postgres redis model-service
+```
+
+Java：
+
+```bash
+cd apps/gateway
 mvn spring-boot:run
 ```
 
+React：
+
 ```bash
-cd /Users/popwind/Documents/Master/graduation/rs-vqa/apps/web
-npm install
+cd apps/web
+npm ci
 npm run dev -- --host 127.0.0.1
 ```
 
-然后在浏览器打开 <http://127.0.0.1:5173/>。默认 `RSVQA_MODEL_MODE=mock`；不要把该模式的回答用于论文模型结论。
+知识服务推荐继续使用 `--profile rag` 容器运行，避免在宿主机重复安装 PyTorch、BGE 和 Milvus 依赖。
 
 ## 验证
 
 ```bash
-cd /Users/popwind/Documents/Master/graduation/rs-vqa/services/model-service && source .venv/bin/activate && pytest -q
-cd /Users/popwind/Documents/Master/graduation/rs-vqa/apps/gateway && mvn -q test
-cd /Users/popwind/Documents/Master/graduation/rs-vqa/apps/web && npm run build
+# React 类型、单元和生产构建
+cd apps/web
+npm run typecheck
+npm run test -- --run
+npm run build
+
+# 已启动完整 Compose 后，桌面/笔记本/平板/移动端 E2E
+npm run test:e2e
+
+# Java 单元/切片测试
+cd ../gateway
+mvn test
+
+# PostgreSQL、Flyway、Redis 与真实 MCP 协议集成
+RSVQA_COMPOSE_INTEGRATION=true RSVQA_RUN_MCP_INTEGRATION=true \
+  mvn -Dtest=PersistenceIntegrationTest,McpProtocolIntegrationTest test
+
+# 模型运行时契约
+cd ../../services/model-service
+.venv/bin/python -m pytest -q
+
+# RAG 检索基准（知识服务容器健康后）
+docker exec rs-vqa-knowledge-service-1 \
+  python scripts/evaluate_retrieval.py --base-url http://127.0.0.1:8010
 ```
 
-截至 v0.1.0：Python 测试 8 项通过、Java 网关测试 2 项通过、Vue 生产构建通过；浏览器已验证受支持问法与不支持问法两条路径。
+v0.3.0 的实际验收结果和截图路径见 [版本技术方案与功能介绍](docs/versions/v0.3.0-technical-design-and-features.md)。
 
 ## 本地测试遥感影像
 
-为单图演示和未来批量流程提供了一个本地影像包：12 张单图 smoke 样本和 192 张批量样本，共 204 张。它们来自 USGS National Map 的 `USGSImageryOnly` 正射影像服务，主要是美国本土 NAIP/USGS 影像；图片保存在 `data/test-images`，被 Git 忽略，不会推送到仓库。
+`data/test-images` 中有 12 张单图 smoke 样本和 192 张批量样本，共 204 张。它们来自 USGS National Map 正射影像服务，目录被 Git 忽略。
 
 ```bash
-cd /Users/popwind/Documents/Master/graduation/rs-vqa
 python3 scripts/download_usgs_test_imagery.py
 ```
 
-下载完成后，单图演示样本位于 `data/test-images/single`，批量样本位于 `data/test-images/batch`，来源、边界框、哈希和下载状态写入 `data/test-images/manifest.csv`。详细的数据边界与使用方式见 [测试影像说明](data/test-images/README.md)。
+这些图片只用于上传、预处理、接口、批任务和 UI 验证，不是 RSVQA-HR 带标注测试集，不能用来报告 OA/AA 或比较模型能力。
 
-这些影像仅用于工程验证：上传、图像预处理、接口、批量任务、错误处理和 UI。它们不是 RSVQA-HR 的带标注测试集，不能用于报告本研究模型的 OA/AA、比较模型优劣或声称泛化效果。
+## 仓库与安全边界
 
-## 不在 v0.1.0 范围内
-
-- Agent、RAG、向量数据库、外部通用 VLM
-- 账户、历史、人工复核、报告导出
-- GPU 训练、下载数据集、复制或修改 rs-vqa-fusion 的训练代码
-- 把 oracle、routed、mock 或外部模型文本伪装为 predicted-soft 输出
-
-## 仓库边界
-
-- 研究模型规范来源：rs-vqa-fusion/docs/24_model_release_contract.md。
-- 运行时必须是不可变发布物，并携带 model-release.json、checkpoint 哈希、词表哈希和 type_source_mode=predicted_soft。
-- 不提交数据、权重、预测 JSONL、日志、PDF 或任何密钥。
+- 研究仓库负责训练、实验和不可变模型发布；应用仓库只消费发布物。
+- 不提交 `data/raw`、`data/processed`、`outputs`、`logs`、`checkpoints`、模型、预测 JSONL、PDF、用户上传图像或 `.env`。
+- 浏览器只访问 Nginx；Python、PostgreSQL、Redis 和 Milvus 留在内部网络。
+- Google AI Pro 网页会员不等于 API 授权。应用不会提取浏览器 Cookie 或 token。
+- 正式架构、ADR、API 和版本说明位于 [`docs/architecture`](docs/architecture) 与 [`docs/versions`](docs/versions)。

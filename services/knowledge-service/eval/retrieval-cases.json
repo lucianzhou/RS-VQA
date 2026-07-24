@@ -1,0 +1,14 @@
+[
+  {
+    "query": "RS-VQA 研究模型是否支持开放式图像描述？",
+    "expected_title": "RS-VQA 已核准模型边界.md"
+  },
+  {
+    "query": "正式部署模型使用什么题型来源？",
+    "expected_title": "RS-VQA 已核准模型边界.md"
+  },
+  {
+    "query": "Mock 输出能否作为论文实验结论？",
+    "expected_title": "RS-VQA 已核准模型边界.md"
+  }
+]

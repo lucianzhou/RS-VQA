@@ -10,12 +10,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(VqaController.class)
+@Import(SecurityConfiguration.class)
 class VqaControllerTest {
 
     @Autowired
@@ -40,7 +42,9 @@ class VqaControllerTest {
                         .file(upload)
                         .param("question", "图中有没有道路？"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("invalid_request"));
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.requestId").isNotEmpty())
+                .andExpect(jsonPath("$.retryable").value(false));
     }
 
     @Test

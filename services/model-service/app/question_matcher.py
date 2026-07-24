@@ -91,7 +91,18 @@ def match_question(question: str) -> QuestionMatch:
             QuestionType.COMPARISON,
         )
 
-    area_signal = any(token in text for token in ("area", "面积", "覆盖"))
+    area_signal = any(
+        token in text
+        for token in (
+            "what is the area",
+            "how much area",
+            "area covered",
+            "covered area",
+            "coverage",
+            "面积",
+            "覆盖",
+        )
+    )
     if area_signal:
         item = objects[0]
         return QuestionMatch(

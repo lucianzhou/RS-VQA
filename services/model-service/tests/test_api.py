@@ -3,7 +3,7 @@ from io import BytesIO
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from app.main import app
+from app.main import _mock_latency_seconds, app
 
 
 def png_bytes() -> bytes:
@@ -27,6 +27,11 @@ def test_answered_response_is_explicitly_mock() -> None:
     assert body["status"] == "answered"
     assert body["prediction_origin"] == "mock_demo"
     assert body["canonical_question"] == "Is there a road?"
+    assert body["prediction"] == body["answer"]
+    assert 0.0 <= body["confidence"] <= 1.0
+    assert body["top_k"]
+    assert body["predicted_question_type"] == "presence"
+    assert body["runtime_mode"] == "mock"
 
 
 def test_unsupported_question_is_not_answered() -> None:
@@ -55,3 +60,46 @@ def test_rejects_non_image_upload() -> None:
     )
 
     assert response.status_code == 415
+    body = response.json()
+    assert body["code"] == "UNSUPPORTED_IMAGE"
+    assert body["request_id"]
+
+
+def test_ready_and_current_model_expose_mock_provenance() -> None:
+    client = TestClient(app)
+
+    ready = client.get("/ready")
+    model = client.get("/models/current")
+
+    assert ready.status_code == 200
+    assert ready.json()["ready"] is True
+    assert ready.json()["mode"] == "mock"
+    assert model.json()["prediction_origin"] == "mock_demo"
+    assert model.json()["type_source_mode"] == "predicted_soft"
+
+
+def test_batch_returns_each_image_question_combination() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/vqa/batch",
+        files=[
+            ("images", ("one.png", png_bytes(), "image/png")),
+            ("images", ("two.png", png_bytes(), "image/png")),
+        ],
+        data={
+            "questions": ["图中有没有道路？", "图中有多少建筑物？"],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["item_count"] == 4
+    assert all(item["result"]["prediction_origin"] == "mock_demo" for item in body["items"])
+
+
+def test_mock_latency_setting_is_bounded(monkeypatch) -> None:
+    monkeypatch.setenv("RSVQA_MOCK_LATENCY_MS", "9000")
+    assert _mock_latency_seconds() == 5.0
+    monkeypatch.setenv("RSVQA_MOCK_LATENCY_MS", "invalid")
+    assert _mock_latency_seconds() == 0.0

@@ -18,10 +18,12 @@ services/model-service/.pytest_cache/
 services/model-service/htmlcov/
 *.egg-info/
 
-# Node / Vue
+# Node / React
 apps/web/node_modules/
 apps/web/dist/
 apps/web/.vite/
+apps/web/playwright-report/
+apps/web/test-results/
 
 # Runtime artifacts, data, and logs
 data/raw/

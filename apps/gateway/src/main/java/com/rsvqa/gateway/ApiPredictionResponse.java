@@ -1,5 +1,8 @@
 package com.rsvqa.gateway;
 
+import java.util.List;
+import java.util.Map;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -8,23 +11,74 @@ public record ApiPredictionResponse(
         String status,
         boolean supported,
         String answer,
+        Double confidence,
+        Double margin,
+        List<ModelPredictionResponse.TopKPrediction> topK,
         String canonicalQuestion,
         String questionType,
+        String predictedQuestionType,
+        Map<String, Double> questionTypeProbabilities,
         String predictionOrigin,
         String modelReleaseId,
-        String capabilityNotice
+        String taskScope,
+        List<String> limitations,
+        String capabilityNotice,
+        Long latencyMs,
+        String runtimeMode
 ) {
     static ApiPredictionResponse from(ModelPredictionResponse response) {
         return new ApiPredictionResponse(
                 response.requestId(),
                 response.status(),
                 response.supported(),
-                response.answer(),
+                response.prediction() == null ? response.answer() : response.prediction(),
+                response.confidence(),
+                response.margin(),
+                response.topK(),
                 response.canonicalQuestion(),
                 response.questionType(),
+                response.predictedQuestionType(),
+                response.questionTypeProbabilities(),
                 response.predictionOrigin(),
                 response.modelReleaseId(),
-                response.capabilityNotice()
+                response.taskScope(),
+                response.limitations(),
+                response.capabilityNotice(),
+                response.latencyMs(),
+                response.runtimeMode()
+        );
+    }
+
+    ApiPredictionResponse(
+            String requestId,
+            String status,
+            boolean supported,
+            String answer,
+            String canonicalQuestion,
+            String questionType,
+            String predictionOrigin,
+            String modelReleaseId,
+            String capabilityNotice
+    ) {
+        this(
+                requestId,
+                status,
+                supported,
+                answer,
+                null,
+                null,
+                List.of(),
+                canonicalQuestion,
+                questionType,
+                questionType,
+                Map.of(),
+                predictionOrigin,
+                modelReleaseId,
+                "rsvqa_hr_grouped_answer_closed_set",
+                List.of(),
+                capabilityNotice,
+                null,
+                "mock"
         );
     }
 }

@@ -1,26 +1,88 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from functools import lru_cache
 import hashlib
 import io
 import os
+from pathlib import Path
+from time import perf_counter, sleep
 from uuid import uuid4
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 from PIL import Image, UnidentifiedImageError
 
-from .backends import ModelReleaseUnavailable, MockDemoBackend, ResearchRuntimeBackend
-from .contracts import PredictionOrigin, PredictionResponse, PredictionStatus
-from .question_matcher import match_question
+from .backends import InferenceResult, MockDemoBackend, ModelReleaseUnavailable, ResearchRuntimeBackend
+from .contracts import (
+    MOCK_RELEASE_ID,
+    TASK_SCOPE,
+    BatchPredictionItem,
+    BatchPredictionResponse,
+    ErrorResponse,
+    ModelInfoResponse,
+    PredictionOrigin,
+    PredictionResponse,
+    PredictionStatus,
+    RuntimeMode,
+    RuntimeStatusResponse,
+    TopKPrediction,
+)
+from .question_matcher import QuestionMatch, match_question
+from .release_manifest import ManifestValidationError, VerifiedRelease, load_and_verify_release
 
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
+MAX_BATCH_COMBINATIONS = 256
 MODEL_MODE = os.getenv("RSVQA_MODEL_MODE", "mock").strip().lower()
+RELEASE_MANIFEST_PATH = os.getenv("RSVQA_RELEASE_MANIFEST", "").strip()
+RUNTIME_ENTRYPOINT = os.getenv("RSVQA_RUNTIME_ENTRYPOINT", "").strip()
 
 app = FastAPI(
     title="RS-VQA Model Service",
-    version="0.1.0",
-    description="Contract-aware adapter for the RSVQA-HR MVP.",
+    version="0.3.0",
+    description="Release-contract-aware runtime adapter for RSVQA-HR closed-set VQA.",
 )
+
+
+def _runtime_mode() -> RuntimeMode:
+    if MODEL_MODE == "mock":
+        return RuntimeMode.MOCK
+    if MODEL_MODE in {"real", "research"}:
+        return RuntimeMode.REAL
+    return RuntimeMode.DISABLED
+
+
+def _mock_latency_seconds() -> float:
+    """Optional bounded delay for exercising cancellation and progress in demo tests."""
+    try:
+        milliseconds = int(os.getenv("RSVQA_MOCK_LATENCY_MS", "0"))
+    except ValueError:
+        milliseconds = 0
+    return min(5000, max(0, milliseconds)) / 1000
+
+
+def _verified_release() -> tuple[VerifiedRelease | None, str | None]:
+    if _runtime_mode() is not RuntimeMode.REAL:
+        return None, None
+    if not RELEASE_MANIFEST_PATH:
+        return None, "RSVQA_RELEASE_MANIFEST 未配置。"
+    try:
+        return _load_verified_release(RELEASE_MANIFEST_PATH), None
+    except ManifestValidationError as error:
+        return None, str(error)
+
+
+@lru_cache(maxsize=1)
+def _load_verified_release(manifest_path: str) -> VerifiedRelease:
+    """Verify immutable artifacts once per process; release changes require restart."""
+    return load_and_verify_release(Path(manifest_path))
+
+
+@lru_cache(maxsize=1)
+def _load_research_backend(manifest_path: str, entrypoint: str) -> ResearchRuntimeBackend:
+    release = _load_verified_release(manifest_path)
+    return ResearchRuntimeBackend(release, entrypoint)
 
 
 def _validate_image(raw: bytes, content_type: str | None) -> None:
@@ -28,8 +90,8 @@ def _validate_image(raw: bytes, content_type: str | None) -> None:
         raise HTTPException(status_code=400, detail="图像文件为空。")
     if len(raw) > MAX_IMAGE_BYTES:
         raise HTTPException(status_code=413, detail="图像文件不能超过 10 MiB。")
-    if content_type is not None and not content_type.startswith("image/"):
-        raise HTTPException(status_code=415, detail="仅接受图片文件。")
+    if content_type not in {"image/png", "image/jpeg", "image/webp"}:
+        raise HTTPException(status_code=415, detail="仅接受 PNG、JPG 或 WEBP 图像。")
     try:
         with Image.open(io.BytesIO(raw)) as image:
             image.verify()
@@ -37,88 +99,276 @@ def _validate_image(raw: bytes, content_type: str | None) -> None:
         raise HTTPException(status_code=415, detail="上传文件不是可读取的图像。") from error
 
 
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {
-        "status": "ok",
-        "service": "rs-vqa-model-service",
-        "mode": MODEL_MODE,
+@app.exception_handler(HTTPException)
+async def http_error(request: Request, error: HTTPException) -> JSONResponse:
+    request_id = request.headers.get("x-request-id") or str(uuid4())
+    codes = {
+        400: "INVALID_REQUEST",
+        413: "FILE_TOO_LARGE",
+        415: "UNSUPPORTED_IMAGE",
+        422: "VALIDATION_ERROR",
+        503: "MODEL_NOT_READY",
     }
+    body = ErrorResponse(
+        code=codes.get(error.status_code, "MODEL_SERVICE_ERROR"),
+        message=str(error.detail),
+        request_id=request_id,
+        timestamp=datetime.now(UTC).isoformat(),
+        retryable=error.status_code >= 500,
+    )
+    return JSONResponse(status_code=error.status_code, content=body.model_dump(mode="json"))
 
 
-@app.post("/v1/predict", response_model=PredictionResponse)
-async def predict(
+@app.get("/health", response_model=RuntimeStatusResponse)
+def health() -> RuntimeStatusResponse:
+    return RuntimeStatusResponse(
+        status="ok",
+        ready=True,
+        service="rs-vqa-model-service",
+        mode=_runtime_mode(),
+        model_release_id=MOCK_RELEASE_ID if _runtime_mode() is RuntimeMode.MOCK else None,
+        detail="进程存活；请使用 /ready 判断推理可用性。",
+    )
+
+
+@app.get("/ready", response_model=RuntimeStatusResponse)
+def ready() -> RuntimeStatusResponse | JSONResponse:
+    mode = _runtime_mode()
+    release, release_error = _verified_release()
+    is_ready = mode is RuntimeMode.MOCK
+    detail = "Mock Runtime 已就绪；其输出不是研究模型结果。"
+    release_id = MOCK_RELEASE_ID if is_ready else None
+    if mode is RuntimeMode.REAL:
+        is_ready = False
+        detail = release_error or "模型发布已验证，但 RSVQA_RUNTIME_ENTRYPOINT 未配置。"
+        if release is not None and RUNTIME_ENTRYPOINT:
+            try:
+                _load_research_backend(RELEASE_MANIFEST_PATH, RUNTIME_ENTRYPOINT)
+                is_ready = True
+                detail = "模型发布校验、独立适配器加载与预热均已完成。"
+            except ModelReleaseUnavailable as error:
+                detail = str(error)
+        release_id = release.manifest.model_release_id if release else None
+    elif mode is RuntimeMode.DISABLED:
+        detail = "RSVQA_MODEL_MODE 配置无效。"
+    response = RuntimeStatusResponse(
+        status="ready" if is_ready else "not_ready",
+        ready=is_ready,
+        service="rs-vqa-model-service",
+        mode=mode,
+        model_release_id=release_id,
+        detail=detail,
+    )
+    if is_ready:
+        return response
+    return JSONResponse(status_code=503, content=response.model_dump(mode="json"))
+
+
+@app.get("/models/current", response_model=ModelInfoResponse)
+def current_model() -> ModelInfoResponse:
+    mode = _runtime_mode()
+    release, _ = _verified_release()
+    real_ready = False
+    if mode is RuntimeMode.REAL and release is not None and RUNTIME_ENTRYPOINT:
+        try:
+            _load_research_backend(RELEASE_MANIFEST_PATH, RUNTIME_ENTRYPOINT)
+            real_ready = True
+        except ModelReleaseUnavailable:
+            pass
+    if mode is RuntimeMode.MOCK:
+        return ModelInfoResponse(
+            mode=mode,
+            ready=True,
+            model_release_id=MOCK_RELEASE_ID,
+            contract_version="1.0",
+            task_scope=TASK_SCOPE,
+            type_source_mode="predicted_soft",
+            prediction_origin=PredictionOrigin.MOCK_DEMO,
+            limitations=[
+                "Mock output is deterministic test data, not a research result.",
+                "The task remains closed-set RSVQA-HR grouped-answer classification.",
+            ],
+        )
+    return ModelInfoResponse(
+        mode=mode,
+        ready=real_ready,
+        model_release_id=release.manifest.model_release_id if release else None,
+        contract_version="1.0",
+        task_scope=TASK_SCOPE,
+        type_source_mode="predicted_soft",
+        prediction_origin=(
+            PredictionOrigin.RESEARCH_VILT_PREDICTED_SOFT
+            if real_ready
+            else PredictionOrigin.NOT_APPLICABLE
+        ),
+        limitations=[
+            "Real Runtime requires both a verified immutable release and a digest-matched runtime adapter."
+        ],
+        manifest=release.manifest.model_dump(mode="json") if release else None,
+    )
+
+
+@app.post("/v1/vqa", response_model=PredictionResponse)
+async def vqa(
+    image: UploadFile = File(...),
+    question: str = Form(...),
+    model_release_id: str | None = Form(default=None),
+) -> PredictionResponse:
+    raw = await image.read()
+    return _predict_bytes(raw, image.content_type, question, model_release_id)
+
+
+@app.post("/v1/predict", response_model=PredictionResponse, deprecated=True)
+async def predict_compatibility(
     image: UploadFile = File(...),
     question: str = Form(...),
 ) -> PredictionResponse:
     raw = await image.read()
-    _validate_image(raw, image.content_type)
+    return _predict_bytes(raw, image.content_type, question, None)
+
+
+@app.post("/v1/vqa/batch", response_model=BatchPredictionResponse)
+async def vqa_batch(
+    images: list[UploadFile] = File(...),
+    questions: list[str] = Form(...),
+    model_release_id: str | None = Form(default=None),
+) -> BatchPredictionResponse:
+    combinations = len(images) * len(questions)
+    if not images or not questions:
+        raise HTTPException(status_code=400, detail="批量请求至少包含一张图像和一个问题。")
+    if combinations > MAX_BATCH_COMBINATIONS:
+        raise HTTPException(status_code=400, detail=f"单次批量请求最多 {MAX_BATCH_COMBINATIONS} 个图像问题组合。")
+
+    raw_images: list[tuple[bytes, str | None]] = []
+    for image in images:
+        raw_images.append((await image.read(), image.content_type))
+    items = [
+        BatchPredictionItem(
+            image_index=image_index,
+            question_index=question_index,
+            result=_predict_bytes(raw, content_type, question, model_release_id),
+        )
+        for image_index, (raw, content_type) in enumerate(raw_images)
+        for question_index, question in enumerate(questions)
+    ]
+    return BatchPredictionResponse(request_id=str(uuid4()), item_count=len(items), items=items)
+
+
+def _predict_bytes(
+    raw: bytes,
+    content_type: str | None,
+    question: str,
+    requested_release_id: str | None,
+) -> PredictionResponse:
+    started = perf_counter()
+    _validate_image(raw, content_type)
     request_id = str(uuid4())
     input_sha256 = hashlib.sha256(raw).hexdigest()
     match = match_question(question)
+    mode = _runtime_mode()
 
     if not match.supported:
-        return PredictionResponse(
+        return _response(
             request_id=request_id,
             status=PredictionStatus.UNSUPPORTED,
             supported=False,
-            prediction_origin=PredictionOrigin.NOT_APPLICABLE,
-            capability_notice=match.reason,
+            match=match,
+            origin=PredictionOrigin.NOT_APPLICABLE,
+            release_id=None,
+            notice=match.reason,
             input_sha256=input_sha256,
+            started=started,
+            mode=mode,
+            limitations=["No model inference was performed for this out-of-scope question."],
         )
 
-    if MODEL_MODE == "mock":
-        answer = MockDemoBackend().predict(raw, match)
-        return PredictionResponse(
+    if mode is RuntimeMode.MOCK:
+        if requested_release_id and requested_release_id != MOCK_RELEASE_ID:
+            raise HTTPException(status_code=503, detail="请求的模型发布版本未在 Mock Runtime 中启用。")
+        mock_delay = _mock_latency_seconds()
+        if mock_delay:
+            sleep(mock_delay)
+        result = MockDemoBackend().predict(raw, match)
+        return _response(
             request_id=request_id,
             status=PredictionStatus.ANSWERED,
             supported=True,
-            answer=answer,
-            canonical_question=match.canonical_question,
-            question_type=match.question_type,
-            prediction_origin=PredictionOrigin.MOCK_DEMO,
-            model_release_id="mvp-mock-demo-not-a-research-release",
-            capability_notice=(
-                "当前为 Mock 演示输出，仅用于验证 MVP 主路径；"
-                "它不是 rs-vqa-fusion 的 predicted-soft 研究模型结果。"
-            ),
+            match=match,
+            origin=PredictionOrigin.MOCK_DEMO,
+            release_id=MOCK_RELEASE_ID,
+            notice="当前为 Mock 演示输出，仅用于验证系统闭环；它不是 predicted-soft 研究模型结果。",
             input_sha256=input_sha256,
+            started=started,
+            mode=mode,
+            result=result,
+            limitations=["Mock output must not be used as thesis evidence."],
         )
 
-    if MODEL_MODE == "research":
+    if mode is RuntimeMode.REAL:
+        release, release_error = _verified_release()
+        if release is None:
+            raise HTTPException(status_code=503, detail=release_error or "模型发布未通过校验。")
+        if requested_release_id and requested_release_id != release.manifest.model_release_id:
+            raise HTTPException(status_code=503, detail="请求的模型发布版本与当前固定版本不一致。")
+        if not RUNTIME_ENTRYPOINT:
+            raise HTTPException(status_code=503, detail="RSVQA_RUNTIME_ENTRYPOINT 未配置。")
         try:
-            answer = ResearchRuntimeBackend().predict(raw, match)
+            result = _load_research_backend(RELEASE_MANIFEST_PATH, RUNTIME_ENTRYPOINT).predict(raw, question)
         except ModelReleaseUnavailable as error:
-            return PredictionResponse(
-                request_id=request_id,
-                status=PredictionStatus.MODEL_UNAVAILABLE,
-                supported=True,
-                canonical_question=match.canonical_question,
-                question_type=match.question_type,
-                prediction_origin=PredictionOrigin.NOT_APPLICABLE,
-                capability_notice=str(error),
-                input_sha256=input_sha256,
-            )
-        return PredictionResponse(
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        return _response(
             request_id=request_id,
             status=PredictionStatus.ANSWERED,
             supported=True,
-            answer=answer,
-            canonical_question=match.canonical_question,
-            question_type=match.question_type,
-            prediction_origin=PredictionOrigin.RESEARCH_VILT_PREDICTED_SOFT,
-            model_release_id="future-contract-validated-release",
-            capability_notice="研究模型输出仅适用于 RSVQA-HR 已验证范围。",
+            match=match,
+            origin=PredictionOrigin.RESEARCH_VILT_PREDICTED_SOFT,
+            release_id=release.manifest.model_release_id,
+            notice="研究模型输出仅适用于 RSVQA-HR 已验证的闭集问题分布。",
             input_sha256=input_sha256,
+            started=started,
+            mode=mode,
+            result=result,
+            limitations=["Not an open-ended VQA, detection, or zero-shot recognition result."],
         )
 
+    raise HTTPException(status_code=503, detail="RSVQA_MODEL_MODE 配置无效；模型服务未启用。")
+
+
+def _response(
+    *,
+    request_id: str,
+    status: PredictionStatus,
+    supported: bool,
+    match: QuestionMatch,
+    origin: PredictionOrigin,
+    release_id: str | None,
+    notice: str,
+    input_sha256: str,
+    started: float,
+    mode: RuntimeMode,
+    limitations: list[str],
+    result: InferenceResult | None = None,
+) -> PredictionResponse:
+    answer = result.answer if result else None
+    question_type = str(match.question_type) if match.question_type else None
     return PredictionResponse(
         request_id=request_id,
-        status=PredictionStatus.MODEL_UNAVAILABLE,
-        supported=True,
+        status=status,
+        supported=supported,
+        prediction=answer,
+        answer=answer,
+        confidence=result.confidence if result else None,
+        margin=result.margin if result else None,
+        top_k=[TopKPrediction(answer=item, probability=probability) for item, probability in (result.top_k if result else ())],
         canonical_question=match.canonical_question,
-        question_type=match.question_type,
-        prediction_origin=PredictionOrigin.NOT_APPLICABLE,
-        capability_notice="RSVQA_MODEL_MODE 配置无效；模型服务未启用。",
+        question_type=question_type,
+        predicted_question_type=question_type,
+        question_type_probabilities={question_type: 1.0} if question_type else {},
+        prediction_origin=origin,
+        model_release_id=release_id,
+        limitations=limitations,
+        capability_notice=notice,
         input_sha256=input_sha256,
+        latency_ms=max(0, round((perf_counter() - started) * 1000)),
+        runtime_mode=mode,
     )

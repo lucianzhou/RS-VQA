@@ -25,6 +25,14 @@ def test_maps_chinese_area_question() -> None:
     assert result.canonical_question == "What is the area covered by buildings?"
 
 
+def test_area_in_object_name_does_not_override_presence_intent() -> None:
+    result = match_question("Is there a residential area?")
+
+    assert result.supported is True
+    assert result.question_type is QuestionType.PRESENCE
+    assert result.canonical_question == "Is there a residential area?"
+
+
 def test_maps_chinese_comparison_question() -> None:
     result = match_question("建筑物比道路多吗？")
 

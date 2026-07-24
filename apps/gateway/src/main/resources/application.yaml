@@ -1,16 +1,76 @@
 server:
   port: 8080
+  shutdown: graceful
 
 spring:
   application:
     name: rs-vqa-gateway
+  datasource:
+    url: ${RSVQA_DATABASE_URL:jdbc:postgresql://localhost:5432/rsvqa}
+    username: ${RSVQA_DATABASE_USER:rsvqa}
+    password: ${RSVQA_DATABASE_PASSWORD:rsvqa_dev_only}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${RSVQA_REDIS_HOST:localhost}
+      port: ${RSVQA_REDIS_PORT:6379}
   servlet:
     multipart:
       max-file-size: 10MB
-      max-request-size: 11MB
+      max-request-size: 128MB
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  ai:
+    mcp:
+      client:
+        enabled: ${RSVQA_MCP_CLIENT_ENABLED:false}
+        name: rs-vqa-mcp-client
+        version: 0.3.0
+        request-timeout: 10s
+        type: SYNC
+        streamable-http:
+          connections:
+            readonly-tools:
+              url: ${RSVQA_MCP_REMOTE_URL:http://localhost:18080}
+              endpoint: ${RSVQA_MCP_REMOTE_ENDPOINT:/mcp}
+      server:
+        enabled: ${RSVQA_MCP_ENABLED:true}
+        name: rs-vqa-readonly-tools
+        version: 0.3.0
+        protocol: STATELESS
+        type: SYNC
+        annotation-scanner:
+          enabled: true
 
 rsvqa:
   model-service:
-    base-url: http://localhost:8000
+    base-url: ${RSVQA_MODEL_SERVICE_URL:http://localhost:8000}
     timeout-seconds: 15
     max-file-bytes: 10485760
+  storage:
+    root: ${RSVQA_STORAGE_ROOT:./runtime/uploads}
+  knowledge-service:
+    base-url: ${RSVQA_KNOWLEDGE_SERVICE_URL:http://localhost:8010}
+    timeout-seconds: 90
+    default-index-version: ${RSVQA_KNOWLEDGE_INDEX_VERSION:rsvqa-knowledge-v1}
+  demo-auth:
+    enabled: ${RSVQA_DEMO_AUTH:true}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true

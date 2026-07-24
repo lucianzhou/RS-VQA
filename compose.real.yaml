@@ -1,0 +1,6 @@
+services:
+  model-service:
+    environment:
+      RSVQA_MODEL_MODE: real
+      RSVQA_RELEASE_MANIFEST: ${RSVQA_RELEASE_MANIFEST:?Set the immutable model-release.json path inside the mounted release directory}
+      RSVQA_RUNTIME_ENTRYPOINT: ${RSVQA_RUNTIME_ENTRYPOINT:?Set the independently packaged runtime factory as package.module:factory}

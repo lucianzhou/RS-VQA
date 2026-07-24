@@ -13,4 +13,11 @@ public class GatewayConfiguration {
                 .baseUrl(properties.baseUrl())
                 .build();
     }
+
+    @Bean
+    WebClient knowledgeServiceClient(KnowledgeServiceProperties properties) {
+        return WebClient.builder()
+                .baseUrl(properties.baseUrl())
+                .build();
+    }
 }
