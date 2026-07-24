@@ -13,6 +13,7 @@ import type {
   KnowledgeSearchResult,
   SystemStatus,
   ProviderDescriptor,
+  ArchiveIndex,
 } from "./types";
 
 async function apiFetch<T>(path: string, init?: RequestInit, timeoutMs = 30_000): Promise<T> {
@@ -67,6 +68,21 @@ export function createProject(name: string) {
   });
 }
 
+export function renameProject(projectId: string, name: string) {
+  return apiFetch<Project>(`/api/v1/projects/${projectId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function archiveProject(projectId: string) {
+  return apiFetch<void>(`/api/v1/projects/${projectId}/archive`, { method: "POST" });
+}
+
+export function restoreProject(projectId: string) {
+  return apiFetch<void>(`/api/v1/projects/${projectId}/restore`, { method: "POST" });
+}
+
 export function createConversation(projectId: string, title = "新分析") {
   return apiFetch<ConversationDetail>(`/api/v1/projects/${projectId}/conversations`, {
     method: "POST",
@@ -76,6 +92,25 @@ export function createConversation(projectId: string, title = "新分析") {
 
 export function getConversation(conversationId: string) {
   return apiFetch<ConversationDetail>(`/api/v1/conversations/${conversationId}`);
+}
+
+export function updateConversation(conversationId: string, update: { title?: string; projectId?: string }) {
+  return apiFetch<ConversationDetail>(`/api/v1/conversations/${conversationId}`, {
+    method: "PATCH",
+    body: JSON.stringify(update),
+  });
+}
+
+export function archiveConversation(conversationId: string) {
+  return apiFetch<void>(`/api/v1/conversations/${conversationId}/archive`, { method: "POST" });
+}
+
+export function restoreConversation(conversationId: string) {
+  return apiFetch<void>(`/api/v1/conversations/${conversationId}/restore`, { method: "POST" });
+}
+
+export function getArchive() {
+  return apiFetch<ArchiveIndex>("/api/v1/archive");
 }
 
 export function uploadConversationImage(conversationId: string, image: File) {
@@ -263,4 +298,8 @@ export function listProviders() {
 
 export function listMyAuditEvents() {
   return apiFetch<AuditEvent[]>("/api/v1/audit/me");
+}
+
+export function logout() {
+  return apiFetch<void>("/api/v1/auth/logout", { method: "POST" });
 }

@@ -48,4 +48,8 @@ public class ProjectEntity extends BaseEntity {
     public void archive() {
         archived = true;
     }
+
+    public void restore() {
+        archived = false;
+    }
 }

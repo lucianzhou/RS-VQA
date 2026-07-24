@@ -25,6 +25,20 @@ final class WorkspaceDtos {
     ) {
     }
 
+    record UpdateProjectRequest(
+            @NotBlank(message = "项目名称不能为空。")
+            @Size(max = 160, message = "项目名称不能超过 160 个字符。")
+            String name
+    ) {
+    }
+
+    record UpdateConversationRequest(
+            @Size(max = 200, message = "会话标题不能超过 200 个字符。")
+            String title,
+            UUID projectId
+    ) {
+    }
+
     record QuestionRequest(
             @NotBlank(message = "问题不能为空。")
             @Size(max = 300, message = "问题不能超过 300 个字符。")
@@ -46,6 +60,28 @@ final class WorkspaceDtos {
             String title,
             boolean hasImage,
             Instant updatedAt
+    ) {
+    }
+
+    record ArchivedProjectResponse(
+            UUID id,
+            String name,
+            Instant updatedAt
+    ) {
+    }
+
+    record ArchivedConversationResponse(
+            UUID id,
+            UUID projectId,
+            String projectName,
+            String title,
+            Instant updatedAt
+    ) {
+    }
+
+    record ArchiveResponse(
+            List<ArchivedProjectResponse> projects,
+            List<ArchivedConversationResponse> conversations
     ) {
     }
 

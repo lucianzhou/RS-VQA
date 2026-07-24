@@ -2,6 +2,7 @@ export type PredictionOrigin =
   | "mock_demo"
   | "research_vilt_predicted_soft"
   | "external_vlm_assist"
+  | "agent_synthesis"
   | "not_applicable";
 
 export interface PredictionResponse {
@@ -49,6 +50,25 @@ export interface Project {
   id: string;
   name: string;
   conversations: ConversationSummary[];
+  updatedAt: string;
+}
+
+export interface ArchiveIndex {
+  projects: ArchivedProject[];
+  conversations: ArchivedConversation[];
+}
+
+export interface ArchivedProject {
+  id: string;
+  name: string;
+  updatedAt: string;
+}
+
+export interface ArchivedConversation {
+  id: string;
+  projectId: string;
+  projectName: string;
+  title: string;
   updatedAt: string;
 }
 

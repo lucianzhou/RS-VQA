@@ -1,7 +1,7 @@
 import { Bot, CheckCircle2, Database, KeyRound, Server, ShieldCheck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { AppTopbar, modelOptions, providerToModelOption, StatusBadge } from "../App";
+import { AppTopbar, modelOptions, providerToModelOption, StatusBadge } from "../components/AppChrome";
 import { getSystemStatus, listProviders } from "../api";
 
 export function SettingsPage() {

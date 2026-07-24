@@ -44,4 +44,16 @@ public class ConversationEntity extends BaseEntity {
     public void rename(String title) {
         this.title = title;
     }
+
+    public void moveTo(ProjectEntity project) {
+        this.project = project;
+    }
+
+    public void archive() {
+        archived = true;
+    }
+
+    public void restore() {
+        archived = false;
+    }
 }

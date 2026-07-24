@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, Download, FileImage, FolderUp, Layers3, LoaderCircle, Plus, RotateCcw, StopCircle, Trash2, UploadCloud } from "lucide-react";
 import { useRef, useState } from "react";
-import { AppTopbar, ModelSelector, StatusBadge } from "../App";
+import { AppTopbar, ModelSelector, StatusBadge } from "../components/AppChrome";
 import { cancelBatchJob, createBatchJob, getBatchJob, listBatchJobs, retryBatchFailures } from "../api";
 import { useWorkspaceStore } from "../store";
 

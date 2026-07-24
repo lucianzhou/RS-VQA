@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Clock3, ShieldCheck, XCircle } from "lucide-react";
-import { AppTopbar, StatusBadge } from "../App";
+import { AppTopbar, StatusBadge } from "../components/AppChrome";
 import { listMyAuditEvents } from "../api";
 
 export function AuditPage() {

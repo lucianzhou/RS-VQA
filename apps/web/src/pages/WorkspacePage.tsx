@@ -29,7 +29,7 @@ import {
   uploadConversationImage,
   runTrustedAgentStream,
 } from "../api";
-import { AppTopbar, ModelSelector } from "../App";
+import { AppTopbar, ModelSelector } from "../components/AppChrome";
 import { useWorkspaceStore } from "../store";
 import type { ImageAsset, PersistedMessage } from "../types";
 

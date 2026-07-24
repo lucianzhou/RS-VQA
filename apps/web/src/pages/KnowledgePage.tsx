@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, BookOpen, Database, FileText, LoaderCircle, Search, ShieldCheck, Trash2, Upload } from "lucide-react";
 import { useRef, useState } from "react";
-import { AppTopbar, StatusBadge } from "../App";
+import { AppTopbar, StatusBadge } from "../components/AppChrome";
 import { deleteKnowledgeDocument, listKnowledgeDocuments, searchKnowledge, seedApprovedKnowledge, uploadKnowledgeDocument } from "../api";
 
 export function KnowledgePage() {

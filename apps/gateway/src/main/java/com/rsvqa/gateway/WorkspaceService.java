@@ -72,6 +72,26 @@ public class WorkspaceService {
     }
 
     @Transactional
+    public ProjectResponse updateProject(UUID projectId, UpdateProjectRequest request) {
+        UserEntity user = currentUser();
+        ProjectEntity project = ownedProject(projectId, user.getId());
+        project.rename(request.name().trim());
+        return toProject(project, user.getId());
+    }
+
+    @Transactional
+    public void archiveProject(UUID projectId) {
+        UserEntity user = currentUser();
+        ownedProject(projectId, user.getId()).archive();
+    }
+
+    @Transactional
+    public void restoreProject(UUID projectId) {
+        UserEntity user = currentUser();
+        ownedProject(projectId, user.getId()).restore();
+    }
+
+    @Transactional
     public ConversationResponse createConversation(UUID projectId, CreateConversationRequest request) {
         UserEntity user = currentUser();
         ProjectEntity project = projects.findByIdAndUserId(projectId, user.getId())
@@ -84,6 +104,62 @@ public class WorkspaceService {
     @Transactional(readOnly = true)
     public ConversationResponse getConversation(UUID conversationId) {
         return toConversation(ownedConversation(conversationId));
+    }
+
+    @Transactional
+    public ConversationResponse updateConversation(UUID conversationId, UpdateConversationRequest request) {
+        UserEntity user = currentUser();
+        ConversationEntity conversation = ownedConversation(conversationId);
+        if (request.title() != null) {
+            if (request.title().isBlank()) {
+                throw new RequestValidationException("会话标题不能为空。");
+            }
+            conversation.rename(request.title().trim());
+        }
+        if (request.projectId() != null && !request.projectId().equals(conversation.getProject().getId())) {
+            ProjectEntity destination = ownedProject(request.projectId(), user.getId());
+            if (destination.isArchived()) {
+                throw new RequestValidationException("不能将会话移动到已归档项目。");
+            }
+            conversation.moveTo(destination);
+        }
+        return toConversation(conversation);
+    }
+
+    @Transactional
+    public void archiveConversation(UUID conversationId) {
+        ownedConversation(conversationId).archive();
+    }
+
+    @Transactional
+    public void restoreConversation(UUID conversationId) {
+        ConversationEntity conversation = ownedConversation(conversationId);
+        if (conversation.getProject().isArchived()) {
+            throw new RequestValidationException("请先恢复会话所属项目。");
+        }
+        conversation.restore();
+    }
+
+    @Transactional(readOnly = true)
+    public ArchiveResponse archive() {
+        UserEntity user = currentUser();
+        List<ArchivedProjectResponse> archivedProjects = projects
+                .findByUserIdAndArchivedTrueOrderByUpdatedAtDesc(user.getId())
+                .stream()
+                .map(project -> new ArchivedProjectResponse(project.getId(), project.getName(), project.getUpdatedAt()))
+                .toList();
+        List<ArchivedConversationResponse> archivedConversations = conversations
+                .findByProjectUserIdAndArchivedTrueOrderByUpdatedAtDesc(user.getId())
+                .stream()
+                .map(conversation -> new ArchivedConversationResponse(
+                        conversation.getId(),
+                        conversation.getProject().getId(),
+                        conversation.getProject().getName(),
+                        conversation.getTitle(),
+                        conversation.getUpdatedAt()
+                ))
+                .toList();
+        return new ArchiveResponse(archivedProjects, archivedConversations);
     }
 
     @Transactional
@@ -276,6 +352,11 @@ public class WorkspaceService {
     private ConversationEntity ownedConversation(UUID id) {
         return conversations.findByIdAndProjectUserId(id, currentUser().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("会话不存在。"));
+    }
+
+    private ProjectEntity ownedProject(UUID id, UUID userId) {
+        return projects.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("项目不存在。"));
     }
 
     private UserEntity currentUser() {

@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,6 +44,26 @@ public class WorkspaceController {
         return service.createProject(request);
     }
 
+    @PatchMapping("/projects/{projectId}")
+    public ProjectResponse updateProject(
+            @PathVariable UUID projectId,
+            @Valid @RequestBody UpdateProjectRequest request
+    ) {
+        return service.updateProject(projectId, request);
+    }
+
+    @PostMapping("/projects/{projectId}/archive")
+    public ResponseEntity<Void> archiveProject(@PathVariable UUID projectId) {
+        service.archiveProject(projectId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/projects/{projectId}/restore")
+    public ResponseEntity<Void> restoreProject(@PathVariable UUID projectId) {
+        service.restoreProject(projectId);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/projects/{projectId}/conversations")
     public ConversationResponse createConversation(
             @PathVariable UUID projectId,
@@ -54,6 +75,31 @@ public class WorkspaceController {
     @GetMapping("/conversations/{conversationId}")
     public ConversationResponse conversation(@PathVariable UUID conversationId) {
         return service.getConversation(conversationId);
+    }
+
+    @PatchMapping("/conversations/{conversationId}")
+    public ConversationResponse updateConversation(
+            @PathVariable UUID conversationId,
+            @Valid @RequestBody UpdateConversationRequest request
+    ) {
+        return service.updateConversation(conversationId, request);
+    }
+
+    @PostMapping("/conversations/{conversationId}/archive")
+    public ResponseEntity<Void> archiveConversation(@PathVariable UUID conversationId) {
+        service.archiveConversation(conversationId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/conversations/{conversationId}/restore")
+    public ResponseEntity<Void> restoreConversation(@PathVariable UUID conversationId) {
+        service.restoreConversation(conversationId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/archive")
+    public ArchiveResponse archive() {
+        return service.archive();
     }
 
     @PostMapping(value = "/conversations/{conversationId}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
