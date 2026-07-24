@@ -8,11 +8,12 @@
 | 规范路径 | `rs-vqa-fusion/docs/24_model_release_contract.md` |
 | 审计时研究工作树 HEAD | `8510bc9cd1738f2cc3c61a3eff3b0faab0cbe556` |
 | 发布契约 Git 引用 | `b9077c8e8e91e4c88bad93c1135cbe9a095454e2` |
-| 当前真实 release | `rsvqa-hr-qdrop15-predicted-soft-20260724-8510bc9`（AutoDL 已冻结；应用端正在消费校验） |
+| 当前真实 release | `rsvqa-hr-qdrop15-predicted-soft-20260724-8510bc9`（AutoDL 已冻结；应用端已完成消费校验与真实 CPU smoke） |
 | checkpoint SHA-256 | `2426770af96a6f41b30e081c9719d6582471fab091e4b44ba2c3068d6e227109` |
 | 答案词表 SHA-256 | `23592881181ac284e46292921ce14d329eb437c1e3913b2e2f8a05ff9b75f99a` |
 | runtime wheel SHA-256 | `cc604c70c65974dbd5826edf6f1bfc24766b17b27926087f154cb844a9d1f9ab` |
-| 当前开发 runtime | `MOCK`，直到本地完整制品通过消费端 smoke 前不得作为研究结果 |
+| 当前默认 runtime | `MOCK`（默认 Compose 低资源开发路径；不得作为研究结果） |
+| 当前 Real runtime | `research_vilt_predicted_soft`（Real CPU `/ready`、单图连续推理和 2×2 批量 smoke 已通过） |
 
 ## Fail-closed 条件
 
@@ -31,6 +32,7 @@ Real Runtime 只有在以下条件全部成立时进入 ready：
 
 应用侧已经实现 manifest Pydantic Schema、流式 SHA-256、路径穿越防护、release/version 固定、runtime digest 比对、加载/预热和输出校验。`compose.real.yaml` 只切换到这个 fail-closed 边界，不会降低校验要求。
 
-研究侧已经提交契约和不可变 release。应用侧仍必须完成所有制品的本地 SHA-256、
-独立 wheel factory 加载、CPU warmup、真实单图和连续多轮 smoke 后，才可把
-`research_vilt_predicted_soft` 标记为 ready；下载不完整或任何哈希不一致时继续 fail closed。
+研究侧已经提交契约和不可变 release。应用侧已完成所有制品的本地 SHA-256、独立
+wheel factory 加载、CPU warmup、真实单图和连续多轮 smoke；下载不完整或任何哈希不一致
+时继续 fail closed。当前应用兼容层暂时桥接 wheel 的旧 ViLT `head_mask` 调用签名，研究侧
+后续应将该修复回写并发布新的不可变 runtime artifact。

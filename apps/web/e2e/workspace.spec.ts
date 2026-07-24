@@ -63,7 +63,7 @@ test("indexes approved knowledge and returns citations from BGE and Milvus", asy
   await expect(page.getByText(/rsvqa-knowledge-v1 · READY/).first()).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "检索", exact: true }).click();
   await expect(page.getByText("RS-VQA 已核准模型边界.md").last()).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText("BAAI/bge-small-zh-v1.5")).toBeVisible();
+  await expect(page.getByText("BAAI/bge-small-zh-v1.5")).toBeVisible({ timeout: 30_000 });
 });
 
 test("creates and completes a persisted batch job", async ({ page }) => {

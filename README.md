@@ -32,7 +32,11 @@ RS-VQA 是论文《跨模态特征融合机制及微调策略研究与应用》�
 
 soft-vs-none 配对置信区间包含 0，因此不能宣称 predicted-soft 带来显著提升；系统也不声称 SOTA。它不是开放式 VQA、通用视觉助手、目标检测、变化检测、零样本识别或风险自动判定系统。
 
-当前仓库没有通过不可变 manifest 与 SHA-256 校验的真实 release，因此默认运行 `mock_demo`。Mock 只验证工程闭环，绝不是论文模型输出。外部通用视觉模型保持 Provider 抽象，未配置时明确显示“未配置”。
+当前仓库已接入通过不可变 manifest 与 SHA-256 校验的真实 release
+`rsvqa-hr-qdrop15-predicted-soft-20260724-8510bc9`。默认 Compose 仍运行
+`mock_demo`，便于低资源开发；Mock 只验证工程闭环，绝不是论文模型输出。真实模型使用
+`compose.real.yaml` 覆盖启动，并在 `/models/current` 与每次结果中显示 release、来源和哈希。
+外部通用视觉模型保持 Provider 抽象，未配置时明确显示“未配置”。
 
 ## 一条命令启动
 
@@ -120,6 +124,18 @@ Java：
 cd apps/gateway
 mvn spring-boot:run
 ```
+
+使用已校验的真实 CPU 研究模型（首次构建会下载 CPU-only PyTorch；不启动 GPU 训练）：
+
+```bash
+export RSVQA_RELEASE_MANIFEST=/opt/rsvqa/model-releases/rsvqa-hr-qdrop15-predicted-soft-20260724-8510bc9/model-release.json
+export RSVQA_MODEL_DEVICE=cpu
+docker-compose -f compose.yaml -f compose.real.yaml up -d --build
+```
+
+真实模式启动前，需将 `model-releases/` 目录挂载或复制到 Docker Compose 配置的
+`RSVQA_MODEL_RELEASES_DIR` 对应位置，并确认 `/ready` 返回 `ready=true`。Real Runtime
+不能接受人工 `question_type_id`、oracle、routed 或评价 metadata。
 
 React：
 
