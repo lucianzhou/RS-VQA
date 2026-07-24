@@ -1,6 +1,7 @@
 package com.rsvqa.gateway;
 
 import static com.rsvqa.gateway.AgentDtos.*;
+import static com.rsvqa.gateway.AgentActionDtos.*;
 
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.MediaType;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -27,17 +29,20 @@ public class TrustedAgentController {
     private final AgentToolRegistry tools;
     private final AgentStreamService stream;
     private final AgentSessionService sessions;
+    private final AgentActionService actions;
 
     public TrustedAgentController(
             TrustedAgentService agent,
             AgentToolRegistry tools,
             AgentStreamService stream,
-            AgentSessionService sessions
+            AgentSessionService sessions,
+            AgentActionService actions
     ) {
         this.agent = agent;
         this.tools = tools;
         this.stream = stream;
         this.sessions = sessions;
+        this.actions = actions;
     }
 
     @PostMapping("/runs")
@@ -68,6 +73,26 @@ public class TrustedAgentController {
     @DeleteMapping("/sessions/{sessionId}")
     public void archiveSession(@PathVariable UUID sessionId) {
         sessions.archive(sessionId);
+    }
+
+    @GetMapping("/actions")
+    public List<ActionProposalResponse> actions(@RequestParam(required = false) UUID sessionId) {
+        return actions.list(sessionId);
+    }
+
+    @PostMapping("/actions")
+    public ActionProposalResponse proposeAction(@Valid @RequestBody CreateProposalRequest request) {
+        return actions.propose(request);
+    }
+
+    @PostMapping("/actions/{proposalId}/confirm")
+    public ActionProposalResponse confirmAction(@PathVariable UUID proposalId) {
+        return actions.confirm(proposalId);
+    }
+
+    @PostMapping("/actions/{proposalId}/reject")
+    public ActionProposalResponse rejectAction(@PathVariable UUID proposalId) {
+        return actions.reject(proposalId);
     }
 
     @GetMapping("/tools")

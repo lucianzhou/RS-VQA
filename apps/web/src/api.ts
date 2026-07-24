@@ -4,6 +4,8 @@ import type {
   AgentRun,
   AgentSession,
   AgentSessionSummary,
+  AgentActionName,
+  AgentActionProposal,
   BatchJob,
   ConversationDetail,
   CurrentUser,
@@ -353,6 +355,37 @@ export function createAgentSession(input: {
 
 export function archiveAgentSession(sessionId: string) {
   return apiFetch<void>(`/api/v1/agent/sessions/${sessionId}`, { method: "DELETE" });
+}
+
+export function listAgentActions(sessionId?: string) {
+  const query = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : "";
+  return apiFetch<AgentActionProposal[]>(`/api/v1/agent/actions${query}`);
+}
+
+export function proposeAgentAction(input: {
+  sessionId?: string;
+  actionName: AgentActionName;
+  projectId?: string;
+  conversationId?: string;
+  batchJobId?: string;
+  reportId?: string;
+  questions?: string[];
+  title?: string;
+  format?: "md" | "markdown" | "json";
+  modelReleaseId?: string;
+}) {
+  return apiFetch<AgentActionProposal>("/api/v1/agent/actions", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function confirmAgentAction(proposalId: string) {
+  return apiFetch<AgentActionProposal>(`/api/v1/agent/actions/${proposalId}/confirm`, { method: "POST" });
+}
+
+export function rejectAgentAction(proposalId: string) {
+  return apiFetch<AgentActionProposal>(`/api/v1/agent/actions/${proposalId}/reject`, { method: "POST" });
 }
 
 export function listKnowledgeDocuments() {

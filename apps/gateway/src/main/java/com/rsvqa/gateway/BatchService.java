@@ -17,10 +17,12 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.rsvqa.gateway.domain.BatchItemEntity;
 import com.rsvqa.gateway.domain.BatchJobEntity;
+import com.rsvqa.gateway.domain.ImageAssetEntity;
 import com.rsvqa.gateway.domain.ProjectEntity;
 import com.rsvqa.gateway.domain.UserEntity;
 import com.rsvqa.gateway.repository.BatchItemRepository;
 import com.rsvqa.gateway.repository.BatchJobRepository;
+import com.rsvqa.gateway.repository.ImageAssetRepository;
 import com.rsvqa.gateway.repository.ProjectRepository;
 import com.rsvqa.gateway.repository.UserRepository;
 
@@ -36,6 +38,7 @@ public class BatchService {
     private final ProjectRepository projects;
     private final BatchJobRepository jobs;
     private final BatchItemRepository items;
+    private final ImageAssetRepository images;
     private final FileStorageService storage;
     private final ObjectProvider<StringRedisTemplate> redisProvider;
 
@@ -44,6 +47,7 @@ public class BatchService {
             ProjectRepository projects,
             BatchJobRepository jobs,
             BatchItemRepository items,
+            ImageAssetRepository images,
             FileStorageService storage,
             ObjectProvider<StringRedisTemplate> redisProvider
     ) {
@@ -51,6 +55,7 @@ public class BatchService {
         this.projects = projects;
         this.jobs = jobs;
         this.items = items;
+        this.images = images;
         this.storage = storage;
         this.redisProvider = redisProvider;
     }
@@ -63,14 +68,11 @@ public class BatchService {
             List<String> rawQuestions
     ) {
         UserEntity user = currentUser();
-        List<String> questions = rawQuestions.stream().map(String::trim).filter(value -> !value.isBlank()).distinct().toList();
+        List<String> questions = normalizeQuestions(rawQuestions);
         if (uploads.isEmpty() || questions.isEmpty()) {
             throw new RequestValidationException("至少需要一张图像和一个非空问题。");
         }
-        if (uploads.size() > MAX_IMAGES || questions.size() > MAX_QUESTIONS
-                || uploads.size() * questions.size() > MAX_COMBINATIONS) {
-            throw new RequestValidationException("单个批量任务最多 200 张图、32 个问题和 1000 个组合。");
-        }
+        validateLimits(uploads.size(), questions.size());
         long totalBytes = uploads.stream().mapToLong(MultipartFile::getSize).sum();
         if (totalBytes > MAX_TOTAL_IMAGE_BYTES) {
             throw new RequestValidationException("单个批量任务的图像总量不能超过 120 MiB。");
@@ -96,6 +98,52 @@ public class BatchService {
                 for (String question : questions) {
                     items.save(new BatchItemEntity(job, file, question));
                 }
+            }
+        } catch (RuntimeException error) {
+            stored.forEach(image -> storage.delete(image.storageKey()));
+            throw error;
+        }
+        cacheProgress(job);
+        return toResponse(job);
+    }
+
+    @Transactional
+    public BatchJobResponse createFromProject(UUID projectId, String modelReleaseId, List<String> rawQuestions) {
+        UserEntity user = currentUser();
+        ProjectEntity project = projects.findByIdAndUserId(projectId, user.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("项目不存在。"));
+        if (project.isArchived()) {
+            throw new RequestValidationException("不能从已归档项目创建批量任务。");
+        }
+        List<ImageAssetEntity> assets = images
+                .findByConversationProjectIdAndConversationArchivedFalseOrderByCreatedAtAsc(projectId);
+        if (assets.isEmpty()) {
+            throw new RequestValidationException("该项目没有可用的已上传影像。");
+        }
+        List<String> questions = normalizeQuestions(rawQuestions);
+        validateLimits(assets.size(), questions.size());
+        long totalBytes = assets.stream().mapToLong(ImageAssetEntity::getSizeBytes).sum();
+        if (totalBytes > MAX_TOTAL_IMAGE_BYTES) {
+            throw new RequestValidationException("该项目影像总量超过 120 MiB，不能创建批量任务。");
+        }
+        BatchJobEntity job = jobs.save(new BatchJobEntity(
+                user, project, modelReleaseId == null || modelReleaseId.isBlank() ? null : modelReleaseId,
+                assets.size() * questions.size()
+        ));
+        List<FileStorageService.StoredImage> stored = new ArrayList<>();
+        try {
+            for (ImageAssetEntity asset : assets) {
+                stored.add(storage.copyBatch(user.getId(), job.getId(), new FileStorageService.StoredImage(
+                        asset.getStorageKey(), asset.getOriginalName(), asset.getSha256(), asset.getMimeType(),
+                        asset.getSizeBytes(), asset.getWidthPx(), asset.getHeightPx()
+                )));
+            }
+            for (FileStorageService.StoredImage image : stored) {
+                BatchItemEntity.FileDescriptor file = new BatchItemEntity.FileDescriptor(
+                        image.storageKey(), image.originalName(), image.sha256(), image.mimeType(),
+                        image.sizeBytes(), image.width(), image.height()
+                );
+                for (String question : questions) items.save(new BatchItemEntity(job, file, question));
             }
         } catch (RuntimeException error) {
             stored.forEach(image -> storage.delete(image.storageKey()));
@@ -288,6 +336,21 @@ public class BatchService {
             }
         } catch (RuntimeException ignored) {
             // PostgreSQL is authoritative; Redis is an acceleration/coordination layer only.
+        }
+    }
+
+    private static List<String> normalizeQuestions(List<String> rawQuestions) {
+        return rawQuestions == null ? List.of()
+                : rawQuestions.stream().map(String::trim).filter(value -> !value.isBlank()).distinct().toList();
+    }
+
+    private static void validateLimits(int imageCount, int questionCount) {
+        if (imageCount == 0 || questionCount == 0) {
+            throw new RequestValidationException("至少需要一张图像和一个非空问题。");
+        }
+        if (imageCount > MAX_IMAGES || questionCount > MAX_QUESTIONS
+                || imageCount * questionCount > MAX_COMBINATIONS) {
+            throw new RequestValidationException("单个批量任务最多 200 张图、32 个问题和 1000 个组合。");
         }
     }
 

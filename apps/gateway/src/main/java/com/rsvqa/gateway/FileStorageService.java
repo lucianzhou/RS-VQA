@@ -45,6 +45,31 @@ public class FileStorageService {
         return storeInNamespace(userId + "/batch/" + batchId, upload);
     }
 
+    public StoredImage copyBatch(UUID userId, UUID batchId, StoredImage source) {
+        byte[] bytes = read(source.storageKey());
+        if (bytes.length != source.sizeBytes() || !sha256(bytes).equalsIgnoreCase(source.sha256())) {
+            throw new RequestValidationException("源图像校验失败，未创建批量任务。");
+        }
+        try {
+            ImageDimensions dimensions = dimensions(bytes, source.mimeType());
+            String storageKey = userId + "/batch/" + batchId + "/" + UUID.randomUUID()
+                    + EXTENSIONS.get(source.mimeType());
+            Path target = resolve(storageKey);
+            Files.createDirectories(target.getParent());
+            Path temporary = Files.createTempFile(target.getParent(), ".upload-", ".tmp");
+            try {
+                Files.write(temporary, bytes);
+                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE);
+            } finally {
+                Files.deleteIfExists(temporary);
+            }
+            return new StoredImage(storageKey, source.originalName(), source.sha256(), source.mimeType(),
+                    bytes.length, dimensions.width(), dimensions.height());
+        } catch (IOException error) {
+            throw new RequestValidationException("源图像无法安全复制到批量任务。");
+        }
+    }
+
     private StoredImage storeInNamespace(String namespace, MultipartFile upload) {
         String contentType = upload.getContentType();
         if (upload.isEmpty()) {

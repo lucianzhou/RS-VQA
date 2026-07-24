@@ -8,12 +8,15 @@ import {
   Clock3,
   Database,
   FileSearch,
+  FileText,
   LoaderCircle,
   Plus,
   Send,
   ShieldCheck,
   Sparkles,
   Square,
+  Check,
+  X,
   Workflow,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -22,13 +25,18 @@ import {
   archiveAgentSession,
   createAgentSession,
   getAgentSession,
+  confirmAgentAction,
   listAgentSessions,
+  listAgentActions,
   listBatchJobs,
+  listReports,
   listProjects,
+  proposeAgentAction,
+  rejectAgentAction,
   runTrustedAgentStream,
 } from "../api";
 import { AppTopbar, StatusBadge } from "../components/AppChrome";
-import type { AgentHistoryRun, AgentSession, AgentToolCall } from "../types";
+import type { AgentActionName, AgentActionProposal, AgentHistoryRun, AgentSession, AgentToolCall, ReportSummary } from "../types";
 
 type ContextType = "WORKSPACE" | "PROJECT" | "BATCH_JOB";
 
@@ -43,9 +51,15 @@ export function AgentPage() {
   const sessions = useQuery({ queryKey: ["agent-sessions"], queryFn: listAgentSessions });
   const projects = useQuery({ queryKey: ["projects"], queryFn: listProjects });
   const batches = useQuery({ queryKey: ["batch-jobs"], queryFn: listBatchJobs });
+  const reports = useQuery({ queryKey: ["reports"], queryFn: listReports });
   const session = useQuery({
     queryKey: ["agent-session", activeSessionId],
     queryFn: () => getAgentSession(activeSessionId!),
+    enabled: Boolean(activeSessionId),
+  });
+  const actions = useQuery({
+    queryKey: ["agent-actions", activeSessionId],
+    queryFn: () => listAgentActions(activeSessionId),
     enabled: Boolean(activeSessionId),
   });
 
@@ -104,6 +118,27 @@ export function AgentPage() {
       setActiveSessionId((current) => current === id ? undefined : current);
       await queryClient.invalidateQueries({ queryKey: ["agent-sessions"] });
     },
+  });
+  const proposalMutation = useMutation({
+    mutationFn: (input: Parameters<typeof proposeAgentAction>[0]) => proposeAgentAction(input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["agent-actions", activeSessionId] });
+    },
+  });
+  const confirmMutation = useMutation({
+    mutationFn: (id: string) => confirmAgentAction(id),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["agent-actions", activeSessionId] }),
+        queryClient.invalidateQueries({ queryKey: ["batch-jobs"] }),
+        queryClient.invalidateQueries({ queryKey: ["reports"] }),
+        queryClient.invalidateQueries({ queryKey: ["projects"] }),
+      ]);
+    },
+  });
+  const rejectMutation = useMutation({
+    mutationFn: (id: string) => rejectAgentAction(id),
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["agent-actions", activeSessionId] }),
   });
 
   const submit = (message: string) => {
@@ -178,6 +213,15 @@ export function AgentPage() {
           ) : session.data ? (
             <>
               <AgentHeader session={session.data} />
+              <AgentActionCenter
+                session={session.data}
+                actions={actions.data ?? []}
+                reports={reports.data ?? []}
+                disabled={proposalMutation.isPending || confirmMutation.isPending || rejectMutation.isPending}
+                onPropose={(input) => proposalMutation.mutate(input)}
+                onConfirm={(id) => confirmMutation.mutate(id)}
+                onReject={(id) => rejectMutation.mutate(id)}
+              />
               <div className="agent-thread" aria-live="polite">
                 {session.data.runs.length === 0 && (
                   <section className="agent-starter">
@@ -201,6 +245,9 @@ export function AgentPage() {
                 {session.data.suggestedPrompts.slice(0, 3).map((prompt) => <button type="button" key={prompt} disabled={runMutation.isPending} onClick={() => setComposer(prompt)}>{prompt}</button>)}
               </div>
               {runMutation.isError && <div className="agent-inline-error"><AlertTriangle size={14} />{runMutation.error.message}</div>}
+              {(proposalMutation.isError || confirmMutation.isError || rejectMutation.isError) && (
+                <div className="agent-inline-error"><AlertTriangle size={14} />{(proposalMutation.error ?? confirmMutation.error ?? rejectMutation.error)?.message}</div>
+              )}
               <form className="agent-composer" onSubmit={(event) => {
                 event.preventDefault();
                 submit(composer);
@@ -244,6 +291,135 @@ function AgentWelcome() {
       <div><span><Database size={16} />后端确定性统计</span><span><FileSearch size={16} />带引用知识检索</span><span><ShieldCheck size={16} />来源与边界分离</span></div>
     </div>
   );
+}
+
+function AgentActionCenter({
+  session,
+  actions,
+  reports,
+  disabled,
+  onPropose,
+  onConfirm,
+  onReject,
+}: {
+  session: AgentSession;
+  actions: AgentActionProposal[];
+  reports: ReportSummary[];
+  disabled: boolean;
+  onPropose: (input: Parameters<typeof proposeAgentAction>[0]) => void;
+  onConfirm: (id: string) => void;
+  onReject: (id: string) => void;
+}) {
+  const [actionName, setActionName] = useState<AgentActionName>(defaultAction(session.contextType));
+  const [questions, setQuestions] = useState("图中有没有道路？\n图中有多少建筑物？");
+  const [title, setTitle] = useState("");
+  const [reportId, setReportId] = useState("");
+  const [format, setFormat] = useState<"md" | "json">("md");
+  const options = actionOptions(session.contextType);
+  const scopedReports = reports.filter((report) => (
+    session.contextType === "PROJECT" ? report.projectId === session.contextId :
+      session.contextType === "BATCH_JOB" ? report.batchJobId === session.contextId : true
+  ));
+  useEffect(() => {
+    if (!options.some((option) => option.value === actionName)) setActionName(options[0]?.value ?? "save_report_draft");
+  }, [actionName, options]);
+  useEffect(() => {
+    if (!reportId || !scopedReports.some((report) => report.id === reportId)) setReportId(scopedReports[0]?.id ?? "");
+  }, [reportId, scopedReports]);
+  const submit = () => {
+    const input: Parameters<typeof proposeAgentAction>[0] = {
+      sessionId: session.id,
+      actionName,
+      projectId: session.contextType === "PROJECT" ? session.contextId ?? undefined : undefined,
+      conversationId: session.contextType === "CONVERSATION" ? session.contextId ?? undefined : undefined,
+      batchJobId: session.contextType === "BATCH_JOB" ? session.contextId ?? undefined : undefined,
+      title: title.trim() || undefined,
+    };
+    if (actionName === "create_batch_task") input.questions = questions.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+    if (actionName === "export_report") {
+      input.reportId = reportId || undefined;
+      input.format = format;
+    }
+    onPropose(input);
+  };
+  return (
+    <motion.section className="agent-action-center" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}>
+      <div className="agent-action-heading">
+        <div><span className="agent-action-kicker"><ShieldCheck size={13} />受控操作</span><strong>需要副作用时，先提交提案再人工确认</strong></div>
+        <small>每次操作都有稳定 request ID 和审计记录</small>
+      </div>
+      {options.length > 0 && (
+        <div className="agent-action-form">
+          <label><span>选择操作</span><select aria-label="选择受控操作" value={actionName} onChange={(event) => setActionName(event.target.value as AgentActionName)}>
+            {options.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
+          </select></label>
+          {actionName === "create_batch_task" && <label className="agent-action-wide"><span>问题模板（每行一个）</span><textarea aria-label="批量任务问题" value={questions} onChange={(event) => setQuestions(event.target.value)} rows={2} maxLength={1200} /></label>}
+          {(actionName === "save_report_draft" || actionName === "create_batch_task") && <label><span>可选标题</span><input aria-label="操作标题" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={200} placeholder="留空使用系统标题" /></label>}
+          {actionName === "export_report" && <>
+            <label><span>报告</span><select aria-label="选择导出报告" value={reportId} onChange={(event) => setReportId(event.target.value)} disabled={scopedReports.length === 0}>
+              {scopedReports.length === 0 ? <option value="">当前范围暂无报告</option> : scopedReports.map((report) => <option value={report.id} key={report.id}>{report.title}</option>)}
+            </select></label>
+            <label><span>格式</span><select aria-label="选择导出格式" value={format} onChange={(event) => setFormat(event.target.value as "md" | "json")}><option value="md">Markdown</option><option value="json">JSON</option></select></label>
+          </>}
+          <button className="quiet-button agent-action-submit" type="button" disabled={disabled || (actionName === "export_report" && !reportId)} onClick={submit}><FileText size={14} />提交操作提案</button>
+        </div>
+      )}
+      {actions.length > 0 && <div className="agent-proposal-list" aria-label="受控操作提案">
+        {actions.slice(0, 5).map((proposal) => <AgentProposalCard key={proposal.id} proposal={proposal} disabled={disabled} onConfirm={onConfirm} onReject={onReject} />)}
+      </div>}
+    </motion.section>
+  );
+}
+
+function AgentProposalCard({
+  proposal,
+  disabled,
+  onConfirm,
+  onReject,
+}: {
+  proposal: AgentActionProposal;
+  disabled: boolean;
+  onConfirm: (id: string) => void;
+  onReject: (id: string) => void;
+}) {
+  let result: Record<string, unknown> = {};
+  try { result = proposal.resultJson ? JSON.parse(proposal.resultJson) as Record<string, unknown> : {}; } catch { /* sanitized fallback */ }
+  const downloadUrl = typeof result.downloadUrl === "string" ? result.downloadUrl : undefined;
+  return (
+    <article className={`agent-proposal-card is-${proposal.status.toLowerCase()}`}>
+      <div className="agent-proposal-status"><span><Clock3 size={14} />{proposalStatus(proposal.status)}</span><small>{proposal.actionName}</small></div>
+      <strong>{proposal.summary}</strong>
+      <p>请求 <code>{proposal.requestId}</code> · {proposal.providerId} · {proposal.totalTokens} tokens · ${proposal.estimatedCostUsd.toFixed(4)}</p>
+      {proposal.status === "PENDING" && <div className="agent-proposal-actions"><button className="primary-button" type="button" disabled={disabled} onClick={() => onConfirm(proposal.id)}><Check size={14} />确认执行</button><button className="quiet-button" type="button" disabled={disabled} onClick={() => onReject(proposal.id)}><X size={14} />拒绝</button></div>}
+      {proposal.status === "FAILED" && <p className="agent-proposal-error"><AlertTriangle size={13} />{proposal.errorCode ?? "执行失败"}</p>}
+      {downloadUrl && <a className="quiet-button" href={downloadUrl}><FileText size={14} />下载导出文件</a>}
+    </article>
+  );
+}
+
+function actionOptions(contextType: AgentSession["contextType"]): Array<{ value: AgentActionName; label: string }> {
+  if (contextType === "PROJECT") return [
+    { value: "create_batch_task", label: "从项目影像创建批量任务" },
+    { value: "save_report_draft", label: "保存项目报告草稿" },
+    { value: "export_report", label: "导出项目报告" },
+    { value: "archive_project", label: "归档项目" },
+  ];
+  if (contextType === "BATCH_JOB") return [
+    { value: "retry_batch_failures", label: "重试批量失败项" },
+    { value: "save_report_draft", label: "保存批量报告草稿" },
+    { value: "export_report", label: "导出批量报告" },
+    { value: "archive_batch_task", label: "归档批量任务" },
+  ];
+  if (contextType === "CONVERSATION") return [{ value: "archive_conversation", label: "归档当前对话" }];
+  return [];
+}
+
+function defaultAction(contextType: AgentSession["contextType"]): AgentActionName {
+  return contextType === "BATCH_JOB" ? "retry_batch_failures" : contextType === "CONVERSATION" ? "archive_conversation" : "create_batch_task";
+}
+
+function proposalStatus(status: AgentActionProposal["status"]) {
+  return ({ PENDING: "待人工确认", EXECUTING: "正在执行", COMPLETED: "已完成", FAILED: "执行失败", REJECTED: "已拒绝", EXPIRED: "已过期" } as Record<string, string>)[status] ?? status;
 }
 
 function AgentHeader({ session }: { session: AgentSession }) {

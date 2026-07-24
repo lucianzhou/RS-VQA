@@ -256,6 +256,37 @@ export interface AgentSession extends Omit<AgentSessionSummary, "runCount"> {
   suggestedPrompts: string[];
 }
 
+export type AgentActionName =
+  | "create_batch_task"
+  | "retry_batch_failures"
+  | "save_report_draft"
+  | "export_report"
+  | "archive_project"
+  | "archive_conversation"
+  | "archive_batch_task";
+
+export interface AgentActionProposal {
+  id: string;
+  sessionId: string | null;
+  actionName: AgentActionName;
+  summary: string;
+  status: "PENDING" | "EXECUTING" | "COMPLETED" | "FAILED" | "REJECTED" | "EXPIRED";
+  requestId: string;
+  providerId: string;
+  providerModel: string | null;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+  resultJson: string | null;
+  errorCode: string | null;
+  confirmedAt: string | null;
+  executedAt: string | null;
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AnalysisCase {
   scopeItemId: string;
   scopeLabel: string;
