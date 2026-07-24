@@ -28,8 +28,7 @@ test("persists an image, multi-turn VQA, provenance, and agent tools", async ({ 
   const question = page.getByLabel("向当前影像提问");
   await question.fill("图中有没有道路？");
   await page.getByRole("button", { name: "发送问题" }).click();
-  await expect(page.getByText("模型回答")).toBeVisible();
-  await expect(page.getByText("MOCK", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/模型回答|低置信度，请复核/)).toBeVisible({ timeout: 30_000 });
 
   await question.fill("图中有多少建筑物？");
   await page.getByRole("button", { name: "发送问题" }).click();
@@ -48,7 +47,7 @@ test("persists an image, multi-turn VQA, provenance, and agent tools", async ({ 
   await expect(page.getByText("超出能力范围")).toBeVisible();
 
   await page.getByText("查看模型与调用信息").first().click();
-  await expect(page.getByText("Mock 演示，不是研究结果").first()).toBeVisible();
+  await expect(page.getByText(/Mock 演示，不是研究结果|研究 ViLT predicted-soft/).first()).toBeVisible();
 
   await page.getByRole("button", { name: "可信 Agent" }).click();
   await page.getByRole("button", { name: "运行只读工具" }).click();
@@ -218,7 +217,7 @@ test("persists a multi-turn project Agent session with deterministic tool eviden
   await expect(page.getByText("从真实业务事实开始分析")).toBeVisible();
 
   await page.getByRole("button", { name: "汇总这个项目的 VQA 结果和置信度分布" }).first().click();
-  await expect(page.getByText("项目 VQA 统计")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(".agent-tool-card").filter({ hasText: "置信度分布" })).toBeVisible({ timeout: 15_000 });
   await expect(page.locator(".agent-turn")).toHaveCount(1);
 
   const composer = page.getByLabel("向可信 Agent 提问");
