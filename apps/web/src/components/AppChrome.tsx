@@ -37,7 +37,8 @@ export function ModelSelector() {
   const [open, setOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const providers = useQuery({ queryKey: ["providers"], queryFn: listProviders, staleTime: 10_000 });
-  const options = Array.isArray(providers.data) ? providers.data.map(providerToModelOption) : modelOptions;
+  const discoveredOptions = Array.isArray(providers.data) ? providers.data.map(providerToModelOption) : [];
+  const options = discoveredOptions.length > 0 ? discoveredOptions : modelOptions;
   const selectedModelId = useWorkspaceStore((state) => state.selectedModelId);
   const setSelectedModelId = useWorkspaceStore((state) => state.setSelectedModelId);
   const selected = options.find((model) => model.id === selectedModelId) ?? options[0];

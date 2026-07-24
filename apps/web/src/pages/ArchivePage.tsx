@@ -1,18 +1,21 @@
-import { ArchiveRestore, FolderArchive, MessageSquareText } from "lucide-react";
+import { ArchiveRestore, FolderArchive, Layers3, MessageSquareText } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppTopbar } from "../components/AppChrome";
-import { getArchive, restoreConversation, restoreProject } from "../api";
+import { getArchive, listArchivedBatchJobs, restoreBatchJob, restoreConversation, restoreProject } from "../api";
 
 export function ArchivePage() {
   const queryClient = useQueryClient();
   const archive = useQuery({ queryKey: ["archive"], queryFn: getArchive });
+  const batchArchive = useQuery({ queryKey: ["batch-archive"], queryFn: listArchivedBatchJobs });
   const restore = useMutation({
-    mutationFn: ({ type, id }: { type: "project" | "conversation"; id: string }) =>
-      type === "project" ? restoreProject(id) : restoreConversation(id),
+    mutationFn: ({ type, id }: { type: "project" | "conversation" | "batch"; id: string }) =>
+      type === "project" ? restoreProject(id) : type === "conversation" ? restoreConversation(id) : restoreBatchJob(id),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["archive"] }),
         queryClient.invalidateQueries({ queryKey: ["projects"] }),
+        queryClient.invalidateQueries({ queryKey: ["batch-archive"] }),
+        queryClient.invalidateQueries({ queryKey: ["batch-jobs"] }),
       ]);
     },
   });
@@ -29,9 +32,9 @@ export function ArchivePage() {
           </div>
         </header>
 
-        {archive.isPending && <p className="empty-copy" aria-live="polite">正在读取归档…</p>}
-        {archive.isError && <p className="inline-error">{archive.error.message}</p>}
-        {archive.data && archive.data.projects.length === 0 && archive.data.conversations.length === 0 && (
+        {(archive.isPending || batchArchive.isPending) && <p className="empty-copy" aria-live="polite">正在读取归档…</p>}
+        {(archive.isError || batchArchive.isError) && <p className="inline-error">{archive.error?.message ?? batchArchive.error?.message}</p>}
+        {archive.data && batchArchive.data && archive.data.projects.length === 0 && archive.data.conversations.length === 0 && batchArchive.data.length === 0 && (
           <div className="archive-empty">
             <FolderArchive size={24} />
             <strong>归档中没有内容</strong>
@@ -66,6 +69,23 @@ export function ArchivePage() {
                   <div><strong>{conversation.title}</strong><small>{conversation.projectName} · {formatDate(conversation.updatedAt)}</small></div>
                   <button className="quiet-button" type="button" disabled={restore.isPending} onClick={() => restore.mutate({ type: "conversation", id: conversation.id })}>
                     <ArchiveRestore size={14} />恢复对话
+                  </button>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {batchArchive.data && batchArchive.data.length > 0 && (
+          <section className="plain-section">
+            <div className="section-heading"><div><span>03</span><h3>批量任务</h3></div></div>
+            <div className="archive-list">
+              {batchArchive.data.map((job) => (
+                <article key={job.id}>
+                  <Layers3 size={18} />
+                  <div><strong>批量任务 {job.id.slice(0, 8)}</strong><small>{job.totalItems} 项 · {job.status} · {formatDate(job.updatedAt)}</small></div>
+                  <button className="quiet-button" type="button" disabled={restore.isPending} onClick={() => restore.mutate({ type: "batch", id: job.id })}>
+                    <ArchiveRestore size={14} />恢复任务
                   </button>
                 </article>
               ))}

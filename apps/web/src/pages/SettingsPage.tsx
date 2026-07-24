@@ -1,12 +1,18 @@
-import { Bot, CheckCircle2, Database, KeyRound, Server, ShieldCheck } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Accessibility, Bot, CheckCircle2, Database, Globe2, KeyRound, Server, ShieldCheck } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { AppTopbar, modelOptions, providerToModelOption, StatusBadge } from "../components/AppChrome";
-import { getSystemStatus, listProviders } from "../api";
+import { getSystemStatus, getUserSettings, listProviders, updateUserSettings } from "../api";
 
 export function SettingsPage() {
+  const queryClient = useQueryClient();
   const status = useQuery({ queryKey: ["system-status"], queryFn: getSystemStatus, refetchInterval: 10000 });
   const providers = useQuery({ queryKey: ["providers"], queryFn: listProviders, refetchInterval: 10000 });
+  const userSettings = useQuery({ queryKey: ["user-settings"], queryFn: getUserSettings });
+  const updateSettings = useMutation({
+    mutationFn: updateUserSettings,
+    onSuccess: (updated) => queryClient.setQueryData(["user-settings"], updated),
+  });
   const availableModels = Array.isArray(providers.data) ? providers.data.map(providerToModelOption) : modelOptions;
   const service = (name: string, fallback: string) => {
     const value = status.data?.services[name];
@@ -35,7 +41,40 @@ export function SettingsPage() {
           </div>
         </section>
         <section className="plain-section">
-          <div className="section-heading"><div><span>02</span><h3>服务状态</h3></div></div>
+          <div className="section-heading"><div><span>02</span><h3>个人与隐私偏好</h3></div></div>
+          {userSettings.isPending && <p className="empty-copy">正在读取偏好…</p>}
+          {userSettings.isError && <p className="inline-error">{userSettings.error.message}</p>}
+          {userSettings.data && (
+            <div className="preference-list">
+              <Preference
+                icon={<Globe2 size={18} />}
+                title="界面语言"
+                description="当前产品文案以中文为主，英文界面结构已预留。"
+                control={(
+                  <select aria-label="界面语言" value={userSettings.data.locale} onChange={(event) => updateSettings.mutate({ locale: event.target.value as "zh-CN" | "en-US" })}>
+                    <option value="zh-CN">简体中文</option>
+                    <option value="en-US">English</option>
+                  </select>
+                )}
+              />
+              <Preference
+                icon={<Accessibility size={18} />}
+                title="减少动态效果"
+                description="降低明显的位置移动，保留必要的淡入和状态反馈。"
+                control={<Switch checked={userSettings.data.reducedMotion} label="减少动态效果" onChange={(checked) => updateSettings.mutate({ reducedMotion: checked })} />}
+              />
+              <Preference
+                icon={<ShieldCheck size={18} />}
+                title="允许向外部视觉 Provider 发送图像"
+                description={userSettings.data.externalImageBoundary}
+                warning
+                control={<Switch checked={userSettings.data.externalImageOptIn} label="外部图像发送许可" onChange={(checked) => updateSettings.mutate({ externalImageOptIn: checked })} />}
+              />
+            </div>
+          )}
+        </section>
+        <section className="plain-section">
+          <div className="section-heading"><div><span>03</span><h3>服务状态</h3></div></div>
           <div className="service-grid">
             <Service icon={<Server size={18} />} name="模型服务" value={service("model", "正在检查")} />
             <Service icon={<Database size={18} />} name="PostgreSQL / Redis" value={`${service("database", "正在检查")} · ${service("redis", "正在检查")}`} />
@@ -52,4 +91,12 @@ export function SettingsPage() {
 
 function Service({ icon, name, value }: { icon: ReactNode; name: string; value: string }) {
   return <div className="service-item"><span>{icon}</span><div><strong>{name}</strong><small>{value}</small></div></div>;
+}
+
+function Preference({ icon, title, description, control, warning = false }: { icon: ReactNode; title: string; description: string; control: ReactNode; warning?: boolean }) {
+  return <div className={`preference-item ${warning ? "is-warning" : ""}`}><span>{icon}</span><div><strong>{title}</strong><small>{description}</small></div>{control}</div>;
+}
+
+function Switch({ checked, label, onChange }: { checked: boolean; label: string; onChange: (checked: boolean) => void }) {
+  return <button className={`switch-control ${checked ? "is-checked" : ""}`} type="button" role="switch" aria-checked={checked} aria-label={label} onClick={() => onChange(!checked)}><span /></button>;
 }

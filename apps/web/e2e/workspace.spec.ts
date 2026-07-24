@@ -101,3 +101,26 @@ test("previews a 20-image page and keeps the remaining images on page two", asyn
   await page.getByRole("button", { name: "上一页" }).click();
   await page.screenshot({ path: test.info().outputPath("batch-thumbnails-page-1.png"), fullPage: true });
 });
+
+test("creates, confirms, and exports a deterministic project report", async ({ page }) => {
+  await page.goto("/reports");
+  await expect(page.getByRole("heading", { name: "把项目与批任务整理为可追溯报告" })).toBeVisible();
+  const scope = page.getByLabel("选择报告范围");
+  await expect(scope.locator("option")).not.toHaveCount(0);
+
+  await page.getByRole("button", { name: "生成确定性草稿" }).click();
+  await expect(page.getByText("待人工确认")).toBeVisible();
+  await expect(page.getByText("deterministic_backend_statistics")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "需要人工复核" })).toBeVisible();
+
+  await page.getByRole("button", { name: "人工确认" }).click();
+  await expect(page.getByText("人工已确认")).toBeVisible({ timeout: 15_000 });
+
+  const markdownDownload = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Markdown" }).click();
+  await expect((await markdownDownload).suggestedFilename()).toMatch(/\.md$/);
+  const jsonDownload = page.waitForEvent("download");
+  await page.getByRole("link", { name: "JSON" }).click();
+  await expect((await jsonDownload).suggestedFilename()).toMatch(/\.json$/);
+  await page.screenshot({ path: test.info().outputPath("report-confirmed-desktop.png"), fullPage: true });
+});

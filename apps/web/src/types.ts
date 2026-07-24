@@ -168,6 +168,10 @@ export interface BatchItem {
   answer: string | null;
   predictionOrigin: PredictionOrigin | null;
   confidence: number | null;
+  margin: number | null;
+  predictedQuestionType: string | null;
+  requestId: string | null;
+  modelReleaseId: string | null;
   latencyMs: number | null;
   errorCode: string | null;
   errorMessage: string | null;
@@ -181,6 +185,7 @@ export interface BatchJob {
   completedItems: number;
   failedItems: number;
   cancelRequested: boolean;
+  archived: boolean;
   modelReleaseId: string | null;
   progressPercent: number;
   items: BatchItem[];
@@ -207,6 +212,84 @@ export interface AgentRun {
   toolCalls: AgentToolCall[];
   citations: Array<Record<string, string>>;
   boundaryNotice: string;
+}
+
+export interface AnalysisCase {
+  scopeItemId: string;
+  scopeLabel: string;
+  question: string;
+  answer: string | null;
+  status: string;
+  predictionOrigin: string | null;
+  modelReleaseId: string | null;
+  predictedQuestionType: string;
+  confidence: number | null;
+  margin: number | null;
+  requestId: string | null;
+}
+
+export interface AnalysisStatistics {
+  scopeType: "PROJECT" | "BATCH_JOB";
+  scopeId: string;
+  scopeName: string;
+  conversationCount: number;
+  imageCount: number;
+  questionCount: number;
+  answeredCount: number;
+  unsupportedCount: number;
+  failedCount: number;
+  lowConfidenceCount: number;
+  averageConfidence: number | null;
+  averageMargin: number | null;
+  questionTypeDistribution: Record<string, number>;
+  answerDistribution: Record<string, number>;
+  originDistribution: Record<string, number>;
+  confidenceDistribution: Record<string, number>;
+  modelReleaseIds: string[];
+  representativeCases: AnalysisCase[];
+  reviewCases: AnalysisCase[];
+  calculationBoundary: string;
+}
+
+export interface ReportSummary {
+  id: string;
+  title: string;
+  status: "DRAFT" | "CONFIRMED";
+  reportType: "PROJECT_ANALYSIS" | "BATCH_ANALYSIS";
+  projectId: string | null;
+  batchJobId: string | null;
+  currentVersion: number;
+  requestId: string;
+  confirmedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReportVersion {
+  id: string;
+  versionNumber: number;
+  factsJson: string;
+  markdownContent: string;
+  agentSummary: string | null;
+  citationsJson: string | null;
+  modelReleaseId: string | null;
+  predictionOrigin: string;
+  generatedBy: string;
+  createdAt: string;
+}
+
+export interface ReportDetail {
+  report: ReportSummary;
+  current: ReportVersion;
+  versions: ReportVersion[];
+}
+
+export interface UserSetting {
+  id: string;
+  locale: "zh-CN" | "en-US";
+  reducedMotion: boolean;
+  externalImageOptIn: boolean;
+  externalImageBoundary: string;
 }
 
 export interface KnowledgeDocument {

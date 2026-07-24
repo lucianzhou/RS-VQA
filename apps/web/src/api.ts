@@ -14,6 +14,10 @@ import type {
   SystemStatus,
   ProviderDescriptor,
   ArchiveIndex,
+  AnalysisStatistics,
+  ReportDetail,
+  ReportSummary,
+  UserSetting,
 } from "./types";
 
 async function apiFetch<T>(path: string, init?: RequestInit, timeoutMs = 30_000): Promise<T> {
@@ -166,6 +170,60 @@ export function retryBatchFailures(jobId: string) {
   return apiFetch<BatchJob>(`/api/v1/batch-jobs/${jobId}/retry-failed`, { method: "POST" });
 }
 
+export function listArchivedBatchJobs() {
+  return apiFetch<BatchJob[]>("/api/v1/batch-jobs/archive");
+}
+
+export function archiveBatchJob(jobId: string) {
+  return apiFetch<void>(`/api/v1/batch-jobs/${jobId}/archive`, { method: "POST" });
+}
+
+export function restoreBatchJob(jobId: string) {
+  return apiFetch<void>(`/api/v1/batch-jobs/${jobId}/restore`, { method: "POST" });
+}
+
+export function getProjectStatistics(projectId: string) {
+  return apiFetch<AnalysisStatistics>(`/api/v1/projects/${projectId}/statistics`);
+}
+
+export function getBatchStatistics(jobId: string) {
+  return apiFetch<AnalysisStatistics>(`/api/v1/batch-jobs/${jobId}/statistics`);
+}
+
+export function listReports() {
+  return apiFetch<ReportSummary[]>("/api/v1/reports");
+}
+
+export function getReport(reportId: string) {
+  return apiFetch<ReportDetail>(`/api/v1/reports/${reportId}`);
+}
+
+export function createReport(input: { projectId?: string; batchJobId?: string; title?: string }) {
+  return apiFetch<ReportDetail>("/api/v1/reports", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function regenerateReport(reportId: string) {
+  return apiFetch<ReportDetail>(`/api/v1/reports/${reportId}/versions`, { method: "POST" });
+}
+
+export function confirmReport(reportId: string) {
+  return apiFetch<ReportDetail>(`/api/v1/reports/${reportId}/confirm`, { method: "POST" });
+}
+
+export function getUserSettings() {
+  return apiFetch<UserSetting>("/api/v1/user/settings");
+}
+
+export function updateUserSettings(update: Partial<Pick<UserSetting, "locale" | "reducedMotion" | "externalImageOptIn">>) {
+  return apiFetch<UserSetting>("/api/v1/user/settings", {
+    method: "PATCH",
+    body: JSON.stringify(update),
+  });
+}
+
 export function createBatchJob(
   images: File[],
   questions: string[],
@@ -207,6 +265,7 @@ export function createBatchJob(
 
 export function runTrustedAgent(
   message: string,
+  projectId?: string,
   conversationId?: string,
   batchJobId?: string,
   toolName?: string,
@@ -214,7 +273,7 @@ export function runTrustedAgent(
 ) {
   return apiFetch<AgentRun>("/api/v1/agent/runs", {
     method: "POST",
-    body: JSON.stringify({ message, conversationId, batchJobId, toolName }),
+    body: JSON.stringify({ message, projectId, conversationId, batchJobId, toolName }),
     signal,
   });
 }

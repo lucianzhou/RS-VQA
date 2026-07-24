@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Download, FolderUp, Layers3, LoaderCircle, Maximize2, Plus, RotateCcw, StopCircle, Trash2, UploadCloud, X } from "lucide-react";
+import { AlertTriangle, Archive, CheckCircle2, ChevronLeft, ChevronRight, Download, FolderUp, Layers3, LoaderCircle, Maximize2, Plus, RotateCcw, StopCircle, Trash2, UploadCloud, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppTopbar, ModelSelector, StatusBadge } from "../components/AppChrome";
 import { ImageLightbox } from "../components/ImageLightbox";
-import { cancelBatchJob, createBatchJob, getBatchJob, listBatchJobs, retryBatchFailures } from "../api";
+import { archiveBatchJob, cancelBatchJob, createBatchJob, getBatchJob, listBatchJobs, retryBatchFailures } from "../api";
 import { useWorkspaceStore } from "../store";
 
 const IMAGES_PER_PAGE = 20;
@@ -59,6 +59,16 @@ export function BatchPage() {
   const retryMutation = useMutation({
     mutationFn: (jobId: string) => retryBatchFailures(jobId),
     onSuccess: (job) => queryClient.setQueryData(["batch-job", job.id], job),
+  });
+  const archiveMutation = useMutation({
+    mutationFn: (jobId: string) => archiveBatchJob(jobId),
+    onSuccess: async () => {
+      setActiveJobId(undefined);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["batch-jobs"] }),
+        queryClient.invalidateQueries({ queryKey: ["batch-archive"] }),
+      ]);
+    },
   });
   const activeJob = jobQuery.data;
 
@@ -142,6 +152,7 @@ export function BatchPage() {
                     {!["QUEUED", "RUNNING"].includes(activeJob.status) && <a className="quiet-button" href={`/api/v1/batch-jobs/${activeJob.id}/export.csv`}><Download size={14} />导出 CSV</a>}
                     {(activeJob.status === "QUEUED" || activeJob.status === "RUNNING") && <button className="quiet-button" type="button" disabled={cancelMutation.isPending} onClick={() => cancelMutation.mutate(activeJob.id)}><StopCircle size={14} />取消</button>}
                     {activeJob.failedItems > 0 && !["QUEUED", "RUNNING"].includes(activeJob.status) && <button className="quiet-button" type="button" disabled={retryMutation.isPending} onClick={() => retryMutation.mutate(activeJob.id)}><RotateCcw size={14} />重试失败项</button>}
+                    {!["QUEUED", "RUNNING"].includes(activeJob.status) && <button className="quiet-button" type="button" disabled={archiveMutation.isPending} onClick={() => archiveMutation.mutate(activeJob.id)}><Archive size={14} />归档</button>}
                   </div>
                 </div>
                 <div className="job-progress"><span style={{ width: `${activeJob.progressPercent}%` }} /></div>

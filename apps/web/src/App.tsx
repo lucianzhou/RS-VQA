@@ -3,7 +3,7 @@ import { ArrowRight, ShieldCheck } from "lucide-react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { demoLogin } from "./api";
+import { demoLogin, getUserSettings } from "./api";
 import { AppSidebar } from "./components/AppSidebar";
 import {
   AppTopbar,
@@ -22,6 +22,7 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage").then((module) => 
 const KnowledgePage = lazy(() => import("./pages/KnowledgePage").then((module) => ({ default: module.KnowledgePage })));
 const AuditPage = lazy(() => import("./pages/AuditPage").then((module) => ({ default: module.AuditPage })));
 const ArchivePage = lazy(() => import("./pages/ArchivePage").then((module) => ({ default: module.ArchivePage })));
+const ReportsPage = lazy(() => import("./pages/ReportsPage").then((module) => ({ default: module.ReportsPage })));
 
 export function App() {
   const queryClient = useQueryClient();
@@ -34,6 +35,11 @@ export function App() {
     retry: 1,
     staleTime: Infinity,
     enabled: !signedOut,
+  });
+  const userSettings = useQuery({
+    queryKey: ["user-settings"],
+    queryFn: getUserSettings,
+    enabled: session.isSuccess && !signedOut,
   });
 
   if (signedOut) {
@@ -49,7 +55,7 @@ export function App() {
     return <BootstrapState title="无法连接业务服务" detail={session.error.message} error />;
   }
   return (
-    <MotionConfig reducedMotion="user">
+    <MotionConfig reducedMotion={userSettings.data?.reducedMotion ? "always" : "user"}>
       <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
         <AppSidebar user={session.data} />
         <div className="app-content">
@@ -84,6 +90,7 @@ function AnimatedRoutes() {
             <Route path="/knowledge" element={<KnowledgePage />} />
             <Route path="/audit" element={<AuditPage />} />
             <Route path="/archive" element={<ArchivePage />} />
+            <Route path="/reports" element={<ReportsPage />} />
             <Route path="*" element={<Navigate to="/workspace" replace />} />
           </Routes>
         </Suspense>

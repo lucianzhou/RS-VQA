@@ -307,7 +307,7 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
 
           <p className="nav-section-label nav-secondary-label">工作区</p>
           <NavItem to="/batch" icon={<Layers3 size={16} />} label="批量 VQA" />
-          <button className="nav-link" type="button" disabled><FileClock size={16} /><span>分析报告</span><small>建设中</small></button>
+          <NavItem to="/reports" icon={<FileClock size={16} />} label="分析报告" />
           <NavItem to="/knowledge" icon={<BookOpen size={16} />} label="知识库" />
           <NavItem to="/audit" icon={<ShieldCheck size={16} />} label="调用审计" />
           <NavItem to="/archive" icon={<Archive size={16} />} label="归档" />
