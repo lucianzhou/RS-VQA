@@ -45,6 +45,7 @@ export function WorkspacePage() {
   const queryClient = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
   const activeConversationId = useWorkspaceStore((state) => state.activeConversationId);
+  const selectedModelId = useWorkspaceStore((state) => state.selectedModelId);
   const [fileError, setFileError] = useState("");
   const [optimisticQuestion, setOptimisticQuestion] = useState("");
   const [controller, setController] = useState<AbortController>();
@@ -85,7 +86,7 @@ export function WorkspacePage() {
   });
   const questionMutation = useMutation({
     mutationFn: ({ question, signal }: { question: string; signal: AbortSignal }) =>
-      askConversation(activeConversationId!, question, undefined, signal),
+      askConversation(activeConversationId!, question, selectedModelId, undefined, signal),
     onSuccess: refresh,
     onSettled: () => {
       setController(undefined);
@@ -369,19 +370,21 @@ function Message({ message }: { message: PersistedMessage }) {
   if (message.role === "user") return <motion.article className="message user-message" initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }}><div>{message.content}</div></motion.article>;
   const invocation = message.invocation;
   const isMock = message.sourceType === "MOCK";
+  const isExternal = message.sourceType === "EXTERNAL_VLM";
   const answered = invocation?.status === "answered";
   const lowConfidence = answered && invocation?.confidence != null && invocation.confidence < 0.65;
   const notice = metadataNotice(message.metadataJson);
   return (
     <motion.article className="message assistant-message" initial={{ opacity: 0, y: 9 }} animate={{ opacity: 1, y: 0 }}>
-      <span className={`assistant-avatar ${answered ? "" : "warning"}`}>{answered ? "RS" : <AlertTriangle size={15} />}</span>
+      <span className={`assistant-avatar ${answered ? "" : "warning"} ${isExternal ? "external" : ""}`}>{answered ? (isExternal ? "G" : "RS") : <AlertTriangle size={15} />}</span>
       <div className="answer-body">
         <div className="answer-heading">
           <span className={`result-state ${answered && !lowConfidence ? "success" : "warning"}`}>
             {answered && !lowConfidence ? <Check size={14} /> : <Info size={14} />}
-            {lowConfidence ? "低置信度，请复核" : answered ? "模型回答" : "超出能力范围"}
+            {lowConfidence ? "低置信度，请复核" : answered ? (isExternal ? "Gemini 辅助回答" : "模型回答") : "超出能力范围"}
           </span>
           {isMock && <span className="mock-flag">MOCK</span>}
+          {isExternal && <span className="external-flag">外部模型</span>}
         </div>
         {answered && <p className="answer-value">{message.content}</p>}
         {lowConfidence && <p className="capability-notice">模型置信度低于 65% 展示阈值。答案保持原样，但不建议直接作为确定结论。</p>}
@@ -392,8 +395,10 @@ function Message({ message }: { message: PersistedMessage }) {
             <summary>查看模型与调用信息</summary>
             <dl>
               <div><dt>输出来源</dt><dd>{originLabel(invocation.predictionOrigin)}</dd></div>
-              <div><dt>发布版本</dt><dd>{invocation.modelReleaseId ?? "无"}</dd></div>
+              {invocation.providerModel && <div><dt>Provider 模型</dt><dd>{invocation.providerModel}</dd></div>}
+              {!isExternal && <div><dt>发布版本</dt><dd>{invocation.modelReleaseId ?? "无"}</dd></div>}
               {invocation.confidence != null && <div><dt>置信度</dt><dd>{(invocation.confidence * 100).toFixed(1)}%</dd></div>}
+              {invocation.totalTokens != null && <div><dt>Token 用量</dt><dd>{invocation.totalTokens}（输入 {invocation.promptTokens ?? "?"} / 输出 {invocation.completionTokens ?? "?"}）</dd></div>}
               {invocation.latencyMs != null && <div><dt>模型耗时</dt><dd>{invocation.latencyMs} ms</dd></div>}
               <div><dt>请求编号</dt><dd>{invocation.requestId}</dd></div>
             </dl>
@@ -407,7 +412,8 @@ function Message({ message }: { message: PersistedMessage }) {
 function metadataNotice(metadata: string | null) {
   if (!metadata) return "";
   try {
-    return (JSON.parse(metadata) as { capabilityNotice?: string }).capabilityNotice ?? "";
+    const value = JSON.parse(metadata) as { capabilityNotice?: string; outputBoundary?: string };
+    return value.outputBoundary ?? value.capabilityNotice ?? "";
   } catch {
     return "";
   }

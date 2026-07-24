@@ -46,7 +46,11 @@ public interface AiProvider {
             String providerId,
             String modelId,
             String requestId,
-            long latencyMs
+            long latencyMs,
+            Integer promptTokens,
+            Integer completionTokens,
+            Integer totalTokens,
+            Double estimatedCostUsd
     ) {
     }
 }

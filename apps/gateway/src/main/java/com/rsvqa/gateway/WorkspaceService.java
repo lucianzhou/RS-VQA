@@ -4,6 +4,7 @@ import static com.rsvqa.gateway.WorkspaceDtos.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -25,6 +26,7 @@ import com.rsvqa.gateway.repository.MessageRepository;
 import com.rsvqa.gateway.repository.ModelInvocationRepository;
 import com.rsvqa.gateway.repository.ProjectRepository;
 import com.rsvqa.gateway.repository.UserRepository;
+import com.rsvqa.gateway.repository.UserSettingRepository;
 
 @Service
 public class WorkspaceService {
@@ -37,6 +39,8 @@ public class WorkspaceService {
     private final ModelInvocationRepository invocations;
     private final FileStorageService storage;
     private final VqaService vqaService;
+    private final List<AiProvider> aiProviders;
+    private final UserSettingRepository userSettings;
     private final ObjectMapper objectMapper;
 
     public WorkspaceService(
@@ -48,6 +52,8 @@ public class WorkspaceService {
             ModelInvocationRepository invocations,
             FileStorageService storage,
             VqaService vqaService,
+            List<AiProvider> aiProviders,
+            UserSettingRepository userSettings,
             ObjectMapper objectMapper
     ) {
         this.users = users;
@@ -58,6 +64,8 @@ public class WorkspaceService {
         this.invocations = invocations;
         this.storage = storage;
         this.vqaService = vqaService;
+        this.aiProviders = aiProviders;
+        this.userSettings = userSettings;
         this.objectMapper = objectMapper;
     }
 
@@ -256,12 +264,14 @@ public class WorkspaceService {
                 null
         ));
 
+        if (request.providerId() != null && !request.providerId().isBlank()
+                && !"research-rsvqa".equals(request.providerId())) {
+            return askExternal(conversation, image, userMessage, question, request.providerId().trim());
+        }
+
         ApiPredictionResponse result = vqaService.answer(
-                storage.read(image.getStorageKey()),
-                image.getOriginalName(),
-                image.getMimeType(),
-                question,
-                request.modelReleaseId()
+                storage.read(image.getStorageKey()), image.getOriginalName(), image.getMimeType(),
+                question, request.modelReleaseId()
         );
         ModelInvocationEntity invocation = invocations.save(new ModelInvocationEntity(
                 conversation,
@@ -291,6 +301,91 @@ public class WorkspaceService {
                 metadata
         ));
         return new QuestionResponse(toMessage(userMessage), toMessage(assistant), result);
+    }
+
+    private QuestionResponse askExternal(
+            ConversationEntity conversation,
+            ImageAssetEntity image,
+            MessageEntity userMessage,
+            String question,
+            String providerId
+    ) {
+        UserEntity user = currentUser();
+        boolean optedIn = userSettings.findByUserId(user.getId())
+                .map(setting -> setting.isExternalImageOptIn())
+                .orElse(false);
+        if (!optedIn) {
+            throw new RequestValidationException(
+                    "发送图像到外部视觉 Provider 前，需要在“模型与设置”中显式开启许可。"
+            );
+        }
+        AiProvider provider = aiProviders.stream()
+                .filter(candidate -> candidate.descriptor().providerId().equals(providerId))
+                .filter(candidate -> "EXTERNAL_VLM".equals(candidate.descriptor().kind()))
+                .findFirst()
+                .orElseThrow(() -> new RequestValidationException("外部视觉 Provider 不存在：" + providerId));
+        if (!"CONFIGURED".equals(provider.descriptor().configurationState())) {
+            throw new ProviderNotConfiguredException(
+                    provider.descriptor().displayName() + " 尚未配置；不会使用浏览器登录状态代替 API 授权。"
+            );
+        }
+
+        AiProvider.ProviderResult external = provider.invoke(new AiProvider.ProviderRequest(
+                storage.read(image.getStorageKey()), image.getMimeType(), question, conversation.getId().toString()
+        ));
+        ModelInvocationEntity invocation = invocations.save(new ModelInvocationEntity(
+                conversation,
+                null,
+                "EXTERNAL_VLM",
+                external.modelId(),
+                "external_vlm_assist",
+                question,
+                external.content(),
+                "answered",
+                null,
+                null,
+                "open_visual_assistance",
+                "[]",
+                "{}",
+                external.latencyMs(),
+                external.requestId(),
+                external.promptTokens(),
+                external.completionTokens(),
+                external.totalTokens(),
+                external.estimatedCostUsd()
+        ));
+        String metadata = json(Map.of(
+                "providerId", external.providerId(),
+                "providerModel", external.modelId(),
+                "outputBoundary", "外部 Gemini 辅助输出，不属于论文研究模型预测。"
+        ));
+        MessageEntity assistant = messages.save(new MessageEntity(
+                conversation, invocation, "assistant", "EXTERNAL_VLM", external.content(), metadata
+        ));
+        ApiPredictionResponse response = new ApiPredictionResponse(
+                external.requestId(),
+                "answered",
+                true,
+                external.content(),
+                null,
+                null,
+                List.of(),
+                question,
+                "open_visual_assistance",
+                "open_visual_assistance",
+                java.util.Map.of(),
+                "external_vlm_assist",
+                null,
+                "external_general_vision_assistance",
+                List.of(
+                        "该输出来自外部 Gemini，不属于论文研究模型结果。",
+                        "不保证适用于专业遥感定量解译，重要结论需要人工核验。"
+                ),
+                "外部通用视觉辅助回答；与闭集 RS-VQA 研究模型严格分离。",
+                external.latencyMs(),
+                "external_provider"
+        );
+        return new QuestionResponse(toMessage(userMessage), toMessage(assistant), response);
     }
 
     private ProjectResponse toProject(ProjectEntity project, UUID userId) {
@@ -343,9 +438,15 @@ public class WorkspaceService {
                 invocation.getStatus(),
                 invocation.getPredictionOrigin(),
                 invocation.getModelReleaseId(),
+                invocation.getProviderType(),
+                invocation.getProviderModel(),
                 invocation.getConfidence(),
                 invocation.getMargin(),
-                invocation.getLatencyMs()
+                invocation.getLatencyMs(),
+                invocation.getPromptTokens(),
+                invocation.getCompletionTokens(),
+                invocation.getTotalTokens(),
+                invocation.getEstimatedCostUsd()
         );
         return new MessageResponse(
                 message.getId(),

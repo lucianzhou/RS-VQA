@@ -96,9 +96,15 @@ export interface PersistedInvocation {
   status: string;
   predictionOrigin: PredictionOrigin;
   modelReleaseId: string | null;
+  providerType: string;
+  providerModel: string | null;
   confidence: number | null;
   margin: number | null;
   latencyMs: number | null;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number | null;
+  estimatedCostUsd: number | null;
 }
 
 export interface PersistedMessage {

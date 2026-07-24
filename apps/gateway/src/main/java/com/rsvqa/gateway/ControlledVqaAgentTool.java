@@ -29,7 +29,7 @@ final class ControlledVqaAgentTool {
     ) {
         return workspace.ask(
                 UUID.fromString(conversationId),
-                new WorkspaceDtos.QuestionRequest(question, null)
+                new WorkspaceDtos.QuestionRequest(question, null, "research-rsvqa")
         );
     }
 }

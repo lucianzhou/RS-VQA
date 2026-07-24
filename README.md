@@ -2,7 +2,9 @@
 
 RS-VQA 是论文《跨模态特征融合机制及微调策略研究与应用》的独立应用工程。它把遥感视觉问答研究封装为可演示、可追踪、可部署的应用，但不训练模型，也不导入 `rs-vqa-fusion` 的训练脚本。
 
-当前版本为 **v0.3.0**。前端已迁移到 React + TypeScript，并实现 Mineral Forest 视觉体系；业务后端使用 Java 21 / Spring Boot / Spring AI；模型运行时和知识检索分别由 FastAPI 服务提供。
+当前稳定基线为 **v0.3.0**，**v0.4.0 正在实施**。前端使用 React + TypeScript
+和 Mineral Forest 视觉体系；业务后端使用 Java 21 / Spring Boot / Spring AI；
+模型运行时和知识检索分别由 FastAPI 服务提供。
 
 ## 能做什么
 
@@ -78,6 +80,21 @@ docker-compose -f compose.yaml -f compose.real.yaml --profile rag up -d --build
 ```
 
 Real Runtime 会 fail closed：契约版本、`type_source_mode=predicted_soft`、checkpoint/词表/运行时 SHA-256、禁用 oracle/routed 协议、预热和输出 Schema 任一不满足，`/ready` 即不会通过。详细规范见 [模型发布消费者契约](docs/architecture/model-release-consumer.md)。
+
+## 可选 Gemini Provider
+
+Gemini 通过 Spring AI Google GenAI 原生多模态适配器运行。默认关闭；Google AI Pro
+网页登录会员不是 API 授权，系统不会读取浏览器 Cookie。需要使用时只在服务端进程环境
+提供以下变量，不要写入或提交 `.env`：
+
+```bash
+RSVQA_GEMINI_ENABLED=true
+RSVQA_GEMINI_MODEL=gemini-2.5-flash
+GEMINI_API_KEY=<server-side-secret>
+```
+
+即使服务端已配置，用户仍须在“模型与设置”中显式允许向外部视觉 Provider 发送图像。
+Gemini 输出固定标为“外部模型”，不会覆盖或伪装成论文研究模型结果。
 
 ## 本地开发
 

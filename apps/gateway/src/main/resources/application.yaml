@@ -52,6 +52,14 @@ spring:
           enabled: true
 
 rsvqa:
+  gemini:
+    enabled: ${RSVQA_GEMINI_ENABLED:false}
+    api-key: ${GEMINI_API_KEY:}
+    model: ${RSVQA_GEMINI_MODEL:gemini-2.5-flash}
+    timeout-seconds: ${RSVQA_GEMINI_TIMEOUT_SECONDS:60}
+    max-retries: ${RSVQA_GEMINI_MAX_RETRIES:2}
+    max-output-tokens: ${RSVQA_GEMINI_MAX_OUTPUT_TOKENS:1024}
+    temperature: ${RSVQA_GEMINI_TEMPERATURE:0.2}
   model-service:
     base-url: ${RSVQA_MODEL_SERVICE_URL:http://localhost:8000}
     timeout-seconds: 15

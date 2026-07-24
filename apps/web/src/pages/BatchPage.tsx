@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Archive, CheckCircle2, ChevronLeft, ChevronRight, Download, FolderUp, Layers3, LoaderCircle, Maximize2, Plus, RotateCcw, StopCircle, Trash2, UploadCloud, X } from "lucide-react";
+import { AlertTriangle, Archive, CheckCircle2, ChevronLeft, ChevronRight, Download, Layers3, LoaderCircle, Maximize2, Plus, RotateCcw, StopCircle, Trash2, UploadCloud, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppTopbar, ModelSelector, StatusBadge } from "../components/AppChrome";
 import { ImageLightbox } from "../components/ImageLightbox";
@@ -7,7 +7,9 @@ import { archiveBatchJob, cancelBatchJob, createBatchJob, getBatchJob, listBatch
 import { useWorkspaceStore } from "../store";
 
 const IMAGES_PER_PAGE = 20;
-const MAX_IMAGES = 32;
+const MAX_IMAGES = 200;
+const MAX_COMBINATIONS = 1000;
+const MAX_TOTAL_IMAGE_BYTES = 120 * 1024 * 1024;
 
 export function BatchPage() {
   const queryClient = useQueryClient();
@@ -18,6 +20,7 @@ export function BatchPage() {
   const [activeJobId, setActiveJobId] = useState<string>();
   const [imagePage, setImagePage] = useState(1);
   const [previewIndex, setPreviewIndex] = useState<number>();
+  const [selectionNotice, setSelectionNotice] = useState("");
   const activeProjectId = useWorkspaceStore((state) => state.activeProjectId);
   const previews = useMemo(
     () => files.map((file) => ({ file, url: URL.createObjectURL(file) })),
@@ -81,17 +84,38 @@ export function BatchPage() {
           <div className="batch-summary"><span><strong>{files.length}</strong>图像</span><span><strong>{questions.length}</strong>问题</span><span><strong>{files.length * questions.length}</strong>组合</span></div>
         </header>
         <section className="plain-section">
-          <div className="section-heading"><div><span>01</span><h3>选择图像</h3></div><button className="quiet-button" type="button" onClick={() => input.current?.click()}><FolderUp size={15} />添加图像</button></div>
-          <button className="batch-dropzone" type="button" onClick={() => input.current?.click()}><UploadCloud size={22} /><strong>选择多张遥感图像</strong><span>PNG、JPG、WEBP · 单张最大 10 MiB</span></button>
+          <div className="section-heading"><div><span>01</span><h3>选择图像</h3></div></div>
+          <button className="batch-dropzone" type="button" onClick={() => input.current?.click()}><UploadCloud size={22} /><strong>{files.length > 0 ? "添加图像" : "上传图像"}</strong><span>PNG、JPG、WEBP · 单张最大 10 MiB · 单批最多 {MAX_IMAGES} 张</span></button>
           <input ref={input} className="sr-only" type="file" multiple accept="image/png,image/jpeg,image/webp" onChange={(event) => {
-            const selected = Array.from(event.target.files ?? []).filter((file) => file.size <= 10 * 1024 * 1024);
+            const selected = Array.from(event.target.files ?? []);
             setFiles((current) => {
               const known = new Set(current.map(fileKey));
-              return [...current, ...selected.filter((file) => !known.has(fileKey(file)))].slice(0, MAX_IMAGES);
+              const valid = selected.filter((file) => file.size <= 10 * 1024 * 1024);
+              const unique = valid.filter((file) => !known.has(fileKey(file)));
+              const currentBytes = current.reduce((total, file) => total + file.size, 0);
+              let acceptedBytes = currentBytes;
+              const accepted: File[] = [];
+              for (const file of unique) {
+                if (current.length + accepted.length >= MAX_IMAGES) break;
+                if (acceptedBytes + file.size > MAX_TOTAL_IMAGE_BYTES) break;
+                accepted.push(file);
+                acceptedBytes += file.size;
+              }
+              const rejectedOversize = selected.length - valid.length;
+              const rejectedDuplicate = valid.length - unique.length;
+              const rejectedLimit = unique.length - accepted.length;
+              const reasons = [
+                rejectedOversize > 0 ? `${rejectedOversize} 张超过单张 10 MiB` : "",
+                rejectedDuplicate > 0 ? `${rejectedDuplicate} 张重复` : "",
+                rejectedLimit > 0 ? `${rejectedLimit} 张超出 200 张或 120 MiB 单批上限` : "",
+              ].filter(Boolean);
+              setSelectionNotice(reasons.length > 0 ? `有 ${reasons.join("、")}，未加入任务。` : "");
+              return [...current, ...accepted];
             });
             setImagePage(1);
             event.target.value = "";
           }} />
+          {selectionNotice && <div className="inline-warning" role="status"><AlertTriangle size={14} />{selectionNotice}</div>}
           {files.length > 0 && (
             <div className="batch-preview-section">
               <div className="batch-preview-heading">
@@ -100,6 +124,7 @@ export function BatchPage() {
                   setFiles([]);
                   setPreviewIndex(undefined);
                   setImagePage(1);
+                  setSelectionNotice("");
                 }}><Trash2 size={14} />清空</button>
               </div>
               <div className="batch-thumbnail-grid" aria-label={`已选择图像，第 ${imagePage} 页`}>
@@ -136,7 +161,8 @@ export function BatchPage() {
         </section>
         {createMutation.isError && <div className="inline-error" role="alert"><AlertTriangle size={15} />{createMutation.error.message}</div>}
         {createMutation.isPending && <div className="upload-progress" aria-label={`上传进度 ${uploadProgress}%`}><span style={{ width: `${uploadProgress}%` }} /><small>正在上传并建立任务 · {uploadProgress}%</small></div>}
-        <footer className="batch-footer"><p><Layers3 size={15} />任务会逐项保存；单项失败不会丢失其他进度。</p><button className="primary-button" type="button" onClick={() => createMutation.mutate()} disabled={createMutation.isPending || files.length === 0 || questions.some((question) => !question.trim())}>{createMutation.isPending ? "正在创建…" : "创建批量任务"}</button></footer>
+        {files.length * questions.length > MAX_COMBINATIONS && <div className="inline-error" role="alert"><AlertTriangle size={14} />当前共有 {files.length * questions.length} 个组合，单个任务最多 {MAX_COMBINATIONS} 个；请减少图像或问题。</div>}
+        <footer className="batch-footer"><p><Layers3 size={15} />任务会逐项保存；单项失败不会丢失其他进度。</p><button className="primary-button" type="button" onClick={() => createMutation.mutate()} disabled={createMutation.isPending || files.length === 0 || questions.some((question) => !question.trim()) || files.length * questions.length > MAX_COMBINATIONS}>{createMutation.isPending ? "正在创建…" : "创建批量任务"}</button></footer>
 
         {(activeJob || (jobsQuery.data?.length ?? 0) > 0) && (
           <section className="plain-section batch-history">

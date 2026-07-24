@@ -4,9 +4,6 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 
-import org.springframework.stereotype.Component;
-
-@Component
 public class UnconfiguredExternalVisionProvider implements AiProvider {
 
     @Override

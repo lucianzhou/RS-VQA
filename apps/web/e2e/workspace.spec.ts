@@ -7,6 +7,10 @@ const batchImages = readdirSync(path.resolve("../../data/test-images/batch"))
   .filter((name) => /\.(?:png|jpe?g|webp)$/i.test(name))
   .slice(0, 22)
   .map((name) => path.resolve("../../data/test-images/batch", name));
+const batchImagesOver32 = readdirSync(path.resolve("../../data/test-images/batch"))
+  .filter((name) => /\.(?:png|jpe?g|webp)$/i.test(name))
+  .slice(0, 40)
+  .map((name) => path.resolve("../../data/test-images/batch", name));
 
 test("persists an image, multi-turn VQA, provenance, and agent tools", async ({ page }) => {
   await page.goto("/workspace");
@@ -102,6 +106,17 @@ test("previews a 20-image page and keeps the remaining images on page two", asyn
   await page.screenshot({ path: test.info().outputPath("batch-thumbnails-page-1.png"), fullPage: true });
 });
 
+test("accepts more than 32 batch images and keeps one adaptive upload entry", async ({ page }) => {
+  await page.goto("/batch");
+  await expect(page.getByRole("button", { name: /上传图像/ })).toHaveCount(1);
+  await page.locator('input[type="file"]').setInputFiles(batchImagesOver32);
+
+  await expect(page.getByText("已选择 40 / 200 张")).toBeVisible();
+  await expect(page.getByRole("button", { name: /添加图像/ })).toHaveCount(1);
+  await expect(page.getByText("第 1 / 2 页 · 每页最多 20 张")).toBeVisible();
+  await expect(page.getByLabel("已选择图像，第 1 页").locator("article")).toHaveCount(20);
+});
+
 test("creates, confirms, and exports a deterministic project report", async ({ page }) => {
   await page.goto("/reports");
   await expect(page.getByRole("heading", { name: "把项目与批任务整理为可追溯报告" })).toBeVisible();
@@ -123,4 +138,52 @@ test("creates, confirms, and exports a deterministic project report", async ({ p
   await page.getByRole("link", { name: "JSON" }).click();
   await expect((await jsonDownload).suggestedFilename()).toMatch(/\.json$/);
   await page.screenshot({ path: test.info().outputPath("report-confirmed-desktop.png"), fullPage: true });
+});
+
+test("keeps Gemini fail-closed behind image consent and server configuration", async ({ page }) => {
+  await page.goto("/workspace");
+  await expect(page.getByText("RS-VQA", { exact: true })).toBeVisible();
+  await expect.poll(async () => (
+    await page.request.get("/api/v1/user/settings")
+  ).status()).toBe(200);
+  const projectsResponse = await page.request.get("/api/v1/projects");
+  expect(projectsResponse.status()).toBe(200);
+  const projects = await projectsResponse.json() as Array<{ conversations: Array<{ id: string }> }>;
+  const conversationIds = projects.flatMap((project) => project.conversations.map((conversation) => conversation.id));
+  let conversationId = "";
+  let beforeMessages = 0;
+  for (const id of conversationIds) {
+    const response = await page.request.get(`/api/v1/conversations/${id}`);
+    const conversation = await response.json() as { image: unknown; messages: unknown[] };
+    if (conversation.image) {
+      conversationId = id;
+      beforeMessages = conversation.messages.length;
+      break;
+    }
+  }
+  expect(conversationId).not.toBe("");
+
+  await page.request.patch("/api/v1/user/settings", {
+    data: { externalImageOptIn: false },
+  });
+  const consentBlocked = await page.request.post(`/api/v1/conversations/${conversationId}/questions`, {
+    data: { question: "请描述这张图。", providerId: "gemini" },
+  });
+  expect(consentBlocked.status()).toBe(400);
+  expect((await consentBlocked.json()).code).toBe("INVALID_REQUEST");
+
+  await page.request.patch("/api/v1/user/settings", {
+    data: { externalImageOptIn: true },
+  });
+  const providerBlocked = await page.request.post(`/api/v1/conversations/${conversationId}/questions`, {
+    data: { question: "请描述这张图。", providerId: "gemini" },
+  });
+  expect(providerBlocked.status()).toBe(503);
+  expect((await providerBlocked.json()).code).toBe("PROVIDER_NOT_CONFIGURED");
+
+  const after = await (await page.request.get(`/api/v1/conversations/${conversationId}`)).json() as { messages: unknown[] };
+  expect(after.messages).toHaveLength(beforeMessages);
+  await page.request.patch("/api/v1/user/settings", {
+    data: { externalImageOptIn: false },
+  });
 });

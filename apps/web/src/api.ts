@@ -133,12 +133,13 @@ export function deleteConversationImage(conversationId: string) {
 export function askConversation(
   conversationId: string,
   question: string,
+  providerId: string,
   modelReleaseId?: string,
   signal?: AbortSignal,
 ) {
   return apiFetch<QuestionApiResponse>(`/api/v1/conversations/${conversationId}/questions`, {
     method: "POST",
-    body: JSON.stringify({ question, modelReleaseId }),
+    body: JSON.stringify({ question, providerId, modelReleaseId }),
     signal,
   });
 }

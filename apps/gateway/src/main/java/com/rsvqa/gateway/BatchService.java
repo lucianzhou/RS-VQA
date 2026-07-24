@@ -27,9 +27,9 @@ import com.rsvqa.gateway.repository.UserRepository;
 @Service
 public class BatchService {
 
-    static final int MAX_IMAGES = 32;
+    static final int MAX_IMAGES = 200;
     static final int MAX_QUESTIONS = 32;
-    static final int MAX_COMBINATIONS = 256;
+    static final int MAX_COMBINATIONS = 1000;
     static final long MAX_TOTAL_IMAGE_BYTES = 120L * 1024 * 1024;
 
     private final UserRepository users;
@@ -69,7 +69,7 @@ public class BatchService {
         }
         if (uploads.size() > MAX_IMAGES || questions.size() > MAX_QUESTIONS
                 || uploads.size() * questions.size() > MAX_COMBINATIONS) {
-            throw new RequestValidationException("单个批量任务最多 32 张图、32 个问题和 256 个组合。");
+            throw new RequestValidationException("单个批量任务最多 200 张图、32 个问题和 1000 个组合。");
         }
         long totalBytes = uploads.stream().mapToLong(MultipartFile::getSize).sum();
         if (totalBytes > MAX_TOTAL_IMAGE_BYTES) {

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 
+import io.micrometer.observation.ObservationRegistry;
 import org.junit.jupiter.api.Test;
 
 class ProviderBoundaryTest {
@@ -36,5 +37,24 @@ class ProviderBoundaryTest {
 
         assertThat(descriptors).extracting(AiProvider.ProviderDescriptor::kind)
                 .containsExactly("RESEARCH_MODEL", "EXTERNAL_VLM");
+    }
+
+    @Test
+    void geminiProviderFailsClosedWithoutExplicitServerConfiguration() {
+        var properties = new GeminiProviderProperties(
+                false, "", "gemini-2.5-flash", 60, 2, 1024, 0.2
+        );
+        var provider = new GeminiVisionProvider(properties, ObservationRegistry.NOOP);
+
+        assertThat(provider.descriptor().providerId()).isEqualTo("gemini");
+        assertThat(provider.descriptor().modelId()).isEqualTo("gemini-2.5-flash");
+        assertThat(provider.descriptor().configurationState()).isEqualTo("UNCONFIGURED");
+        assertThat(provider.descriptor().costMetadata())
+                .doesNotContainKeys("apiKey", "credential", "token");
+        assertThatThrownBy(() -> provider.invoke(new AiProvider.ProviderRequest(
+                new byte[] {1}, "image/png", "描述图像", null
+        )))
+                .isInstanceOf(ProviderNotConfiguredException.class)
+                .hasMessageContaining("网页会员不会被当作 API 授权");
     }
 }

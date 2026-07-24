@@ -54,6 +54,21 @@ public class ModelInvocationEntity extends BaseEntity {
     @Column(name = "error_code", length = 80)
     private String errorCode;
 
+    @Column(name = "provider_model", length = 160)
+    private String providerModel;
+
+    @Column(name = "prompt_tokens")
+    private Integer promptTokens;
+
+    @Column(name = "completion_tokens")
+    private Integer completionTokens;
+
+    @Column(name = "total_tokens")
+    private Integer totalTokens;
+
+    @Column(name = "estimated_cost_usd", precision = 14, scale = 8)
+    private java.math.BigDecimal estimatedCostUsd;
+
     protected ModelInvocationEntity() {
     }
 
@@ -87,6 +102,39 @@ public class ModelInvocationEntity extends BaseEntity {
         this.questionTypeProbabilitiesJson = questionTypeProbabilitiesJson;
         this.latencyMs = latencyMs;
         this.requestId = requestId;
+    }
+
+    public ModelInvocationEntity(
+            ConversationEntity conversation,
+            String modelReleaseId,
+            String providerType,
+            String providerModel,
+            String predictionOrigin,
+            String question,
+            String answer,
+            String status,
+            Double confidence,
+            Double margin,
+            String predictedQuestionType,
+            String topKJson,
+            String questionTypeProbabilitiesJson,
+            Long latencyMs,
+            String requestId,
+            Integer promptTokens,
+            Integer completionTokens,
+            Integer totalTokens,
+            Double estimatedCostUsd
+    ) {
+        this(
+                conversation, modelReleaseId, providerType, predictionOrigin, question, answer, status,
+                confidence, margin, predictedQuestionType, topKJson, questionTypeProbabilitiesJson,
+                latencyMs, requestId
+        );
+        this.providerModel = providerModel;
+        this.promptTokens = promptTokens;
+        this.completionTokens = completionTokens;
+        this.totalTokens = totalTokens;
+        this.estimatedCostUsd = estimatedCostUsd == null ? null : java.math.BigDecimal.valueOf(estimatedCostUsd);
     }
 
     public String getModelReleaseId() {
@@ -143,5 +191,25 @@ public class ModelInvocationEntity extends BaseEntity {
 
     public String getRequestId() {
         return requestId;
+    }
+
+    public String getProviderModel() {
+        return providerModel;
+    }
+
+    public Integer getPromptTokens() {
+        return promptTokens;
+    }
+
+    public Integer getCompletionTokens() {
+        return completionTokens;
+    }
+
+    public Integer getTotalTokens() {
+        return totalTokens;
+    }
+
+    public Double getEstimatedCostUsd() {
+        return estimatedCostUsd == null ? null : estimatedCostUsd.doubleValue();
     }
 }

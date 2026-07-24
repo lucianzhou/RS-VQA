@@ -19,7 +19,7 @@ describe("API request boundaries", () => {
     vi.stubGlobal("fetch", vi.fn(abortableFetch));
     const controller = new AbortController();
 
-    const request = askConversation("conversation-1", "图中有没有道路？", undefined, controller.signal);
+    const request = askConversation("conversation-1", "图中有没有道路？", "research-rsvqa", undefined, controller.signal);
     const assertion = expect(request).rejects.toThrow("请求已取消");
     controller.abort();
 

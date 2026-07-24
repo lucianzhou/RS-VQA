@@ -26,6 +26,7 @@ describe("feature pages", () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse([])));
     renderPage(<BatchPage />);
     expect(await screen.findByRole("heading", { name: "建立一组可复核的批量问答任务" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /上传图像/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "创建批量任务" })).toBeDisabled();
     expect(screen.getByText("2", { selector: ".batch-summary strong" })).toBeInTheDocument();
   });
@@ -50,7 +51,7 @@ describe("feature pages", () => {
     expect(screen.getByRole("button", { name: "检索" })).toBeEnabled();
   });
 
-  it("paginates batch thumbnails at twenty images and releases object URLs", async () => {
+  it("accepts more than 32 images, paginates by twenty, and releases object URLs", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse([])));
     const createObjectURL = vi.mocked(URL.createObjectURL);
     const revokeObjectURL = vi.mocked(URL.revokeObjectURL);
@@ -58,7 +59,7 @@ describe("feature pages", () => {
     const user = userEvent.setup();
     const view = renderPage(<BatchPage />);
     const fileInput = view.container.querySelector('input[type="file"]') as HTMLInputElement;
-    const files = Array.from({ length: 22 }, (_, index) => (
+    const files = Array.from({ length: 40 }, (_, index) => (
       new File([`image-${index}`], `remote-${String(index + 1).padStart(2, "0")}.jpg`, {
         type: "image/jpeg",
         lastModified: index + 1,
@@ -66,13 +67,15 @@ describe("feature pages", () => {
     ));
 
     await user.upload(fileInput, files);
+    expect(screen.getByRole("button", { name: /添加图像/ })).toBeInTheDocument();
+    expect(screen.getByText("已选择 40 / 200 张")).toBeInTheDocument();
     expect(screen.getByText("第 1 / 2 页 · 每页最多 20 张")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^查看大图/ })).toHaveLength(20);
     await user.click(screen.getByRole("button", { name: "下一页" }));
-    expect(screen.getAllByRole("button", { name: /^查看大图/ })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /^查看大图/ })).toHaveLength(20);
 
     view.unmount();
-    expect(revokeObjectURL).toHaveBeenCalledTimes(22);
+    expect(revokeObjectURL).toHaveBeenCalledTimes(40);
   });
 
   it("renders a traceable deterministic report and its review queue", async () => {

@@ -43,7 +43,8 @@ final class WorkspaceDtos {
             @NotBlank(message = "问题不能为空。")
             @Size(max = 300, message = "问题不能超过 300 个字符。")
             String question,
-            String modelReleaseId
+            String modelReleaseId,
+            String providerId
     ) {
     }
 
@@ -125,9 +126,15 @@ final class WorkspaceDtos {
             String status,
             String predictionOrigin,
             String modelReleaseId,
+            String providerType,
+            String providerModel,
             Double confidence,
             Double margin,
-            Long latencyMs
+            Long latencyMs,
+            Integer promptTokens,
+            Integer completionTokens,
+            Integer totalTokens,
+            Double estimatedCostUsd
     ) {
     }
 

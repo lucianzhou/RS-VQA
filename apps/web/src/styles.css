@@ -164,6 +164,7 @@ button, a { touch-action: manipulation; }
 .starter { padding-top: 34px; color: var(--muted); }
 .assistant-avatar { display: grid; width: 28px; height: 28px; flex: 0 0 auto; place-items: center; border-radius: 8px; color: white; background: var(--forest); font-size: 9px; font-weight: 780; }
 .assistant-avatar.warning { color: #7f5427; background: #f5eadc; }
+.assistant-avatar.external { color: #355047; background: #dfe9e3; }
 .starter strong { color: var(--ink); font-size: 12px; }
 .starter p { margin: 5px 0 13px; font-size: 11px; }
 .starter-questions { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -178,6 +179,7 @@ button, a { touch-action: manipulation; }
 .result-state.success { color: var(--forest); }
 .result-state.warning { color: var(--ochre); }
 .mock-flag { border-radius: 4px; padding: 3px 5px; color: #7f5427; background: #f5eadc; font-size: 8px; font-weight: 750; }
+.external-flag { border: 1px solid #c9d8d0; border-radius: 4px; padding: 2px 5px; color: #416455; background: #f4f8f5; font-size: 8px; font-weight: 720; }
 .answer-value { margin: 0 0 8px; color: var(--ink); font-size: 18px; font-weight: 620; line-height: 1.35; }
 .capability-notice { margin: 0; color: #4f5954; font-size: 11px; line-height: 1.7; }
 .provenance { margin-top: 12px; color: var(--muted); font-size: 9px; }
@@ -293,6 +295,7 @@ button, a { touch-action: manipulation; }
 .primary-button, .secondary-button, .danger-button, .quiet-button, .agent-toggle { transition: color var(--motion-press) ease, background var(--motion-press) ease, border-color var(--motion-press) ease, transform var(--motion-press) var(--ease-out); }
 .primary-button:not(:disabled):active, .secondary-button:not(:disabled):active, .danger-button:not(:disabled):active, .quiet-button:not(:disabled):active, .agent-toggle:not(:disabled):active { transform: scale(.97); }
 .inline-error { display: flex; align-items: center; gap: 7px; border-left: 2px solid #a34c42; padding: 7px 10px; color: #8d3e36; background: #fff8f6; font-size: 10px; }
+.inline-warning { display: flex; align-items: center; gap: 7px; margin-top: 10px; border-left: 2px solid var(--ochre); padding: 7px 10px; color: #7a552c; background: #fbf5ec; font-size: 10px; }
 .upload-progress { position: relative; height: 30px; margin-top: 8px; overflow: hidden; border-radius: 6px; background: #edf1ee; }
 .upload-progress > span { position: absolute; inset: 0 auto 0 0; background: var(--selection); transition: width 120ms ease; }
 .upload-progress small { position: relative; display: grid; height: 100%; place-items: center; color: var(--forest-pressed); font-size: 9px; }

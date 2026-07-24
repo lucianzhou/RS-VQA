@@ -4,6 +4,18 @@ import { afterEach, vi } from "vitest";
 
 afterEach(() => cleanup());
 
+// Radix dispatches focus-scope events from a queued callback. Node 22 also
+// exposes its own Event implementation, which jsdom correctly rejects for DOM
+// dispatch. Keep tests on the same event realm as the rendered document.
+Object.defineProperty(globalThis, "Event", {
+  configurable: true,
+  value: window.Event,
+});
+Object.defineProperty(globalThis, "CustomEvent", {
+  configurable: true,
+  value: window.CustomEvent,
+});
+
 const storage = new Map<string, string>();
 const localStorageStub: Storage = {
   get length() {
