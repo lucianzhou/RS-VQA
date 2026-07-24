@@ -57,6 +57,29 @@ test("persists an image, multi-turn VQA, provenance, and agent tools", async ({ 
   await page.screenshot({ path: test.info().outputPath("workspace-desktop.png"), fullPage: true });
 });
 
+test("requires confirmation before a trusted Agent archive action", async ({ page }) => {
+  await page.goto("/agent");
+  await expect(page.getByRole("heading", { name: "分析会话" })).toBeVisible();
+  const projectsResponse = await page.request.post("/api/v1/projects", {
+    data: { name: `Agent action ${Date.now()}` },
+  });
+  expect(projectsResponse.ok()).toBeTruthy();
+  const project = await projectsResponse.json() as { id: string; name: string };
+  await page.reload();
+  await page.getByLabel("选择项目").selectOption(project.id);
+  await page.getByRole("button", { name: "新建分析会话" }).click();
+  await expect(page.getByText("需要副作用时，先提交提案再人工确认")).toBeVisible();
+  await page.getByLabel("选择受控操作").selectOption("archive_project");
+  await page.getByRole("button", { name: "提交操作提案" }).click();
+  await expect(page.getByText("待人工确认")).toBeVisible();
+  await page.getByRole("button", { name: "确认执行" }).click();
+  await expect(page.getByText("已完成")).toBeVisible();
+  await expect(page.getByText("deterministic_action_controller")).toBeVisible();
+  const archived = await page.request.get("/api/v1/archive");
+  expect(archived.ok()).toBeTruthy();
+  expect((await archived.json()).projects.some((item: { id: string }) => item.id === project.id)).toBeTruthy();
+});
+
 test("indexes approved knowledge and returns citations from BGE and Milvus", async ({ page }) => {
   await page.goto("/knowledge");
   await page.getByRole("button", { name: "导入已核准边界" }).click();
