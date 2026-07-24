@@ -27,11 +27,23 @@ public class ModelInvocationEntity extends BaseEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String question;
 
+    @Column(columnDefinition = "TEXT")
+    private String answer;
+
     @Column(nullable = false, length = 40)
     private String status;
 
     private Double confidence;
     private Double margin;
+
+    @Column(name = "predicted_question_type", length = 40)
+    private String predictedQuestionType;
+
+    @Column(name = "top_k_json", columnDefinition = "TEXT")
+    private String topKJson;
+
+    @Column(name = "question_type_probabilities_json", columnDefinition = "TEXT")
+    private String questionTypeProbabilitiesJson;
 
     @Column(name = "latency_ms")
     private Long latencyMs;
@@ -51,9 +63,13 @@ public class ModelInvocationEntity extends BaseEntity {
             String providerType,
             String predictionOrigin,
             String question,
+            String answer,
             String status,
             Double confidence,
             Double margin,
+            String predictedQuestionType,
+            String topKJson,
+            String questionTypeProbabilitiesJson,
             Long latencyMs,
             String requestId
     ) {
@@ -62,9 +78,13 @@ public class ModelInvocationEntity extends BaseEntity {
         this.providerType = providerType;
         this.predictionOrigin = predictionOrigin;
         this.question = question;
+        this.answer = answer;
         this.status = status;
         this.confidence = confidence;
         this.margin = margin;
+        this.predictedQuestionType = predictedQuestionType;
+        this.topKJson = topKJson;
+        this.questionTypeProbabilitiesJson = questionTypeProbabilitiesJson;
         this.latencyMs = latencyMs;
         this.requestId = requestId;
     }
@@ -73,8 +93,24 @@ public class ModelInvocationEntity extends BaseEntity {
         return modelReleaseId;
     }
 
+    public ConversationEntity getConversation() {
+        return conversation;
+    }
+
     public String getPredictionOrigin() {
         return predictionOrigin;
+    }
+
+    public String getProviderType() {
+        return providerType;
+    }
+
+    public String getQuestion() {
+        return question;
+    }
+
+    public String getAnswer() {
+        return answer;
     }
 
     public String getStatus() {
@@ -87,6 +123,18 @@ public class ModelInvocationEntity extends BaseEntity {
 
     public Double getMargin() {
         return margin;
+    }
+
+    public String getPredictedQuestionType() {
+        return predictedQuestionType;
+    }
+
+    public String getTopKJson() {
+        return topKJson;
+    }
+
+    public String getQuestionTypeProbabilitiesJson() {
+        return questionTypeProbabilitiesJson;
     }
 
     public Long getLatencyMs() {

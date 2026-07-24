@@ -17,6 +17,7 @@ class ModelReleaseBoundaryTest {
                 Mockito.mock(WorkspaceService.class),
                 Mockito.mock(BatchService.class),
                 Mockito.mock(KnowledgeService.class),
+                Mockito.mock(AnalyticsService.class),
                 new com.fasterxml.jackson.databind.ObjectMapper()
         );
 
@@ -35,6 +36,7 @@ class ModelReleaseBoundaryTest {
                 Mockito.mock(WorkspaceService.class),
                 Mockito.mock(BatchService.class),
                 Mockito.mock(KnowledgeService.class),
+                Mockito.mock(AnalyticsService.class),
                 new com.fasterxml.jackson.databind.ObjectMapper()
         );
 
@@ -49,6 +51,9 @@ class ModelReleaseBoundaryTest {
                 "system_health",
                 "conversation_history",
                 "batch_job_status",
+                "project_vqa_statistics",
+                "batch_result_statistics",
+                "report_draft_data",
                 "search_knowledge"
         );
     }
@@ -60,6 +65,7 @@ class ModelReleaseBoundaryTest {
                 Mockito.mock(WorkspaceService.class),
                 Mockito.mock(BatchService.class),
                 Mockito.mock(KnowledgeService.class),
+                Mockito.mock(AnalyticsService.class),
                 new com.fasterxml.jackson.databind.ObjectMapper()
         );
         AgentToolRegistry registry = new AgentToolRegistry(
@@ -72,6 +78,6 @@ class ModelReleaseBoundaryTest {
                 .toList();
 
         assertThat(names).contains("single_image_vqa");
-        assertThat(names).hasSize(7);
+        assertThat(names).hasSize(10);
     }
 }

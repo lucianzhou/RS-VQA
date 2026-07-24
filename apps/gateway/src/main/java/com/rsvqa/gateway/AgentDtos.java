@@ -13,6 +13,7 @@ final class AgentDtos {
     }
 
     record AgentRequest(
+            UUID projectId,
             UUID conversationId,
             UUID batchJobId,
             @NotBlank(message = "Agent 问题不能为空。")

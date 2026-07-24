@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rsvqa.gateway.domain.ConversationEntity;
 import com.rsvqa.gateway.domain.ImageAssetEntity;
 import com.rsvqa.gateway.domain.MessageEntity;
@@ -35,6 +37,7 @@ public class WorkspaceService {
     private final ModelInvocationRepository invocations;
     private final FileStorageService storage;
     private final VqaService vqaService;
+    private final ObjectMapper objectMapper;
 
     public WorkspaceService(
             UserRepository users,
@@ -44,7 +47,8 @@ public class WorkspaceService {
             MessageRepository messages,
             ModelInvocationRepository invocations,
             FileStorageService storage,
-            VqaService vqaService
+            VqaService vqaService,
+            ObjectMapper objectMapper
     ) {
         this.users = users;
         this.projects = projects;
@@ -54,6 +58,7 @@ public class WorkspaceService {
         this.invocations = invocations;
         this.storage = storage;
         this.vqaService = vqaService;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional(readOnly = true)
@@ -264,9 +269,13 @@ public class WorkspaceService {
                 "RESEARCH_MODEL",
                 result.predictionOrigin(),
                 question,
+                result.answer(),
                 result.status(),
                 result.confidence(),
                 result.margin(),
+                result.predictedQuestionType(),
+                json(result.topK()),
+                json(result.questionTypeProbabilities()),
                 result.latencyMs(),
                 result.requestId()
         ));
@@ -374,6 +383,14 @@ public class WorkspaceService {
         return new String(value.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8)
                 .replace("\\", "\\\\")
                 .replace("\"", "\\\"");
+    }
+
+    private String json(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException error) {
+            throw new IllegalStateException("模型 provenance 无法序列化。", error);
+        }
     }
 
     private static String safeReportName(String title) {

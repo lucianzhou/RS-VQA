@@ -108,7 +108,27 @@ public class BatchService {
     @Transactional(readOnly = true)
     public List<BatchJobResponse> list() {
         UUID userId = currentUser().getId();
-        return jobs.findByUserIdOrderByCreatedAtDesc(userId).stream().map(this::toResponse).toList();
+        return jobs.findByUserIdAndArchivedFalseOrderByCreatedAtDesc(userId).stream().map(this::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<BatchJobResponse> archive() {
+        UUID userId = currentUser().getId();
+        return jobs.findByUserIdAndArchivedTrueOrderByCreatedAtDesc(userId).stream().map(this::toResponse).toList();
+    }
+
+    @Transactional
+    public void archive(UUID jobId) {
+        BatchJobEntity job = ownedJob(jobId);
+        if ("QUEUED".equals(job.getStatus()) || "RUNNING".equals(job.getStatus())) {
+            throw new RequestValidationException("运行中的批量任务不能归档，请先取消或等待完成。");
+        }
+        job.archive();
+    }
+
+    @Transactional
+    public void restore(UUID jobId) {
+        ownedJob(jobId).restore();
     }
 
     @Transactional(readOnly = true)
@@ -179,6 +199,10 @@ public class BatchService {
                 result.answer() == null ? result.capabilityNotice() : result.answer(),
                 result.predictionOrigin(),
                 result.confidence(),
+                result.margin(),
+                result.predictedQuestionType(),
+                result.requestId(),
+                result.modelReleaseId(),
                 result.latencyMs()
         );
         job.recordSuccess();
@@ -236,14 +260,15 @@ public class BatchService {
         List<BatchItemResponse> responses = items.findByBatchJobIdOrderByCreatedAtAsc(job.getId()).stream()
                 .map(item -> new BatchItemResponse(
                         item.getId(), item.getOriginalName(), item.getQuestion(), item.getStatus(), item.getAnswer(),
-                        item.getPredictionOrigin(), item.getConfidence(), item.getLatencyMs(), item.getErrorCode(),
+                        item.getPredictionOrigin(), item.getConfidence(), item.getMargin(), item.getPredictedQuestionType(),
+                        item.getRequestId(), item.getModelReleaseId(), item.getLatencyMs(), item.getErrorCode(),
                         item.getErrorMessage(), item.getAttemptCount()
                 ))
                 .toList();
         int progress = job.getTotalItems() == 0 ? 0 : (int) Math.round(job.getCompletedItems() * 100.0 / job.getTotalItems());
         return new BatchJobResponse(
                 job.getId(), job.getStatus(), job.getTotalItems(), job.getCompletedItems(), job.getFailedItems(),
-                job.isCancelRequested(), job.getModelReleaseId(), progress, responses, job.getCreatedAt(), job.getUpdatedAt()
+                job.isCancelRequested(), job.isArchived(), job.getModelReleaseId(), progress, responses, job.getCreatedAt(), job.getUpdatedAt()
         );
     }
 

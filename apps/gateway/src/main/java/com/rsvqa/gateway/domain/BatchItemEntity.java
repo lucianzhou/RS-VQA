@@ -58,6 +58,16 @@ public class BatchItemEntity extends BaseEntity {
     private String predictionOrigin;
 
     private Double confidence;
+    private Double margin;
+
+    @Column(name = "predicted_question_type", length = 40)
+    private String predictedQuestionType;
+
+    @Column(name = "request_id", length = 100)
+    private String requestId;
+
+    @Column(name = "model_release_id", length = 200)
+    private String modelReleaseId;
 
     @Column(name = "latency_ms")
     private Long latencyMs;
@@ -130,6 +140,22 @@ public class BatchItemEntity extends BaseEntity {
         return latencyMs;
     }
 
+    public Double getMargin() {
+        return margin;
+    }
+
+    public String getPredictedQuestionType() {
+        return predictedQuestionType;
+    }
+
+    public String getRequestId() {
+        return requestId;
+    }
+
+    public String getModelReleaseId() {
+        return modelReleaseId;
+    }
+
     public void start() {
         status = "RUNNING";
         attemptCount++;
@@ -137,11 +163,24 @@ public class BatchItemEntity extends BaseEntity {
         errorMessage = null;
     }
 
-    public void succeed(String answer, String predictionOrigin, Double confidence, Long latencyMs) {
+    public void succeed(
+            String answer,
+            String predictionOrigin,
+            Double confidence,
+            Double margin,
+            String predictedQuestionType,
+            String requestId,
+            String modelReleaseId,
+            Long latencyMs
+    ) {
         status = "COMPLETED";
         this.answer = answer;
         this.predictionOrigin = predictionOrigin;
         this.confidence = confidence;
+        this.margin = margin;
+        this.predictedQuestionType = predictedQuestionType;
+        this.requestId = requestId;
+        this.modelReleaseId = modelReleaseId;
         this.latencyMs = latencyMs;
     }
 
@@ -161,6 +200,10 @@ public class BatchItemEntity extends BaseEntity {
         if ("FAILED".equals(status)) {
             status = "QUEUED";
             answer = null;
+            confidence = null;
+            margin = null;
+            predictedQuestionType = null;
+            requestId = null;
             errorCode = null;
             errorMessage = null;
         }

@@ -37,6 +37,9 @@ public class BatchJobEntity extends BaseEntity {
     @Column(name = "cancel_requested", nullable = false)
     private boolean cancelRequested;
 
+    @Column(nullable = false)
+    private boolean archived;
+
     protected BatchJobEntity() {
     }
 
@@ -50,6 +53,10 @@ public class BatchJobEntity extends BaseEntity {
 
     public UserEntity getUser() {
         return user;
+    }
+
+    public ProjectEntity getProject() {
+        return project;
     }
 
     public String getModelReleaseId() {
@@ -74,6 +81,18 @@ public class BatchJobEntity extends BaseEntity {
 
     public boolean isCancelRequested() {
         return cancelRequested;
+    }
+
+    public boolean isArchived() {
+        return archived;
+    }
+
+    public void archive() {
+        archived = true;
+    }
+
+    public void restore() {
+        archived = false;
     }
 
     public void start() {

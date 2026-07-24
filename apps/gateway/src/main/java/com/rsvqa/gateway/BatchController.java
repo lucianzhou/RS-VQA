@@ -34,6 +34,11 @@ public class BatchController {
         return batches.list();
     }
 
+    @GetMapping("/archive")
+    public List<BatchJobResponse> archive() {
+        return batches.archive();
+    }
+
     @GetMapping("/{jobId}")
     public BatchJobResponse get(@PathVariable UUID jobId) {
         return batches.get(jobId);
@@ -69,5 +74,17 @@ public class BatchController {
         BatchJobResponse response = batches.retryFailed(jobId);
         worker.process(jobId);
         return response;
+    }
+
+    @PostMapping("/{jobId}/archive")
+    public ResponseEntity<Void> archive(@PathVariable UUID jobId) {
+        batches.archive(jobId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{jobId}/restore")
+    public ResponseEntity<Void> restore(@PathVariable UUID jobId) {
+        batches.restore(jobId);
+        return ResponseEntity.noContent().build();
     }
 }

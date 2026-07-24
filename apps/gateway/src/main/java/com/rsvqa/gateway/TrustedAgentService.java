@@ -138,6 +138,27 @@ public class TrustedAgentService {
                 }
                 yield tools.batchJobStatus(request.batchJobId().toString());
             }
+            case "project_vqa_statistics" -> {
+                if (request.projectId() == null) {
+                    throw new RequestValidationException("项目统计需要 projectId。");
+                }
+                yield tools.projectVqaStatistics(request.projectId().toString());
+            }
+            case "batch_result_statistics" -> {
+                if (request.batchJobId() == null) {
+                    throw new RequestValidationException("批量统计需要 batchJobId。");
+                }
+                yield tools.batchResultStatistics(request.batchJobId().toString());
+            }
+            case "report_draft_data" -> {
+                if (request.projectId() != null) {
+                    yield tools.reportDraftData("project", request.projectId().toString());
+                }
+                if (request.batchJobId() != null) {
+                    yield tools.reportDraftData("batch", request.batchJobId().toString());
+                }
+                throw new RequestValidationException("报告事实包需要 projectId 或 batchJobId。");
+            }
             case "search_knowledge" -> tools.searchKnowledge(request.message().trim());
             default -> throw new RequestValidationException("不在白名单中的 Agent 工具：" + toolName);
         };
@@ -149,7 +170,17 @@ public class TrustedAgentService {
         }
         String message = request.message().toLowerCase(Locale.ROOT);
         if (message.contains("批量") || message.contains("任务")) {
+            if (message.contains("统计") || message.contains("分布") || message.contains("汇总")) {
+                return "batch_result_statistics";
+            }
             return "batch_job_status";
+        }
+        if ((message.contains("报告") || message.contains("草稿")) && (request.projectId() != null || request.batchJobId() != null)) {
+            return "report_draft_data";
+        }
+        if ((message.contains("项目") || message.contains("统计") || message.contains("分布") || message.contains("汇总"))
+                && request.projectId() != null) {
+            return "project_vqa_statistics";
         }
         if (message.contains("历史") || message.contains("会话")) {
             return "conversation_history";
@@ -185,6 +216,9 @@ public class TrustedAgentService {
             case "single_image_vqa" -> "已调用当前会话的受控 VQA 主路径并保存模型原始结果。Agent 只说明调用完成，不会改写答案或提升置信度。";
             case "conversation_history" -> "已读取当前登录用户的会话历史。下面的工具输出是持久化记录，不会被当前模型版本覆盖。";
             case "batch_job_status" -> "已读取批量任务及逐项状态。失败项会保留错误信息，不影响已完成项目。";
+            case "project_vqa_statistics" -> "已由后端确定性统计项目内的题型、答案、置信度、拒答和失败记录；这些数字不是由 Agent 估算。";
+            case "batch_result_statistics" -> "已由后端确定性统计批量任务结果和需人工复核案例；Agent 不会自行计数或改写原始预测。";
+            case "report_draft_data" -> "已读取可用于报告草稿的结构化事实包；保存或导出报告需要独立的受控操作。";
             case "search_knowledge" -> "已通过 BGE 与 Milvus 检索知识库；工具输出中的文档、分块和相似度是本次解释的来源，不能替代图像模型推理。";
             default -> json(output);
         };
@@ -194,6 +228,11 @@ public class TrustedAgentService {
         return switch (toolName) {
             case "conversation_history" -> "{\"conversationId\":\"" + request.conversationId() + "\"}";
             case "batch_job_status" -> "{\"batchJobId\":\"" + request.batchJobId() + "\"}";
+            case "project_vqa_statistics" -> "{\"projectId\":\"" + request.projectId() + "\"}";
+            case "batch_result_statistics" -> "{\"batchJobId\":\"" + request.batchJobId() + "\"}";
+            case "report_draft_data" -> request.projectId() == null
+                    ? "{\"batchJobId\":\"" + request.batchJobId() + "\"}"
+                    : "{\"projectId\":\"" + request.projectId() + "\"}";
             case "single_image_vqa" -> "{\"conversationId\":\"" + request.conversationId() + "\",\"questionLength\":" + request.message().length() + "}";
             default -> "{}";
         };
