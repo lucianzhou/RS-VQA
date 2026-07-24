@@ -6,17 +6,20 @@
 | --- | --- |
 | 支持的契约版本 | `1.0` |
 | 规范路径 | `rs-vqa-fusion/docs/24_model_release_contract.md` |
-| 审计时研究工作树 HEAD | `e28fb0722a5ef472cbd65f612d273e26c7500b1b` |
-| 规范 Git 状态 | `untracked`，尚不能形成可发布的 commit 固定引用 |
-| 当前真实 release | 无 |
-| 当前开发 runtime | `MOCK`，不得作为研究结果 |
+| 审计时研究工作树 HEAD | `8510bc9cd1738f2cc3c61a3eff3b0faab0cbe556` |
+| 发布契约 Git 引用 | `b9077c8e8e91e4c88bad93c1135cbe9a095454e2` |
+| 当前真实 release | `rsvqa-hr-qdrop15-predicted-soft-20260724-8510bc9`（AutoDL 已冻结；应用端正在消费校验） |
+| checkpoint SHA-256 | `2426770af96a6f41b30e081c9719d6582471fab091e4b44ba2c3068d6e227109` |
+| 答案词表 SHA-256 | `23592881181ac284e46292921ce14d329eb437c1e3913b2e2f8a05ff9b75f99a` |
+| runtime wheel SHA-256 | `cc604c70c65974dbd5826edf6f1bfc24766b17b27926087f154cb844a9d1f9ab` |
+| 当前开发 runtime | `MOCK`，直到本地完整制品通过消费端 smoke 前不得作为研究结果 |
 
 ## Fail-closed 条件
 
 Real Runtime 只有在以下条件全部成立时进入 ready：
 
 1. `contract_version` 为 `1.0`。
-2. `task.name` 为 `rsvqa_hr_grouped_answer_closed_set`。
+2. `task.name` 为 `rsvqa_hr_grouped_closed_set`。
 3. `type_source_mode` 为 `predicted_soft`。
 4. release ID、研究 commit、运行时 digest、checkpoint/词表哈希完整。
 5. 实际文件 SHA-256 与 manifest 一致。
@@ -28,4 +31,6 @@ Real Runtime 只有在以下条件全部成立时进入 ready：
 
 应用侧已经实现 manifest Pydantic Schema、流式 SHA-256、路径穿越防护、release/version 固定、runtime digest 比对、加载/预热和输出校验。`compose.real.yaml` 只切换到这个 fail-closed 边界，不会降低校验要求。
 
-当前研究契约文件尚未进入研究仓库 commit，因此真实 release 接入必须继续等待其被研究侧正式固定；这不阻塞协议一致的 Mock 与应用开发。
+研究侧已经提交契约和不可变 release。应用侧仍必须完成所有制品的本地 SHA-256、
+独立 wheel factory 加载、CPU warmup、真实单图和连续多轮 smoke 后，才可把
+`research_vilt_predicted_soft` 标记为 ready；下载不完整或任何哈希不一致时继续 fail closed。

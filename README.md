@@ -71,15 +71,25 @@ Mock 是默认、安全且无需 checkpoint 的完整演示模式：
 docker-compose --profile rag up -d
 ```
 
-Real 模式只接受研究仓库发布的不可变运行时。先将 release 放入被忽略的 `model-releases/`，再通过未跟踪的环境配置提供：
+Real 模式只接受研究仓库发布的不可变运行时。先将完整 release 放入被忽略的
+`model-releases/`。模型服务会校验 manifest、checkpoint、55 类答案词表、运行时 wheel
+和本地预处理器哈希，并直接从已验证 wheel 的固定 factory 加载，不读取研究训练脚本。
+随后通过当前 shell 提供容器内 manifest 路径：
 
 ```bash
 RSVQA_RELEASE_MANIFEST=/opt/rsvqa/model-releases/<release>/model-release.json \
-RSVQA_RUNTIME_ENTRYPOINT=package.module:factory \
 docker-compose -f compose.yaml -f compose.real.yaml --profile rag up -d --build
 ```
 
-Real Runtime 会 fail closed：契约版本、`type_source_mode=predicted_soft`、checkpoint/词表/运行时 SHA-256、禁用 oracle/routed 协议、预热和输出 Schema 任一不满足，`/ready` 即不会通过。详细规范见 [模型发布消费者契约](docs/architecture/model-release-consumer.md)。
+真实模式使用独立的 `Dockerfile.real` 安装 PyTorch、Transformers 与 PEFT；默认 Mock
+镜像不包含这些重型依赖。CPU 是默认设备，也可为远程 GPU worker 显式配置
+`RSVQA_MODEL_DEVICE=cuda`。factory 只能来自 manifest 中经过哈希校验的 wheel，不能由
+环境变量替换。
+
+Real Runtime 会 fail closed：契约版本、`type_source=predicted_soft`、checkpoint、55 类
+词表、wheel 与预处理器 SHA-256、禁用 oracle/routed/人工题型协议、预热和输出 Schema
+任一不满足，`/ready` 即不会通过。详细规范见
+[模型发布消费者契约](docs/architecture/model-release-consumer.md)。
 
 ## 可选 Gemini Provider
 

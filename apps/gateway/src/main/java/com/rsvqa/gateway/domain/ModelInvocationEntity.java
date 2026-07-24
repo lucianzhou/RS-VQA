@@ -18,6 +18,15 @@ public class ModelInvocationEntity extends BaseEntity {
     @Column(name = "model_release_id", length = 200)
     private String modelReleaseId;
 
+    @Column(name = "checkpoint_sha256", length = 64)
+    private String checkpointSha256;
+
+    @Column(name = "answer_vocabulary_sha256", length = 64)
+    private String answerVocabularySha256;
+
+    @Column(name = "runtime_artifact_sha256", length = 64)
+    private String runtimeArtifactSha256;
+
     @Column(name = "provider_type", nullable = false, length = 40)
     private String providerType;
 
@@ -139,6 +148,28 @@ public class ModelInvocationEntity extends BaseEntity {
 
     public String getModelReleaseId() {
         return modelReleaseId;
+    }
+
+    public void recordResearchProvenance(
+            String checkpointSha256,
+            String answerVocabularySha256,
+            String runtimeArtifactSha256
+    ) {
+        this.checkpointSha256 = checkpointSha256;
+        this.answerVocabularySha256 = answerVocabularySha256;
+        this.runtimeArtifactSha256 = runtimeArtifactSha256;
+    }
+
+    public String getCheckpointSha256() {
+        return checkpointSha256;
+    }
+
+    public String getAnswerVocabularySha256() {
+        return answerVocabularySha256;
+    }
+
+    public String getRuntimeArtifactSha256() {
+        return runtimeArtifactSha256;
     }
 
     public ConversationEntity getConversation() {

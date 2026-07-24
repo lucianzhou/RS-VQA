@@ -134,7 +134,10 @@ final class WorkspaceDtos {
             Integer promptTokens,
             Integer completionTokens,
             Integer totalTokens,
-            Double estimatedCostUsd
+            Double estimatedCostUsd,
+            String checkpointSha256,
+            String answerVocabularySha256,
+            String runtimeArtifactSha256
     ) {
     }
 

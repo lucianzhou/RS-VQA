@@ -203,6 +203,9 @@ public class BatchService {
                 result.predictedQuestionType(),
                 result.requestId(),
                 result.modelReleaseId(),
+                result.checkpointSha256(),
+                result.answerVocabularySha256(),
+                result.runtimeArtifactSha256(),
                 result.latencyMs()
         );
         job.recordSuccess();
@@ -261,7 +264,8 @@ public class BatchService {
                 .map(item -> new BatchItemResponse(
                         item.getId(), item.getOriginalName(), item.getQuestion(), item.getStatus(), item.getAnswer(),
                         item.getPredictionOrigin(), item.getConfidence(), item.getMargin(), item.getPredictedQuestionType(),
-                        item.getRequestId(), item.getModelReleaseId(), item.getLatencyMs(), item.getErrorCode(),
+                        item.getRequestId(), item.getModelReleaseId(), item.getCheckpointSha256(),
+                        item.getAnswerVocabularySha256(), item.getRuntimeArtifactSha256(), item.getLatencyMs(), item.getErrorCode(),
                         item.getErrorMessage(), item.getAttemptCount()
                 ))
                 .toList();

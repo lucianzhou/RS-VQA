@@ -14,6 +14,9 @@ export interface PredictionResponse {
   questionType: string | null;
   predictionOrigin: PredictionOrigin;
   modelReleaseId: string | null;
+  checkpointSha256?: string | null;
+  answerVocabularySha256?: string | null;
+  runtimeArtifactSha256?: string | null;
   capabilityNotice: string;
   confidence?: number | null;
   margin?: number | null;
@@ -178,6 +181,9 @@ export interface BatchItem {
   predictedQuestionType: string | null;
   requestId: string | null;
   modelReleaseId: string | null;
+  checkpointSha256?: string | null;
+  answerVocabularySha256?: string | null;
+  runtimeArtifactSha256?: string | null;
   latencyMs: number | null;
   errorCode: string | null;
   errorMessage: string | null;

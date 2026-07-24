@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
-TASK_SCOPE = "rsvqa_hr_grouped_answer_closed_set"
+TASK_SCOPE = "rsvqa_hr_grouped_closed_set"
 MOCK_RELEASE_ID = "mock-demo-not-a-research-release"
 
 
@@ -51,6 +51,9 @@ class PredictionResponse(BaseModel):
     question_type_probabilities: dict[str, float] = Field(default_factory=dict)
     prediction_origin: PredictionOrigin
     model_release_id: str | None = None
+    checkpoint_sha256: str | None = None
+    answer_vocabulary_sha256: str | None = None
+    runtime_artifact_sha256: str | None = None
     task_scope: str = TASK_SCOPE
     limitations: list[str] = Field(default_factory=list)
     capability_notice: str

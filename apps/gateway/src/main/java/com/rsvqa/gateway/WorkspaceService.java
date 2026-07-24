@@ -273,7 +273,7 @@ public class WorkspaceService {
                 storage.read(image.getStorageKey()), image.getOriginalName(), image.getMimeType(),
                 question, request.modelReleaseId()
         );
-        ModelInvocationEntity invocation = invocations.save(new ModelInvocationEntity(
+        ModelInvocationEntity invocation = new ModelInvocationEntity(
                 conversation,
                 result.modelReleaseId(),
                 "RESEARCH_MODEL",
@@ -288,7 +288,13 @@ public class WorkspaceService {
                 json(result.questionTypeProbabilities()),
                 result.latencyMs(),
                 result.requestId()
-        ));
+        );
+        invocation.recordResearchProvenance(
+                result.checkpointSha256(),
+                result.answerVocabularySha256(),
+                result.runtimeArtifactSha256()
+        );
+        invocation = invocations.save(invocation);
         String sourceType = "mock_demo".equals(result.predictionOrigin()) ? "MOCK" : "RESEARCH_MODEL";
         String content = result.answer() == null ? result.capabilityNotice() : result.answer();
         String metadata = "{\"capabilityNotice\":\"" + jsonEscape(result.capabilityNotice()) + "\"}";
@@ -376,6 +382,9 @@ public class WorkspaceService {
                 java.util.Map.of(),
                 "external_vlm_assist",
                 null,
+                null,
+                null,
+                null,
                 "external_general_vision_assistance",
                 List.of(
                         "该输出来自外部 Gemini，不属于论文研究模型结果。",
@@ -446,7 +455,10 @@ public class WorkspaceService {
                 invocation.getPromptTokens(),
                 invocation.getCompletionTokens(),
                 invocation.getTotalTokens(),
-                invocation.getEstimatedCostUsd()
+                invocation.getEstimatedCostUsd(),
+                invocation.getCheckpointSha256(),
+                invocation.getAnswerVocabularySha256(),
+                invocation.getRuntimeArtifactSha256()
         );
         return new MessageResponse(
                 message.getId(),
