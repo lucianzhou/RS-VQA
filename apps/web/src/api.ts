@@ -2,6 +2,8 @@ import type {
   ApiError,
   AuditEvent,
   AgentRun,
+  AgentSession,
+  AgentSessionSummary,
   BatchJob,
   ConversationDetail,
   CurrentUser,
@@ -280,8 +282,14 @@ export function runTrustedAgent(
 }
 
 export async function runTrustedAgentStream(
-  message: string,
-  conversationId: string | undefined,
+  request: {
+    message: string;
+    sessionId?: string;
+    projectId?: string;
+    conversationId?: string;
+    batchJobId?: string;
+    toolName?: string;
+  },
   onState: (event: string) => void,
   signal?: AbortSignal,
 ): Promise<AgentRun> {
@@ -289,7 +297,7 @@ export async function runTrustedAgentStream(
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-    body: JSON.stringify({ message, conversationId }),
+    body: JSON.stringify(request),
     signal,
   });
   if (!response.ok || !response.body) {
@@ -321,6 +329,30 @@ export async function runTrustedAgentStream(
   }
   if (!completed) throw new Error("Agent 流在返回完整结果前结束。");
   return completed;
+}
+
+export function listAgentSessions() {
+  return apiFetch<AgentSessionSummary[]>("/api/v1/agent/sessions");
+}
+
+export function getAgentSession(sessionId: string) {
+  return apiFetch<AgentSession>(`/api/v1/agent/sessions/${sessionId}`);
+}
+
+export function createAgentSession(input: {
+  title?: string;
+  projectId?: string;
+  conversationId?: string;
+  batchJobId?: string;
+}) {
+  return apiFetch<AgentSession>("/api/v1/agent/sessions", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function archiveAgentSession(sessionId: string) {
+  return apiFetch<void>(`/api/v1/agent/sessions/${sessionId}`, { method: "DELETE" });
 }
 
 export function listKnowledgeDocuments() {

@@ -1,5 +1,6 @@
 package com.rsvqa.gateway;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -13,6 +14,7 @@ final class AgentDtos {
     }
 
     record AgentRequest(
+            UUID sessionId,
             UUID projectId,
             UUID conversationId,
             UUID batchJobId,
@@ -33,6 +35,55 @@ final class AgentDtos {
             List<ToolCallResponse> toolCalls,
             List<Map<String, String>> citations,
             String boundaryNotice
+    ) {
+    }
+
+    record CreateAgentSessionRequest(
+            UUID projectId,
+            UUID conversationId,
+            UUID batchJobId,
+            @Size(max = 200, message = "Agent 会话标题不能超过 200 个字符。")
+            String title
+    ) {
+    }
+
+    record AgentSessionSummary(
+            UUID id,
+            String title,
+            String contextType,
+            UUID contextId,
+            String contextLabel,
+            int runCount,
+            Instant createdAt,
+            Instant updatedAt
+    ) {
+    }
+
+    record AgentSessionDetail(
+            UUID id,
+            String title,
+            String contextType,
+            UUID contextId,
+            String contextLabel,
+            List<AgentHistoryRun> runs,
+            List<String> suggestedPrompts,
+            Instant createdAt,
+            Instant updatedAt
+    ) {
+    }
+
+    record AgentHistoryRun(
+            UUID runId,
+            String status,
+            String input,
+            String answer,
+            String traceId,
+            Long latencyMs,
+            String providerId,
+            String providerModel,
+            Integer totalTokens,
+            List<ToolCallResponse> toolCalls,
+            Instant createdAt
     ) {
     }
 

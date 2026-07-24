@@ -4,9 +4,12 @@ import static com.rsvqa.gateway.AgentDtos.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,15 +26,18 @@ public class TrustedAgentController {
     private final TrustedAgentService agent;
     private final AgentToolRegistry tools;
     private final AgentStreamService stream;
+    private final AgentSessionService sessions;
 
     public TrustedAgentController(
             TrustedAgentService agent,
             AgentToolRegistry tools,
-            AgentStreamService stream
+            AgentStreamService stream,
+            AgentSessionService sessions
     ) {
         this.agent = agent;
         this.tools = tools;
         this.stream = stream;
+        this.sessions = sessions;
     }
 
     @PostMapping("/runs")
@@ -42,6 +48,26 @@ public class TrustedAgentController {
     @PostMapping(value = "/runs/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@Valid @RequestBody AgentRequest request) {
         return stream.run(request);
+    }
+
+    @GetMapping("/sessions")
+    public List<AgentSessionSummary> sessions() {
+        return sessions.list();
+    }
+
+    @PostMapping("/sessions")
+    public AgentSessionDetail createSession(@Valid @RequestBody CreateAgentSessionRequest request) {
+        return sessions.create(request);
+    }
+
+    @GetMapping("/sessions/{sessionId}")
+    public AgentSessionDetail session(@PathVariable UUID sessionId) {
+        return sessions.get(sessionId);
+    }
+
+    @DeleteMapping("/sessions/{sessionId}")
+    public void archiveSession(@PathVariable UUID sessionId) {
+        sessions.archive(sessionId);
     }
 
     @GetMapping("/tools")

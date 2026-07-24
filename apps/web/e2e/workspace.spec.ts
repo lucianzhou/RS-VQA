@@ -187,3 +187,25 @@ test("keeps Gemini fail-closed behind image consent and server configuration", a
     data: { externalImageOptIn: false },
   });
 });
+
+test("persists a multi-turn project Agent session with deterministic tool evidence", async ({ page }) => {
+  await page.goto("/agent");
+  await expect(page.getByRole("heading", { name: "分析会话" })).toBeVisible();
+  await page.getByRole("button", { name: "新建分析会话" }).click();
+  await expect(page.getByText("从真实业务事实开始分析")).toBeVisible();
+
+  await page.getByRole("button", { name: "汇总这个项目的 VQA 结果和置信度分布" }).first().click();
+  await expect(page.getByText("项目 VQA 统计")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(".agent-turn")).toHaveCount(1);
+
+  const composer = page.getByLabel("向可信 Agent 提问");
+  await composer.fill("生成这个项目的报告事实包");
+  await page.getByRole("button", { name: "发送给可信 Agent" }).click();
+  await expect(page.locator(".agent-turn")).toHaveCount(2, { timeout: 15_000 });
+  await expect(page.locator(".agent-tool-card").filter({ hasText: "报告事实包" })).toHaveCount(1);
+
+  await page.reload();
+  await expect(page.locator(".agent-turn")).toHaveCount(2);
+  await expect(page.getByText(/Trace /).first()).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath("agent-project-analysis.png"), fullPage: true });
+});

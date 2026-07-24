@@ -62,4 +62,28 @@ public class ToolInvocationEntity extends BaseEntity {
         }
         return value.substring(0, Math.min(value.length(), 4000));
     }
+
+    public String getToolName() {
+        return toolName;
+    }
+
+    public String getArgumentsSummary() {
+        return argumentsSummary;
+    }
+
+    public String getOutputSummary() {
+        return outputSummary;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public Long getLatencyMs() {
+        return latencyMs;
+    }
+
+    public String getErrorCode() {
+        return errorCode;
+    }
 }

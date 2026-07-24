@@ -8,6 +8,7 @@ import { BatchPage } from "./BatchPage";
 import { KnowledgePage } from "./KnowledgePage";
 import { ReportsPage } from "./ReportsPage";
 import { SettingsPage } from "./SettingsPage";
+import { AgentPage } from "./AgentPage";
 
 function renderPage(page: ReactNode) {
   return render(
@@ -29,6 +30,25 @@ describe("feature pages", () => {
     expect(screen.getByRole("button", { name: /上传图像/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "创建批量任务" })).toBeDisabled();
     expect(screen.getByText("2", { selector: ".batch-summary strong" })).toBeInTheDocument();
+  });
+
+  it("offers project, batch, and workspace contexts for a persistent Agent session", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith("/api/v1/projects")) {
+        return jsonResponse([{ id: "project-1", name: "城市土地利用", conversations: [], updatedAt: new Date().toISOString() }]);
+      }
+      return jsonResponse([]);
+    }));
+    const user = userEvent.setup();
+    renderPage(<AgentPage />);
+    expect(await screen.findByRole("heading", { name: "分析会话" })).toBeInTheDocument();
+    expect(screen.getByText("让分析建立在可核验事实之上")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "项目" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "批量任务" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "整个工作区" })).toBeInTheDocument();
+    await user.selectOptions(screen.getAllByRole("combobox")[0], "WORKSPACE");
+    expect(screen.getByRole("button", { name: "新建分析会话" })).toBeEnabled();
   });
 
   it("shows indexed knowledge documents and exposes citation search", async () => {

@@ -14,7 +14,10 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rsvqa.gateway.domain.AgentRunEntity;
+import com.rsvqa.gateway.domain.AgentSessionEntity;
+import com.rsvqa.gateway.domain.BatchJobEntity;
 import com.rsvqa.gateway.domain.ConversationEntity;
+import com.rsvqa.gateway.domain.ProjectEntity;
 import com.rsvqa.gateway.domain.ToolInvocationEntity;
 import com.rsvqa.gateway.domain.UserEntity;
 import com.rsvqa.gateway.repository.AgentRunRepository;
@@ -29,10 +32,13 @@ import io.micrometer.core.instrument.Timer;
 @Service
 public class TrustedAgentService {
 
+    static final int MAX_SESSION_RUNS = 50;
+
     private final UserRepository users;
     private final ConversationRepository conversations;
     private final AgentRunRepository runs;
     private final ToolInvocationRepository toolInvocations;
+    private final AgentSessionService agentSessions;
     private final TrustedAgentTools tools;
     private final AgentToolRegistry toolRegistry;
     private final ObjectMapper objectMapper;
@@ -44,6 +50,7 @@ public class TrustedAgentService {
             ConversationRepository conversations,
             AgentRunRepository runs,
             ToolInvocationRepository toolInvocations,
+            AgentSessionService agentSessions,
             TrustedAgentTools tools,
             AgentToolRegistry toolRegistry,
             ObjectMapper objectMapper,
@@ -53,6 +60,7 @@ public class TrustedAgentService {
         this.conversations = conversations;
         this.runs = runs;
         this.toolInvocations = toolInvocations;
+        this.agentSessions = agentSessions;
         this.tools = tools;
         this.toolRegistry = toolRegistry;
         this.objectMapper = objectMapper;
@@ -70,16 +78,25 @@ public class TrustedAgentService {
         Timer.Sample metricSample = Timer.start();
         long started = System.nanoTime();
         UserEntity user = currentUser();
-        ConversationEntity conversation = request.conversationId() == null ? null
-                : conversations.findByIdAndProjectUserId(request.conversationId(), user.getId())
+        AgentSessionEntity session = request.sessionId() == null ? null : agentSessions.owned(request.sessionId());
+        if (session != null && runs.countByAgentSessionId(session.getId()) >= MAX_SESSION_RUNS) {
+            throw new RequestValidationException("单个 Agent 会话最多执行 50 轮，请新建分析会话继续。");
+        }
+        AgentRequest resolvedRequest = resolveContext(request, session);
+        ConversationEntity conversation = resolvedRequest.conversationId() == null ? null
+                : conversations.findByIdAndProjectUserId(resolvedRequest.conversationId(), user.getId())
                         .orElseThrow(() -> new ResourceNotFoundException("会话不存在。"));
-        AgentRunEntity run = runs.save(new AgentRunEntity(user, conversation, request.message().trim(), TraceId.current()));
-        String toolName = chooseTool(request);
-        String arguments = argumentsSummary(request, toolName);
+        ProjectEntity project = session == null ? null : session.getProject();
+        BatchJobEntity batchJob = session == null ? null : session.getBatchJob();
+        AgentRunEntity run = runs.save(new AgentRunEntity(
+                user, session, project, conversation, batchJob, resolvedRequest.message().trim(), TraceId.current()
+        ));
+        String toolName = chooseTool(resolvedRequest);
+        String arguments = argumentsSummary(resolvedRequest, toolName);
         ToolInvocationEntity invocation = toolInvocations.save(new ToolInvocationEntity(run, toolName, arguments));
         long toolStarted = System.nanoTime();
         try {
-            Object output = execute(toolName, request);
+            Object output = execute(toolName, resolvedRequest);
             long toolLatency = elapsedMillis(toolStarted);
             String outputJson = json(output);
             invocation.complete(outputJson, toolLatency);
@@ -169,14 +186,14 @@ public class TrustedAgentService {
             return request.toolName().trim();
         }
         String message = request.message().toLowerCase(Locale.ROOT);
+        if ((message.contains("报告") || message.contains("草稿")) && (request.projectId() != null || request.batchJobId() != null)) {
+            return "report_draft_data";
+        }
         if (message.contains("批量") || message.contains("任务")) {
             if (message.contains("统计") || message.contains("分布") || message.contains("汇总")) {
                 return "batch_result_statistics";
             }
             return "batch_job_status";
-        }
-        if ((message.contains("报告") || message.contains("草稿")) && (request.projectId() != null || request.batchJobId() != null)) {
-            return "report_draft_data";
         }
         if ((message.contains("项目") || message.contains("统计") || message.contains("分布") || message.contains("汇总"))
                 && request.projectId() != null) {
@@ -201,6 +218,18 @@ public class TrustedAgentService {
             return "single_image_vqa";
         }
         return "current_model_release";
+    }
+
+    private static AgentRequest resolveContext(AgentRequest request, AgentSessionEntity session) {
+        if (session == null) return request;
+        return new AgentRequest(
+                session.getId(),
+                session.getProject() == null ? null : session.getProject().getId(),
+                session.getConversation() == null ? null : session.getConversation().getId(),
+                session.getBatchJob() == null ? null : session.getBatchJob().getId(),
+                request.message(),
+                request.toolName()
+        );
     }
 
     private String explain(String toolName, Object output) {

@@ -1,5 +1,7 @@
 package com.rsvqa.gateway.domain;
 
+import java.math.BigDecimal;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -11,6 +13,10 @@ import jakarta.persistence.Table;
 @Table(name = "agent_run")
 public class AgentRunEntity extends BaseEntity {
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "agent_session_id")
+    private AgentSessionEntity agentSession;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private UserEntity user;
@@ -18,6 +24,14 @@ public class AgentRunEntity extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "conversation_id")
     private ConversationEntity conversation;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private ProjectEntity project;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "batch_job_id")
+    private BatchJobEntity batchJob;
 
     @Column(nullable = false, length = 40)
     private String status;
@@ -37,12 +51,45 @@ public class AgentRunEntity extends BaseEntity {
     @Column(name = "error_code", length = 80)
     private String errorCode;
 
+    @Column(name = "provider_id", length = 80)
+    private String providerId;
+
+    @Column(name = "provider_model", length = 160)
+    private String providerModel;
+
+    @Column(name = "prompt_tokens")
+    private Integer promptTokens;
+
+    @Column(name = "completion_tokens")
+    private Integer completionTokens;
+
+    @Column(name = "total_tokens")
+    private Integer totalTokens;
+
+    @Column(name = "estimated_cost_usd", precision = 14, scale = 8)
+    private BigDecimal estimatedCostUsd;
+
     protected AgentRunEntity() {
     }
 
     public AgentRunEntity(UserEntity user, ConversationEntity conversation, String inputText, String traceId) {
+        this(user, null, null, conversation, null, inputText, traceId);
+    }
+
+    public AgentRunEntity(
+            UserEntity user,
+            AgentSessionEntity agentSession,
+            ProjectEntity project,
+            ConversationEntity conversation,
+            BatchJobEntity batchJob,
+            String inputText,
+            String traceId
+    ) {
         this.user = user;
+        this.agentSession = agentSession;
+        this.project = project;
         this.conversation = conversation;
+        this.batchJob = batchJob;
         this.inputText = inputText;
         this.traceId = traceId;
         this.status = "RUNNING";
@@ -71,5 +118,45 @@ public class AgentRunEntity extends BaseEntity {
 
     public Long getLatencyMs() {
         return latencyMs;
+    }
+
+    public AgentSessionEntity getAgentSession() {
+        return agentSession;
+    }
+
+    public String getInputText() {
+        return inputText;
+    }
+
+    public String getOutputText() {
+        return outputText;
+    }
+
+    public String getErrorCode() {
+        return errorCode;
+    }
+
+    public String getProviderId() {
+        return providerId;
+    }
+
+    public String getProviderModel() {
+        return providerModel;
+    }
+
+    public Integer getPromptTokens() {
+        return promptTokens;
+    }
+
+    public Integer getCompletionTokens() {
+        return completionTokens;
+    }
+
+    public Integer getTotalTokens() {
+        return totalTokens;
+    }
+
+    public BigDecimal getEstimatedCostUsd() {
+        return estimatedCostUsd;
     }
 }

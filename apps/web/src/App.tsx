@@ -23,6 +23,7 @@ const KnowledgePage = lazy(() => import("./pages/KnowledgePage").then((module) =
 const AuditPage = lazy(() => import("./pages/AuditPage").then((module) => ({ default: module.AuditPage })));
 const ArchivePage = lazy(() => import("./pages/ArchivePage").then((module) => ({ default: module.ArchivePage })));
 const ReportsPage = lazy(() => import("./pages/ReportsPage").then((module) => ({ default: module.ReportsPage })));
+const AgentPage = lazy(() => import("./pages/AgentPage").then((module) => ({ default: module.AgentPage })));
 
 export function App() {
   const queryClient = useQueryClient();
@@ -91,6 +92,7 @@ function AnimatedRoutes() {
             <Route path="/audit" element={<AuditPage />} />
             <Route path="/archive" element={<ArchivePage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/agent" element={<AgentPage />} />
             <Route path="*" element={<Navigate to="/workspace" replace />} />
           </Routes>
         </Suspense>

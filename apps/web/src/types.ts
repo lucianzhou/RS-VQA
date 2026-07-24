@@ -220,6 +220,36 @@ export interface AgentRun {
   boundaryNotice: string;
 }
 
+export interface AgentHistoryRun {
+  runId: string;
+  status: string;
+  input: string;
+  answer: string | null;
+  traceId: string;
+  latencyMs: number | null;
+  providerId: string | null;
+  providerModel: string | null;
+  totalTokens: number | null;
+  toolCalls: AgentToolCall[];
+  createdAt: string;
+}
+
+export interface AgentSessionSummary {
+  id: string;
+  title: string;
+  contextType: "PROJECT" | "CONVERSATION" | "BATCH_JOB" | "WORKSPACE";
+  contextId: string | null;
+  contextLabel: string;
+  runCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentSession extends Omit<AgentSessionSummary, "runCount"> {
+  runs: AgentHistoryRun[];
+  suggestedPrompts: string[];
+}
+
 export interface AnalysisCase {
   scopeItemId: string;
   scopeLabel: string;

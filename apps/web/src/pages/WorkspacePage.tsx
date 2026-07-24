@@ -95,7 +95,11 @@ export function WorkspacePage() {
   });
   const agentMutation = useMutation({
     mutationFn: ({ signal }: { signal: AbortSignal }) =>
-      runTrustedAgentStream(agentQuestion, activeConversationId ?? undefined, setAgentStage, signal),
+      runTrustedAgentStream(
+        { message: agentQuestion, conversationId: activeConversationId ?? undefined },
+        setAgentStage,
+        signal,
+      ),
     onSettled: () => setAgentController(undefined),
   });
 

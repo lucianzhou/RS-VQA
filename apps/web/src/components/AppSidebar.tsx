@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive,
   BookOpen,
+  Bot,
   Check,
   ChevronDown,
   ChevronRight,
@@ -306,6 +307,7 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
           )}
 
           <p className="nav-section-label nav-secondary-label">工作区</p>
+          <NavItem to="/agent" icon={<Bot size={16} />} label="可信 Agent" />
           <NavItem to="/batch" icon={<Layers3 size={16} />} label="批量 VQA" />
           <NavItem to="/reports" icon={<FileClock size={16} />} label="分析报告" />
           <NavItem to="/knowledge" icon={<BookOpen size={16} />} label="知识库" />
