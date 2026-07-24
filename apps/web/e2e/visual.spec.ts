@@ -9,4 +9,17 @@ test("keeps the Mineral Forest workspace stable across laptop and tablet viewpor
     path: test.info().outputPath(`workspace-${test.info().project.name}.png`),
     fullPage: true,
   });
+
+  await page.getByRole("button", { name: "收起导航" }).click();
+  await expect(page.getByLabel("RS-VQA 导航侧栏")).toBeHidden();
+  await page.waitForTimeout(320);
+  const contentBox = await page.locator(".app-content").boundingBox();
+  const viewport = page.viewportSize();
+  expect(contentBox?.x).toBeLessThanOrEqual(1);
+  expect(contentBox?.width).toBeGreaterThanOrEqual((viewport?.width ?? 0) - 1);
+  await expect(page.getByRole("button", { name: "打开导航" })).toBeVisible();
+  await page.screenshot({
+    path: test.info().outputPath(`workspace-collapsed-${test.info().project.name}.png`),
+    fullPage: true,
+  });
 });

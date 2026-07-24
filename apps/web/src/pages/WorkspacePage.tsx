@@ -19,6 +19,7 @@ import {
   Trash2,
   UploadCloud,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -30,6 +31,7 @@ import {
   runTrustedAgentStream,
 } from "../api";
 import { AppTopbar, ModelSelector } from "../components/AppChrome";
+import { ImageLightbox } from "../components/ImageLightbox";
 import { useWorkspaceStore } from "../store";
 import type { ImageAsset, PersistedMessage } from "../types";
 
@@ -50,6 +52,7 @@ export function WorkspacePage() {
   const [agentQuestion, setAgentQuestion] = useState("这个模型支持哪些问题？");
   const [agentStage, setAgentStage] = useState("");
   const [agentController, setAgentController] = useState<AbortController>();
+  const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const conversationQuery = useQuery({
     queryKey: ["conversation", activeConversationId],
     queryFn: () => getConversation(activeConversationId!),
@@ -148,6 +151,7 @@ export function WorkspacePage() {
             <ImageContext
               image={conversation.image}
               pending={uploadMutation.isPending || deleteMutation.isPending}
+              onPreview={() => setImagePreviewOpen(true)}
               onReplace={() => fileInput.current?.click()}
               onRemove={() => deleteMutation.mutate()}
             />
@@ -185,8 +189,16 @@ export function WorkspacePage() {
           <AlertTriangle size={15} />{fileError || questionMutation.error?.message}
         </div>
       )}
-      {agentOpen && (
-        <aside className="agent-drawer" aria-label="可信 Agent">
+      <AnimatePresence>
+        {agentOpen && (
+        <motion.aside
+          className="agent-drawer"
+          aria-label="可信 Agent"
+          initial={{ opacity: 0, x: 28, scale: 0.985 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, x: 18, scale: 0.99 }}
+          transition={{ type: "spring", stiffness: 430, damping: 36, mass: 0.8 }}
+        >
           <header><span><Bot size={16} />可信 Agent</span><button className="icon-button" type="button" aria-label="关闭 Agent" onClick={() => setAgentOpen(false)}>×</button></header>
           <p>只读工具编排，用于解释模型边界、版本和历史；不会修改模型原始答案。</p>
           <div className="agent-suggestions">
@@ -217,7 +229,18 @@ export function WorkspacePage() {
               <small>{agentMutation.data.boundaryNotice}</small>
             </article>
           )}
-        </aside>
+        </motion.aside>
+        )}
+      </AnimatePresence>
+      {conversation.image && (
+        <ImageLightbox
+          open={imagePreviewOpen}
+          src={conversation.image.contentUrl}
+          alt={`遥感图像 ${conversation.image.originalName}`}
+          title={conversation.image.originalName}
+          meta={`${conversation.image.width} × ${conversation.image.height} · ${formatBytes(conversation.image.sizeBytes)}`}
+          onOpenChange={setImagePreviewOpen}
+        />
       )}
       <footer className="composer-wrap">
         <form className="composer" onSubmit={submit}>
@@ -295,45 +318,62 @@ function WelcomeUpload({ pending, onChoose, onDrop }: { pending: boolean; onChoo
   );
 }
 
-function ImageContext({ image, pending, onReplace, onRemove }: { image: ImageAsset; pending: boolean; onReplace: () => void; onRemove: () => void }) {
+function ImageContext({
+  image,
+  pending,
+  onPreview,
+  onReplace,
+  onRemove,
+}: {
+  image: ImageAsset;
+  pending: boolean;
+  onPreview: () => void;
+  onReplace: () => void;
+  onRemove: () => void;
+}) {
   return (
-    <article className="image-context">
+    <motion.article
+      className="image-context"
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+    >
       <img src={image.contentUrl} alt="当前分析的遥感图像" />
       <div>
         <p>当前影像</p><strong>{image.originalName}</strong>
         <span>{`${image.width} × ${image.height} · ${formatBytes(image.sizeBytes)} · ${image.mimeType.replace("image/", "").toUpperCase()}`}</span>
       </div>
       <div className="image-actions">
-        <a className="quiet-button" href={image.contentUrl} target="_blank" rel="noreferrer"><Maximize2 size={14} />查看大图</a>
+        <button className="quiet-button" type="button" onClick={onPreview}><Maximize2 size={14} />查看大图</button>
         <button className="quiet-button" type="button" disabled={pending} onClick={onReplace}><RefreshCw size={14} />更换影像</button>
         <button className="icon-button destructive" type="button" disabled={pending} aria-label="移除影像" title="移除影像" onClick={onRemove}><Trash2 size={16} /></button>
       </div>
-    </article>
+    </motion.article>
   );
 }
 
 function StarterPrompt({ onSelect }: { onSelect: (question: string) => void }) {
   return (
-    <section className="starter">
+    <motion.section className="starter" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
       <span className="assistant-avatar">RS</span>
       <div><strong>影像已就绪</strong><p>输入一个问题，或从已验证的问法开始。</p><div className="starter-questions">{examples.map((question) => <button type="button" key={question} onClick={() => onSelect(question)}>{question}</button>)}</div></div>
-    </section>
+    </motion.section>
   );
 }
 
 function PendingMessage() {
-  return <article className="message assistant-message"><span className="assistant-avatar">RS</span><div className="answer-body pending-answer"><LoaderCircle className="spin" size={17} /><span>正在分析当前影像…</span></div></article>;
+  return <motion.article className="message assistant-message" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}><span className="assistant-avatar">RS</span><div className="answer-body pending-answer"><LoaderCircle className="spin" size={17} /><span>正在分析当前影像…</span></div></motion.article>;
 }
 
 function Message({ message }: { message: PersistedMessage }) {
-  if (message.role === "user") return <article className="message user-message"><div>{message.content}</div></article>;
+  if (message.role === "user") return <motion.article className="message user-message" initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }}><div>{message.content}</div></motion.article>;
   const invocation = message.invocation;
   const isMock = message.sourceType === "MOCK";
   const answered = invocation?.status === "answered";
   const lowConfidence = answered && invocation?.confidence != null && invocation.confidence < 0.65;
   const notice = metadataNotice(message.metadataJson);
   return (
-    <article className="message assistant-message">
+    <motion.article className="message assistant-message" initial={{ opacity: 0, y: 9 }} animate={{ opacity: 1, y: 0 }}>
       <span className={`assistant-avatar ${answered ? "" : "warning"}`}>{answered ? "RS" : <AlertTriangle size={15} />}</span>
       <div className="answer-body">
         <div className="answer-heading">
@@ -360,7 +400,7 @@ function Message({ message }: { message: PersistedMessage }) {
           </details>
         )}
       </div>
-    </article>
+    </motion.article>
   );
 }
 

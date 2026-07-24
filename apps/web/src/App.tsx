@@ -1,6 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, ShieldCheck } from "lucide-react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
+import { lazy, Suspense } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { demoLogin } from "./api";
 import { AppSidebar } from "./components/AppSidebar";
 import {
@@ -10,15 +12,16 @@ import {
   modelOptions,
   providerToModelOption,
 } from "./components/AppChrome";
-import { ArchivePage } from "./pages/ArchivePage";
-import { AuditPage } from "./pages/AuditPage";
-import { BatchPage } from "./pages/BatchPage";
-import { KnowledgePage } from "./pages/KnowledgePage";
-import { SettingsPage } from "./pages/SettingsPage";
-import { WorkspacePage } from "./pages/WorkspacePage";
 import { useWorkspaceStore } from "./store";
 
 export { AppTopbar, ModelSelector, StatusBadge, modelOptions, providerToModelOption };
+
+const WorkspacePage = lazy(() => import("./pages/WorkspacePage").then((module) => ({ default: module.WorkspacePage })));
+const BatchPage = lazy(() => import("./pages/BatchPage").then((module) => ({ default: module.BatchPage })));
+const SettingsPage = lazy(() => import("./pages/SettingsPage").then((module) => ({ default: module.SettingsPage })));
+const KnowledgePage = lazy(() => import("./pages/KnowledgePage").then((module) => ({ default: module.KnowledgePage })));
+const AuditPage = lazy(() => import("./pages/AuditPage").then((module) => ({ default: module.AuditPage })));
+const ArchivePage = lazy(() => import("./pages/ArchivePage").then((module) => ({ default: module.ArchivePage })));
 
 export function App() {
   const queryClient = useQueryClient();
@@ -46,12 +49,34 @@ export function App() {
     return <BootstrapState title="无法连接业务服务" detail={session.error.message} error />;
   }
   return (
-    <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-      <AppSidebar user={session.data} />
-      <div className="app-content">
-        <a className="skip-link" href="#main-content">跳到主要内容</a>
-        <div id="main-content" className="route-content">
-          <Routes>
+    <MotionConfig reducedMotion="user">
+      <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+        <AppSidebar user={session.data} />
+        <div className="app-content">
+          <a className="skip-link" href="#main-content">跳到主要内容</a>
+          <div id="main-content" className="route-content">
+            <AnimatedRoutes />
+          </div>
+        </div>
+      </div>
+    </MotionConfig>
+  );
+}
+
+function AnimatedRoutes() {
+  const location = useLocation();
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        className="route-frame"
+        key={location.pathname}
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -3 }}
+        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <Suspense fallback={<RouteLoading />}>
+          <Routes location={location}>
             <Route path="/" element={<Navigate to="/workspace" replace />} />
             <Route path="/workspace" element={<WorkspacePage />} />
             <Route path="/batch" element={<BatchPage />} />
@@ -61,10 +86,14 @@ export function App() {
             <Route path="/archive" element={<ArchivePage />} />
             <Route path="*" element={<Navigate to="/workspace" replace />} />
           </Routes>
-        </div>
-      </div>
-    </div>
+        </Suspense>
+      </motion.div>
+    </AnimatePresence>
   );
+}
+
+function RouteLoading() {
+  return <div className="route-loading" role="status"><span className="route-loading-mark" />正在切换工作区…</div>;
 }
 
 function BootstrapState({ title, detail, error = false }: { title: string; detail: string; error?: boolean }) {

@@ -14,6 +14,23 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "react-vendor": ["react", "react-dom", "react-router-dom"],
+          "data-vendor": ["@hookform/resolvers", "@tanstack/react-query", "react-hook-form", "zod", "zustand"],
+          "motion-vendor": ["motion"],
+          "ui-vendor": [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-dropdown-menu",
+            "@radix-ui/react-popover",
+            "lucide-react",
+          ],
+        },
+      },
+    },
+  },
   test: {
     include: ["src/**/*.test.{ts,tsx}"],
     environment: "jsdom",

@@ -1,9 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, Download, FileImage, FolderUp, Layers3, LoaderCircle, Plus, RotateCcw, StopCircle, Trash2, UploadCloud } from "lucide-react";
-import { useRef, useState } from "react";
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Download, FolderUp, Layers3, LoaderCircle, Maximize2, Plus, RotateCcw, StopCircle, Trash2, UploadCloud, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppTopbar, ModelSelector, StatusBadge } from "../components/AppChrome";
+import { ImageLightbox } from "../components/ImageLightbox";
 import { cancelBatchJob, createBatchJob, getBatchJob, listBatchJobs, retryBatchFailures } from "../api";
 import { useWorkspaceStore } from "../store";
+
+const IMAGES_PER_PAGE = 20;
+const MAX_IMAGES = 32;
 
 export function BatchPage() {
   const queryClient = useQueryClient();
@@ -12,7 +16,22 @@ export function BatchPage() {
   const [questions, setQuestions] = useState(["图中有没有道路？", "图中有多少建筑物？"]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [activeJobId, setActiveJobId] = useState<string>();
+  const [imagePage, setImagePage] = useState(1);
+  const [previewIndex, setPreviewIndex] = useState<number>();
   const activeProjectId = useWorkspaceStore((state) => state.activeProjectId);
+  const previews = useMemo(
+    () => files.map((file) => ({ file, url: URL.createObjectURL(file) })),
+    [files],
+  );
+  useEffect(() => () => previews.forEach((preview) => URL.revokeObjectURL(preview.url)), [previews]);
+  const pageCount = Math.max(1, Math.ceil(files.length / IMAGES_PER_PAGE));
+  const pageStart = (imagePage - 1) * IMAGES_PER_PAGE;
+  const visiblePreviews = previews.slice(pageStart, pageStart + IMAGES_PER_PAGE);
+  const selectedPreview = previewIndex == null ? undefined : previews[previewIndex];
+
+  useEffect(() => {
+    if (imagePage > pageCount) setImagePage(pageCount);
+  }, [imagePage, pageCount]);
   const jobsQuery = useQuery({ queryKey: ["batch-jobs"], queryFn: listBatchJobs, refetchInterval: 3000 });
   const jobQuery = useQuery({
     queryKey: ["batch-job", activeJobId],
@@ -28,6 +47,8 @@ export function BatchPage() {
     onSuccess: async (job) => {
       setActiveJobId(job.id);
       setFiles([]);
+      setImagePage(1);
+      setPreviewIndex(undefined);
       await queryClient.invalidateQueries({ queryKey: ["batch-jobs"] });
     },
   });
@@ -54,10 +75,50 @@ export function BatchPage() {
           <button className="batch-dropzone" type="button" onClick={() => input.current?.click()}><UploadCloud size={22} /><strong>选择多张遥感图像</strong><span>PNG、JPG、WEBP · 单张最大 10 MiB</span></button>
           <input ref={input} className="sr-only" type="file" multiple accept="image/png,image/jpeg,image/webp" onChange={(event) => {
             const selected = Array.from(event.target.files ?? []).filter((file) => file.size <= 10 * 1024 * 1024);
-            setFiles(selected.slice(0, 32));
+            setFiles((current) => {
+              const known = new Set(current.map(fileKey));
+              return [...current, ...selected.filter((file) => !known.has(fileKey(file)))].slice(0, MAX_IMAGES);
+            });
+            setImagePage(1);
             event.target.value = "";
           }} />
-          {files.length > 0 && <div className="file-list">{files.slice(0, 8).map((file) => <div key={`${file.name}-${file.size}`}><FileImage size={16} /><span>{file.name}</span><small>{(file.size / 1024).toFixed(0)} KiB</small></div>)}</div>}
+          {files.length > 0 && (
+            <div className="batch-preview-section">
+              <div className="batch-preview-heading">
+                <span>已选择 {files.length} / {MAX_IMAGES} 张</span>
+                <button className="quiet-button" type="button" onClick={() => {
+                  setFiles([]);
+                  setPreviewIndex(undefined);
+                  setImagePage(1);
+                }}><Trash2 size={14} />清空</button>
+              </div>
+              <div className="batch-thumbnail-grid" aria-label={`已选择图像，第 ${imagePage} 页`}>
+                {visiblePreviews.map(({ file, url }, localIndex) => {
+                  const absoluteIndex = pageStart + localIndex;
+                  return (
+                    <article key={fileKey(file)}>
+                      <button className="batch-thumbnail" type="button" aria-label={`查看大图 ${file.name}`} onClick={() => setPreviewIndex(absoluteIndex)}>
+                        <img src={url} alt="" />
+                        <span><Maximize2 size={14} /></span>
+                      </button>
+                      <div><strong title={file.name}>{file.name}</strong><small>{(file.size / 1024).toFixed(0)} KiB</small></div>
+                      <button className="thumbnail-remove" type="button" aria-label={`移除 ${file.name}`} onClick={() => {
+                        setFiles((current) => current.filter((_, index) => index !== absoluteIndex));
+                        setPreviewIndex(undefined);
+                      }}><X size={13} /></button>
+                    </article>
+                  );
+                })}
+              </div>
+              {pageCount > 1 && (
+                <nav className="batch-pagination" aria-label="图像分页">
+                  <button className="icon-button" type="button" aria-label="上一页" disabled={imagePage === 1} onClick={() => setImagePage((page) => page - 1)}><ChevronLeft size={16} /></button>
+                  <span>第 {imagePage} / {pageCount} 页 · 每页最多 {IMAGES_PER_PAGE} 张</span>
+                  <button className="icon-button" type="button" aria-label="下一页" disabled={imagePage === pageCount} onClick={() => setImagePage((page) => page + 1)}><ChevronRight size={16} /></button>
+                </nav>
+              )}
+            </div>
+          )}
         </section>
         <section className="plain-section">
           <div className="section-heading"><div><span>02</span><h3>设置问题</h3></div><button className="quiet-button" type="button" onClick={() => setQuestions([...questions, ""])}><Plus size={15} />添加问题</button></div>
@@ -98,6 +159,14 @@ export function BatchPage() {
           </section>
         )}
       </div>
+      <ImageLightbox
+        open={Boolean(selectedPreview)}
+        src={selectedPreview?.url ?? ""}
+        alt={selectedPreview ? `遥感图像 ${selectedPreview.file.name}` : "遥感图像预览"}
+        title={selectedPreview?.file.name}
+        meta={selectedPreview ? `${(selectedPreview.file.size / 1024).toFixed(0)} KiB · 第 ${(previewIndex ?? 0) + 1} / ${files.length} 张` : undefined}
+        onOpenChange={(open) => !open && setPreviewIndex(undefined)}
+      />
     </main>
   );
 }
@@ -110,4 +179,8 @@ function statusLabel(status: string) {
     COMPLETED_WITH_ERRORS: "任务完成，部分项目失败",
     CANCELLED: "任务已取消",
   } as Record<string, string>)[status] ?? status;
+}
+
+function fileKey(file: File) {
+  return `${file.name}:${file.size}:${file.lastModified}`;
 }
