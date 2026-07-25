@@ -60,6 +60,14 @@ rsvqa:
     max-retries: ${RSVQA_GEMINI_MAX_RETRIES:2}
     max-output-tokens: ${RSVQA_GEMINI_MAX_OUTPUT_TOKENS:1024}
     temperature: ${RSVQA_GEMINI_TEMPERATURE:0.2}
+  qwen:
+    enabled: ${RSVQA_QWEN_ENABLED:false}
+    api-key: ${DASHSCOPE_API_KEY:}
+    model: ${RSVQA_QWEN_MODEL:qwen3-vl-32b-instruct}
+    timeout-seconds: ${RSVQA_QWEN_TIMEOUT_SECONDS:60}
+    max-retries: ${RSVQA_QWEN_MAX_RETRIES:2}
+    max-output-tokens: ${RSVQA_QWEN_MAX_OUTPUT_TOKENS:1024}
+    temperature: ${RSVQA_QWEN_TEMPERATURE:0.2}
   model-service:
     base-url: ${RSVQA_MODEL_SERVICE_URL:http://localhost:8000}
     timeout-seconds: 15

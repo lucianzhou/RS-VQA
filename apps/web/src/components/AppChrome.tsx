@@ -31,6 +31,13 @@ export const modelOptions: ModelOption[] = [
     kind: "EXTERNAL_VLM",
     configured: false,
   },
+  {
+    id: "qwen",
+    name: "Qwen3-VL 32B",
+    description: "DashScope 外部模型 · 不属于论文模型输出",
+    kind: "EXTERNAL_VLM",
+    configured: false,
+  },
 ];
 
 export function ModelSelector() {

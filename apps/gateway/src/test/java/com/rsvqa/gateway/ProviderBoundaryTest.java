@@ -57,4 +57,24 @@ class ProviderBoundaryTest {
                 .isInstanceOf(ProviderNotConfiguredException.class)
                 .hasMessageContaining("网页会员不会被当作 API 授权");
     }
+
+    @Test
+    void qwenProviderFailsClosedWithoutApiKey() {
+        var properties = new QwenProviderProperties(
+                false, "", "qwen3-vl-32b-instruct", 60, 2, 1024, 0.2
+        );
+        var provider = new QwenVisionProvider(properties, ObservationRegistry.NOOP);
+
+        assertThat(provider.descriptor().providerId()).isEqualTo("qwen");
+        assertThat(provider.descriptor().modelId()).isEqualTo("qwen3-vl-32b-instruct");
+        assertThat(provider.descriptor().configurationState()).isEqualTo("UNCONFIGURED");
+        assertThat(provider.descriptor().kind()).isEqualTo("EXTERNAL_VLM");
+        assertThat(provider.descriptor().costMetadata())
+                .doesNotContainKeys("apiKey", "credential", "token");
+        assertThatThrownBy(() -> provider.invoke(new AiProvider.ProviderRequest(
+                new byte[] {1}, "image/png", "描述图像", null
+        )))
+                .isInstanceOf(ProviderNotConfiguredException.class)
+                .hasMessageContaining("RSVQA_QWEN_ENABLED");
+    }
 }
