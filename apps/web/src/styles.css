@@ -88,11 +88,11 @@ button, a { touch-action: manipulation; }
 .project-create-area { margin-bottom: 2px; }
 .nav-section-heading { display: flex; min-height: 28px; align-items: center; justify-content: space-between; }
 .nav-section-heading .icon-button { width: 28px; height: 28px; margin: 0 1px 0 0; color: var(--muted); }
-.project-composer { display: flex; align-items: center; gap: 4px; margin: 0 4px 9px; }
-.project-composer input { min-width: 0; height: 31px; flex: 1; border: 1px solid #b9c9c0; border-radius: 6px; padding: 0 8px; color: var(--ink); background: white; font-size: 10px; outline: 0; }
-.project-composer input:focus { border-color: #8ba99a; box-shadow: 0 0 0 3px rgba(36,91,73,.06); }
-.project-composer button { display: grid; width: 31px; height: 31px; place-items: center; border: 0; border-radius: 6px; color: white; background: var(--forest); }
-.nav-secondary-label { margin-top: 22px; }
+.project-composer-inline { display: flex; min-height: 28px; align-items: center; gap: 4px; margin: 0 4px 2px; }
+.project-composer-inline input { min-width: 0; height: 28px; flex: 1; border: 1px solid #b9c9c0; border-radius: 6px; padding: 0 7px; color: var(--ink); background: white; font-size: 10px; outline: 0; }
+.project-composer-inline input:focus { border-color: #8ba99a; box-shadow: 0 0 0 3px rgba(36,91,73,.06); }
+.project-composer-inline button { display: grid; width: 28px; height: 28px; place-items: center; border: 0; border-radius: 6px; color: white; background: var(--forest); }
+.sidebar-workspace { flex-shrink: 0; padding-top: 8px; margin-top: 4px; border-top: 1px solid var(--line); }
 .project-group { margin-bottom: 10px; }
 .project-heading { display: flex; min-height: 31px; align-items: center; gap: 3px; color: #4d5752; font-size: 12px; font-weight: 650; }
 .project-toggle { display: flex; min-width: 0; min-height: 31px; flex: 1; align-items: center; gap: 6px; border: 0; border-radius: 6px; padding: 0 4px 0 6px; color: inherit; background: transparent; font: inherit; text-align: left; }
@@ -445,7 +445,7 @@ button, a { touch-action: manipulation; }
 .model-option { display: grid; min-width: 0; grid-template-columns: 32px minmax(0,1fr) 18px; align-items: start; gap: 9px; border: 0; border-radius: 9px; padding: 10px 9px; color: var(--ink); background: transparent; text-align: left; }
 .model-option:hover, .model-option:focus-visible, .model-option.is-selected { background: #f2f6f3; }
 .model-option[aria-disabled="true"] { cursor: not-allowed; opacity: .52; }
-.model-option-icon { display: grid; width: 30px; height: 30px; place-items: center; }
+.model-option-icon { display: grid; width: 20px; height: 20px; place-items: center; }
 .model-option-copy { min-width: 0; }
 .model-option-copy strong, .model-option-copy small, .model-option-copy em { display: block; }
 .model-option-copy strong { font-size: 11px; }

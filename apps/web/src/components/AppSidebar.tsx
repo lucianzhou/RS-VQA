@@ -277,18 +277,19 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
 
         <nav className="sidebar-scroll" aria-label="主导航">
           <div className="project-create-area" ref={projectCreateAreaRef}>
-            <div className="nav-section-heading">
-              <p className="nav-section-label">项目</p>
-              <button className="icon-button" type="button" aria-label="新建项目" onClick={() => setProjectComposerOpen((open) => !open)}><Plus size={16} /></button>
-            </div>
-            {projectComposerOpen && (
-              <form className="project-composer" onSubmit={(event) => {
+            {projectComposerOpen ? (
+              <form className="project-composer-inline" onSubmit={(event) => {
                 event.preventDefault();
                 if (projectName.trim()) createProjectMutation.mutate();
               }}>
                 <input autoFocus aria-label="项目名称" name="project-name" autoComplete="off" maxLength={160} value={projectName} onChange={(event) => setProjectName(event.target.value)} placeholder="输入项目名称…" />
                 <button type="submit" aria-label="确认新建项目" disabled={!projectName.trim() || createProjectMutation.isPending}><Check size={14} /></button>
               </form>
+            ) : (
+              <div className="nav-section-heading">
+                <p className="nav-section-label">项目</p>
+                <button className="icon-button" type="button" aria-label="新建项目" onClick={() => setProjectComposerOpen(true)}><Plus size={16} /></button>
+              </div>
             )}
           </div>
 
@@ -338,15 +339,17 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
           {normalizedSearch && visibleProjects.length === 0 && (
             <div className="sidebar-empty-search" aria-live="polite"><Search size={18} /><p>抱歉，未查找到相关项目或对话。</p></div>
           )}
+        </nav>
 
-          <p className="nav-section-label nav-secondary-label">工作区</p>
+        <div className="sidebar-workspace">
+          <p className="nav-section-label">工作区</p>
           <NavItem to="/agent" icon={<Bot size={16} />} label="可信 Agent" />
           <NavItem to="/batch" icon={<Layers3 size={16} />} label="批量 VQA" />
           <NavItem to="/reports" icon={<FileClock size={16} />} label="分析报告" />
           <NavItem to="/knowledge" icon={<BookOpen size={16} />} label="知识库" />
           <NavItem to="/audit" icon={<ShieldCheck size={16} />} label="调用审计" />
           <NavItem to="/archive" icon={<Archive size={16} />} label="归档" />
-        </nav>
+        </div>
 
         <div className="sidebar-footer">
           <NavItem to="/settings" icon={<Settings size={16} />} label="模型与设置" />

@@ -70,7 +70,7 @@ export function ModelSelector() {
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <button className="model-selector" type="button" aria-label={`选择分析模式，当前为${selected.name}`}>
-          <ProviderAvatar providerId={selected.id} kind={selected.kind} size={18} />
+          <ProviderAvatar providerId={selected.id} kind={selected.kind} size={20} />
           <span><strong>{selected.name}</strong><small>{selected.configured ? selected.description : "未配置"}</small></span>
           <ChevronDown className={open ? "is-open" : ""} size={14} />
         </button>
@@ -101,7 +101,7 @@ export function ModelSelector() {
                     setOpen(false);
                   }}
                 >
-                  <span className="model-option-icon"><ProviderAvatar providerId={model.id} kind={model.kind} size={18} /></span>
+                  <span className="model-option-icon"><ProviderAvatar providerId={model.id} kind={model.kind} size={20} /></span>
                   <span className="model-option-copy">
                     <strong>{model.name}</strong>
                     <small>{model.description}</small>
