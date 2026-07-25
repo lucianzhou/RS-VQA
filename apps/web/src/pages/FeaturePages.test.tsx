@@ -206,6 +206,39 @@ describe("feature pages", () => {
       expect.objectContaining({ method: "PATCH", body: JSON.stringify({ reducedMotion: true }) }),
     );
   });
+
+  it("shows the configured Gemini model in service status", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith("/api/v1/providers")) return jsonResponse([{
+        providerId: "gemini",
+        modelId: "gemini-2.5-flash",
+        displayName: "Gemini 通用视觉助手",
+        kind: "EXTERNAL_VLM",
+        configurationState: "CONFIGURED",
+        capabilities: ["vision"],
+        vision: true,
+        streaming: true,
+        toolCalling: true,
+        structuredOutput: true,
+        timeout: "60s",
+        maxRetries: 2,
+        costMetadata: {},
+      }]);
+      if (path.endsWith("/api/v1/user/settings")) return jsonResponse({
+        id: "setting-1",
+        locale: "zh-CN",
+        reducedMotion: false,
+        externalImageOptIn: false,
+        externalImageBoundary: "默认不向外部服务发送图像。",
+      });
+      if (path.endsWith("/api/v1/system/status")) return jsonResponse({ status: "UP", version: "0.4.0", services: {} });
+      return jsonResponse({});
+    }));
+
+    renderPage(<SettingsPage />);
+    expect(await screen.findByText("Gemini 通用视觉助手 · gemini-2.5-flash · 已配置")).toBeInTheDocument();
+  });
 });
 
 function jsonResponse(value: unknown) {

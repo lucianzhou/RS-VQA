@@ -14,6 +14,12 @@ export function SettingsPage() {
     onSuccess: (updated) => queryClient.setQueryData(["user-settings"], updated),
   });
   const availableModels = Array.isArray(providers.data) ? providers.data.map(providerToModelOption) : modelOptions;
+  const externalProvider = availableModels.find((model) => model.kind === "EXTERNAL_VLM");
+  const externalProviderStatus = providers.isPending
+    ? "正在检查"
+    : externalProvider?.configured
+      ? `${externalProvider.name} · ${externalProvider.releaseId ?? "Provider"} · 已配置`
+      : `${externalProvider?.name ?? "Gemini"} · 未配置`;
   const service = (name: string, fallback: string) => {
     const value = status.data?.services[name];
     if (!value) return fallback;
@@ -80,7 +86,7 @@ export function SettingsPage() {
             <Service icon={<Database size={18} />} name="PostgreSQL / Redis" value={`${service("database", "正在检查")} · ${service("redis", "正在检查")}`} />
             <Service icon={<Bot size={18} />} name="Agent / MCP" value={`${service("agent", "正在检查")} · ${service("mcp", "正在检查")}`} />
             <Service icon={<Database size={18} />} name="BGE / Milvus" value={service("knowledge", "正在检查")} />
-            <Service icon={<KeyRound size={18} />} name="外部 Provider" value="未配置" />
+            <Service icon={<KeyRound size={18} />} name="外部 Provider" value={externalProviderStatus} />
           </div>
         </section>
         <aside className="boundary-note"><ShieldCheck size={19} /><div><strong>研究模型能力边界</strong><p>当前候选是 RSVQA-HR 特定答案词表的闭集分类器，不是开放式视觉助手、目标检测或零样本识别模型。Mock 回答不能用于论文结论。</p></div></aside>
