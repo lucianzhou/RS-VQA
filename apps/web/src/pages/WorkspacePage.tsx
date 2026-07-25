@@ -377,15 +377,16 @@ function Message({ message }: { message: PersistedMessage }) {
   const isExternal = message.sourceType === "EXTERNAL_VLM";
   const answered = invocation?.status === "answered";
   const lowConfidence = answered && invocation?.confidence != null && invocation.confidence < 0.65;
-  const notice = metadataNotice(message.metadataJson);
+  const metadata = messageMetadata(message.metadataJson);
+  const needsReview = answered && metadata.requiresReview;
   return (
     <motion.article className="message assistant-message" initial={{ opacity: 0, y: 9 }} animate={{ opacity: 1, y: 0 }}>
       <span className={`assistant-avatar ${answered ? "" : "warning"} ${isExternal ? "external" : ""}`}>{answered ? (isExternal ? "G" : "RS") : <AlertTriangle size={15} />}</span>
       <div className="answer-body">
         <div className="answer-heading">
-          <span className={`result-state ${answered && !lowConfidence ? "success" : "warning"}`}>
-            {answered && !lowConfidence ? <Check size={14} /> : <Info size={14} />}
-            {lowConfidence ? "低置信度，请复核" : answered ? (isExternal ? "Gemini 辅助回答" : "模型回答") : "超出能力范围"}
+          <span className={`result-state ${answered && !lowConfidence && !needsReview ? "success" : "warning"}`}>
+            {answered && !lowConfidence && !needsReview ? <Check size={14} /> : <Info size={14} />}
+            {needsReview ? "答案形式异常，请复核" : lowConfidence ? "低置信度，请复核" : answered ? (isExternal ? "Gemini 辅助回答" : "模型回答") : "超出能力范围"}
           </span>
           {isMock && <span className="mock-flag">MOCK</span>}
           {isExternal && <span className="external-flag">外部模型</span>}
@@ -393,7 +394,7 @@ function Message({ message }: { message: PersistedMessage }) {
         {answered && <p className="answer-value">{message.content}</p>}
         {lowConfidence && <p className="capability-notice">模型置信度低于 65% 展示阈值。答案保持原样，但不建议直接作为确定结论。</p>}
         {!answered && <p className="capability-notice">{message.content}</p>}
-        {notice && <p className="capability-notice">{notice}</p>}
+        {metadata.notice && <p className="capability-notice">{metadata.notice}</p>}
         {invocation && (
           <details className="provenance">
             <summary>查看模型与调用信息</summary>
@@ -413,13 +414,16 @@ function Message({ message }: { message: PersistedMessage }) {
   );
 }
 
-function metadataNotice(metadata: string | null) {
-  if (!metadata) return "";
+function messageMetadata(metadata: string | null): { notice: string; requiresReview: boolean } {
+  if (!metadata) return { notice: "", requiresReview: false };
   try {
-    const value = JSON.parse(metadata) as { capabilityNotice?: string; outputBoundary?: string };
-    return value.outputBoundary ?? value.capabilityNotice ?? "";
+    const value = JSON.parse(metadata) as { capabilityNotice?: string; outputBoundary?: string; requiresReview?: boolean };
+    return {
+      notice: value.outputBoundary ?? value.capabilityNotice ?? "",
+      requiresReview: value.requiresReview === true,
+    };
   } catch {
-    return "";
+    return { notice: "", requiresReview: false };
   }
 }
 

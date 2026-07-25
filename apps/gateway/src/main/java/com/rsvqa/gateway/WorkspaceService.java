@@ -297,7 +297,14 @@ public class WorkspaceService {
         invocation = invocations.save(invocation);
         String sourceType = "mock_demo".equals(result.predictionOrigin()) ? "MOCK" : "RESEARCH_MODEL";
         String content = result.answer() == null ? result.capabilityNotice() : result.answer();
-        String metadata = "{\"capabilityNotice\":\"" + jsonEscape(result.capabilityNotice()) + "\"}";
+        boolean requiresReview = hasAnswerShapeMismatch(result.predictedQuestionType(), result.answer());
+        String capabilityNotice = requiresReview
+                ? result.capabilityNotice() + " 当前答案形式与预测题型不一致，请人工复核；系统保留原始模型输出，未进行规则改写。"
+                : result.capabilityNotice();
+        String metadata = json(Map.of(
+                "capabilityNotice", capabilityNotice,
+                "requiresReview", requiresReview
+        ));
         MessageEntity assistant = messages.save(new MessageEntity(
                 conversation,
                 invocation,
@@ -307,6 +314,16 @@ public class WorkspaceService {
                 metadata
         ));
         return new QuestionResponse(toMessage(userMessage), toMessage(assistant), result);
+    }
+
+    static boolean hasAnswerShapeMismatch(String questionType, String answer) {
+        if (questionType == null || answer == null || answer.isBlank()) return false;
+        return switch (questionType) {
+            case "count" -> !answer.matches("\\d+");
+            case "area" -> !(answer.matches("\\d+m2") || answer.contains("m2"));
+            case "presence", "comp", "comparison" -> !("yes".equals(answer) || "no".equals(answer));
+            default -> false;
+        };
     }
 
     private QuestionResponse askExternal(

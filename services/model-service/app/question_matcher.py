@@ -37,7 +37,7 @@ SUPPORTED_OBJECTS: tuple[GroundObject, ...] = (
     GroundObject("parking", "parkings", ("停车场", "停车区域", "parkings", "parking")),
     GroundObject("farmland", "farmlands", ("农田", "耕地", "farmlands", "farmland")),
     GroundObject("building", "buildings", ("建筑物", "建筑", "楼房", "buildings", "building")),
-    GroundObject("road", "roads", ("道路", "公路", "马路", "roads", "road")),
+    GroundObject("road", "roads", ("道路", "公路", "马路", "条路", "roads", "road")),
     GroundObject("park", "parks", ("公园", "parks", "park")),
     GroundObject("forest", "forests", ("森林", "林地", "forests", "forest")),
     GroundObject("school", "schools", ("学校", "schools", "school")),

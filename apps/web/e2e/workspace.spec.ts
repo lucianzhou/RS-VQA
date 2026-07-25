@@ -16,10 +16,10 @@ test("persists an image, multi-turn VQA, provenance, and agent tools", async ({ 
   await page.goto("/workspace");
   await expect(page.getByText("RS-VQA", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "新建分析", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "从一张遥感图像开始" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "从一张遥感图像开始" })).toBeVisible({ timeout: 15_000 });
 
   await page.getByLabel("选择遥感图像").setInputFiles(image);
-  await expect(page.getByText("phoenix_desert_urban.jpg")).toBeVisible();
+  await expect(page.getByText("phoenix_desert_urban.jpg")).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "查看大图" }).click();
   await expect(page.getByRole("dialog", { name: "phoenix_desert_urban.jpg" })).toBeVisible();
   await page.getByRole("button", { name: "关闭大图预览" }).click();

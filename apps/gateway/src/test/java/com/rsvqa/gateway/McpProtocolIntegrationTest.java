@@ -40,10 +40,23 @@ class McpProtocolIntegrationTest {
                             "system_health",
                             "conversation_history",
                             "batch_job_status",
-                            "search_knowledge"
+                            "search_knowledge",
+                            "project_summary",
+                            "project_conversations",
+                            "project_vqa_statistics",
+                            "batch_result_statistics",
+                            "confidence_distribution",
+                            "unsupported_question_summary",
+                            "failed_invocation_summary",
+                            "knowledge_search",
+                            "audit_lookup",
+                            "create_batch_plan",
+                            "report_draft_data",
+                            "conversation_vqa_results",
+                            "model_capabilities"
                     )
                     .doesNotContain("single_image_vqa")
-                    .hasSize(6);
+                    .hasSize(19);
             assertThat(Boolean.TRUE.equals(result.isError())).isFalse();
             assertThat(result.content()).isNotEmpty();
         }

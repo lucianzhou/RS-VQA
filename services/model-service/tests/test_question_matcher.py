@@ -17,6 +17,14 @@ def test_maps_english_count_question() -> None:
     assert result.canonical_question == "How many buildings are there?"
 
 
+def test_maps_colloquial_chinese_road_count_question() -> None:
+    result = match_question("有几条路？")
+
+    assert result.supported is True
+    assert result.question_type is QuestionType.COUNT
+    assert result.canonical_question == "How many roads are there?"
+
+
 def test_maps_chinese_area_question() -> None:
     result = match_question("建筑物覆盖面积是多少？")
 

@@ -85,6 +85,46 @@ describe("WorkspacePage", () => {
       String(input).endsWith("/image") && (init as RequestInit | undefined)?.method === "POST"
     )).toBe(false);
   });
+
+  it("marks a raw answer whose shape conflicts with the predicted question type for review", async () => {
+    const conversation: ConversationDetail = {
+      ...detail(asset),
+      messages: [{
+        id: "message-1",
+        role: "assistant",
+        sourceType: "RESEARCH_MODEL",
+        content: "no",
+        metadataJson: JSON.stringify({
+          capabilityNotice: "当前答案形式与预测题型不一致，请人工复核；系统保留原始模型输出。",
+          requiresReview: true,
+        }),
+        invocation: {
+          id: "invocation-1",
+          requestId: "request-1",
+          status: "answered",
+          predictionOrigin: "research_vilt_predicted_soft",
+          modelReleaseId: "release-1",
+          providerType: "RESEARCH_MODEL",
+          providerModel: null,
+          confidence: 0.65,
+          margin: 0.35,
+          latencyMs: 700,
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+          estimatedCostUsd: null,
+        },
+        createdAt: new Date().toISOString(),
+      }],
+    };
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(conversation)));
+
+    renderPage();
+
+    expect(await screen.findByText("答案形式异常，请复核")).toBeInTheDocument();
+    expect(screen.getByText("no", { selector: ".answer-value" })).toBeInTheDocument();
+    expect(screen.getByText(/系统保留原始模型输出/)).toBeInTheDocument();
+  });
 });
 
 function jsonResponse(value: unknown) {
