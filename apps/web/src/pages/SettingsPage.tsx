@@ -1,7 +1,7 @@
 import { Accessibility, Bot, CheckCircle2, Database, Globe2, KeyRound, Server, ShieldCheck } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { AppTopbar, modelOptions, providerToModelOption, StatusBadge } from "../components/AppChrome";
+import { AppTopbar, modelOptions, providerToModelOption, ProviderAvatar, StatusBadge } from "../components/AppChrome";
 import { getSystemStatus, getUserSettings, listProviders, updateUserSettings } from "../api";
 
 export function SettingsPage() {
@@ -14,12 +14,12 @@ export function SettingsPage() {
     onSuccess: (updated) => queryClient.setQueryData(["user-settings"], updated),
   });
   const availableModels = Array.isArray(providers.data) ? providers.data.map(providerToModelOption) : modelOptions;
-  const externalProvider = availableModels.find((model) => model.kind === "EXTERNAL_VLM");
+  const externalProviders = availableModels.filter((model) => model.kind === "EXTERNAL_VLM");
   const externalProviderStatus = providers.isPending
     ? "正在检查"
-    : externalProvider?.configured
-      ? `${externalProvider.name} · ${externalProvider.releaseId ?? "Provider"} · 已配置`
-      : `${externalProvider?.name ?? "外部模型"} · 未配置`;
+    : externalProviders.length === 0
+      ? "未检测到外部 Provider"
+      : externalProviders.map((p) => `${p.name}${p.releaseId ? " · " + p.releaseId : ""}${p.configured ? " · 已配置" : " · 未配置"}`).join(" / ");
   const service = (name: string, fallback: string) => {
     const value = status.data?.services[name];
     if (!value) return fallback;
@@ -36,7 +36,7 @@ export function SettingsPage() {
           <div className="model-list">
             {availableModels.map((model) => (
               <article key={model.id}>
-                <span className="model-icon">{model.kind === "EXTERNAL_VLM" ? <Bot size={20} /> : <ShieldCheck size={20} />}</span>
+                <span className="model-icon"><ProviderAvatar providerId={model.id} kind={model.kind} size={22} /></span>
                 <div>
                   <div className="model-title"><h4>{model.name}</h4><span className={model.configured ? "configured" : "unconfigured"}>{model.configured ? <><CheckCircle2 size={13} />{model.kind === "MOCK" ? "Mock 可用" : "开发可用"}</> : "未配置"}</span></div>
                   <p>{model.description}</p>

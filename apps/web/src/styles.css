@@ -343,7 +343,7 @@ button, a { touch-action: manipulation; }
 .batch-results em { color: var(--forest); font-size: 9px; font-style: normal; font-weight: 650; }
 .model-list { display: grid; }
 .model-list article { display: flex; gap: 13px; padding: 16px 0; border-bottom: 1px solid #edf0ed; }
-.model-icon { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border-radius: 9px; color: var(--forest); background: #f0f6f2; }
+.model-icon { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; }
 .model-list article > div { min-width: 0; flex: 1; }
 .model-title { display: flex; align-items: center; gap: 8px; }
 .model-title h4 { margin: 0; font-size: 12px; }
@@ -437,7 +437,7 @@ button, a { touch-action: manipulation; }
 .profile-menu-heading small { margin-top: 3px; color: var(--muted); font-size: 9px; }
 
 .model-popover { width: min(380px,calc(100vw - 24px)); padding: 7px; transform-origin: var(--radix-popover-content-transform-origin); }
-.popover-heading { padding: 8px 9px 7px; }
+.popover-heading { padding: 8px 9px 7px; border-bottom: 1px solid #edf0ed; margin-bottom: 2px; }
 .popover-heading span, .popover-heading small { display: block; }
 .popover-heading span { font-size: 11px; font-weight: 700; }
 .popover-heading small { margin-top: 3px; color: var(--muted); font-size: 9px; }
@@ -445,7 +445,7 @@ button, a { touch-action: manipulation; }
 .model-option { display: grid; min-width: 0; grid-template-columns: 32px minmax(0,1fr) 18px; align-items: start; gap: 9px; border: 0; border-radius: 9px; padding: 10px 9px; color: var(--ink); background: transparent; text-align: left; }
 .model-option:hover, .model-option:focus-visible, .model-option.is-selected { background: #f2f6f3; }
 .model-option[aria-disabled="true"] { cursor: not-allowed; opacity: .52; }
-.model-option-icon { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 8px; color: var(--forest); background: var(--selection); }
+.model-option-icon { display: grid; width: 30px; height: 30px; place-items: center; }
 .model-option-copy { min-width: 0; }
 .model-option-copy strong, .model-option-copy small, .model-option-copy em { display: block; }
 .model-option-copy strong { font-size: 11px; }
