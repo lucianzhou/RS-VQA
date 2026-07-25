@@ -85,8 +85,9 @@ button, a { touch-action: manipulation; }
 .sidebar-search-input kbd { color: #909994; font-size: 9px; font-family: inherit; }
 .sidebar-scroll { min-height: 0; flex: 1; margin-top: 18px; overflow-y: auto; scrollbar-width: thin; }
 .nav-section-label { margin: 0 8px 8px; color: #8a938e; font-size: 10px; font-weight: 700; text-transform: uppercase; }
-.nav-section-heading { display: flex; min-height: 24px; align-items: flex-start; justify-content: space-between; }
-.nav-section-heading .icon-button { width: 22px; height: 22px; margin: -6px 4px 0 0; color: var(--muted); }
+.project-create-area { margin-bottom: 2px; }
+.nav-section-heading { display: flex; min-height: 28px; align-items: center; justify-content: space-between; }
+.nav-section-heading .icon-button { width: 28px; height: 28px; margin: 0 1px 0 0; color: var(--muted); }
 .project-composer { display: flex; align-items: center; gap: 4px; margin: 0 4px 9px; }
 .project-composer input { min-width: 0; height: 31px; flex: 1; border: 1px solid #b9c9c0; border-radius: 6px; padding: 0 8px; color: var(--ink); background: white; font-size: 10px; outline: 0; }
 .project-composer input:focus { border-color: #8ba99a; box-shadow: 0 0 0 3px rgba(36,91,73,.06); }

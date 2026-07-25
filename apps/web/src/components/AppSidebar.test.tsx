@@ -99,6 +99,27 @@ describe("AppSidebar", () => {
     expect(await screen.findByRole("menuitem", { name: /退出登录/ })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /模型与 Provider/ })).toBeInTheDocument();
   });
+
+  it("collapses an empty project composer when clicking outside", async () => {
+    const interaction = userEvent.setup();
+    renderWithClient(<AppSidebar user={user} />);
+    await screen.findByText("森林调查");
+
+    await interaction.click(screen.getByRole("button", { name: "新建项目" }));
+    expect(screen.getByRole("textbox", { name: "项目名称" })).toBeInTheDocument();
+    await interaction.click(screen.getByRole("textbox", { name: "搜索项目与对话" }));
+    expect(screen.queryByRole("textbox", { name: "项目名称" })).not.toBeInTheDocument();
+  });
+
+  it("collapses the project composer with Escape", async () => {
+    const interaction = userEvent.setup();
+    renderWithClient(<AppSidebar user={user} />);
+    await screen.findByText("森林调查");
+
+    await interaction.click(screen.getByRole("button", { name: "新建项目" }));
+    await interaction.keyboard("{Escape}");
+    expect(screen.queryByRole("textbox", { name: "项目名称" })).not.toBeInTheDocument();
+  });
 });
 
 describe("ModelSelector", () => {

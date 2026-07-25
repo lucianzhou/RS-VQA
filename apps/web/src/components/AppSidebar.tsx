@@ -71,6 +71,7 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
   const clearActiveConversation = useWorkspaceStore((state) => state.clearActiveConversation);
   const setSignedOut = useWorkspaceStore((state) => state.setSignedOut);
   const searchRef = useRef<HTMLInputElement>(null);
+  const projectCreateAreaRef = useRef<HTMLDivElement>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [projectComposerOpen, setProjectComposerOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
@@ -109,10 +110,10 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
       return createConversation(projectId);
     },
     onSuccess: async (conversation) => {
-      setActiveConversation(conversation.projectId, conversation.id);
       setExpandedProjects((current) => new Set(current).add(conversation.projectId));
       await refreshProjects();
       queryClient.setQueryData(["conversation", conversation.id], conversation);
+      setActiveConversation(conversation.projectId, conversation.id);
       navigate("/workspace");
     },
   });
@@ -127,9 +128,9 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
       setProjectName("");
       setProjectComposerOpen(false);
       setExpandedProjects((current) => new Set(current).add(project.id));
-      setActiveConversation(project.id, conversation.id);
       await refreshProjects();
       queryClient.setQueryData(["conversation", conversation.id], conversation);
+      setActiveConversation(project.id, conversation.id);
       navigate("/workspace");
     },
   });
@@ -195,6 +196,16 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
   }, [activeConversationId, projects, setActiveConversation]);
 
   useEffect(() => {
+    if (!activeConversationId || projects.length === 0) return;
+    const active = projects.some((project) => project.id === activeProjectId
+      && project.conversations.some((conversation) => conversation.id === activeConversationId));
+    if (active) return;
+    const first = projects.flatMap((project) => project.conversations.map((conversation) => ({ project, conversation })))[0];
+    if (first) setActiveConversation(first.project.id, first.conversation.id);
+    else clearActiveConversation();
+  }, [activeConversationId, activeProjectId, clearActiveConversation, projects, setActiveConversation]);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -209,6 +220,26 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [setSidebarCollapsed, sidebarCollapsed]);
+
+  useEffect(() => {
+    if (!projectComposerOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (projectCreateAreaRef.current?.contains(event.target as Node)) return;
+      if (!projectName.trim()) setProjectComposerOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setProjectComposerOpen(false);
+        if (!projectName.trim()) setProjectName("");
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [projectComposerOpen, projectName]);
 
   const openAction = (next: Exclude<Action, null>) => {
     setAction(next);
@@ -245,19 +276,21 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
         </label>
 
         <nav className="sidebar-scroll" aria-label="主导航">
-          <div className="nav-section-heading">
-            <p className="nav-section-label">项目</p>
-            <button className="icon-button" type="button" aria-label="新建项目" onClick={() => setProjectComposerOpen((open) => !open)}><Plus size={13} /></button>
+          <div className="project-create-area" ref={projectCreateAreaRef}>
+            <div className="nav-section-heading">
+              <p className="nav-section-label">项目</p>
+              <button className="icon-button" type="button" aria-label="新建项目" onClick={() => setProjectComposerOpen((open) => !open)}><Plus size={16} /></button>
+            </div>
+            {projectComposerOpen && (
+              <form className="project-composer" onSubmit={(event) => {
+                event.preventDefault();
+                if (projectName.trim()) createProjectMutation.mutate();
+              }}>
+                <input autoFocus aria-label="项目名称" name="project-name" autoComplete="off" maxLength={160} value={projectName} onChange={(event) => setProjectName(event.target.value)} placeholder="输入项目名称…" />
+                <button type="submit" aria-label="确认新建项目" disabled={!projectName.trim() || createProjectMutation.isPending}><Check size={14} /></button>
+              </form>
+            )}
           </div>
-          {projectComposerOpen && (
-            <form className="project-composer" onSubmit={(event) => {
-              event.preventDefault();
-              if (projectName.trim()) createProjectMutation.mutate();
-            }}>
-              <input autoFocus aria-label="项目名称" name="project-name" autoComplete="off" maxLength={160} value={projectName} onChange={(event) => setProjectName(event.target.value)} placeholder="输入项目名称…" />
-              <button type="submit" aria-label="确认新建项目" disabled={!projectName.trim() || createProjectMutation.isPending}><Check size={14} /></button>
-            </form>
-          )}
 
           {visibleProjects.map((project) => {
             const expanded = normalizedSearch ? true : expandedProjects.has(project.id);
