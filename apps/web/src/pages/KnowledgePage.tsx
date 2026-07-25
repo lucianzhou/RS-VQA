@@ -19,7 +19,8 @@ export function KnowledgePage() {
   return (
     <main className="page">
       <AppTopbar title="知识库" subtitle="BGE Embedding · Milvus · 来源引用" />
-      <div className="page-scroll settings-layout">
+      <div className="page-scroll">
+        <div className="settings-layout">
         <header className="page-intro">
           <div><StatusBadge>引用优先的检索</StatusBadge><h2>让 Agent 依据已核准资料解释，而不是凭空补全</h2><p>知识检索只解释模型、系统与遥感 VQA 基础资料，不会替代图像分类推理。</p></div>
           <button className="primary-button" type="button" disabled={seed.isPending} onClick={() => seed.mutate()}><ShieldCheck size={14} />{seed.isPending ? "正在建立索引…" : "导入已核准边界"}</button>
@@ -56,6 +57,7 @@ export function KnowledgePage() {
             </article>)}
           </div>}
         </section>
+        </div>
       </div>
     </main>
   );

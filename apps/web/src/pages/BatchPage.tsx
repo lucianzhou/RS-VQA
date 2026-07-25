@@ -78,7 +78,8 @@ export function BatchPage() {
   return (
     <main className="page">
       <AppTopbar title="批量 VQA" subtitle="多图像 · 多问题 · 可恢复任务" actions={<ModelSelector />} />
-      <div className="page-scroll batch-layout">
+      <div className="page-scroll">
+        <div className="batch-layout">
         <header className="page-intro">
           <div><StatusBadge>工作流配置</StatusBadge><h2>建立一组可复核的批量问答任务</h2><p>先选择图像和问题。正式创建任务后，每一个组合都会保留模型版本与独立状态。</p></div>
           <div className="batch-summary"><span><strong>{files.length}</strong>图像</span><span><strong>{questions.length}</strong>问题</span><span><strong>{files.length * questions.length}</strong>组合</span></div>
@@ -195,6 +196,7 @@ export function BatchPage() {
             ) : <button className="quiet-button" type="button" onClick={() => setActiveJobId(jobsQuery.data?.[0]?.id)}>查看最近任务</button>}
           </section>
         )}
+        </div>
       </div>
       <ImageLightbox
         open={Boolean(selectedPreview)}

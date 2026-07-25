@@ -23,7 +23,8 @@ export function ArchivePage() {
   return (
     <main className="page">
       <AppTopbar title="归档" subtitle="恢复项目与对话" />
-      <div className="page-scroll settings-layout">
+      <div className="page-scroll">
+        <div className="settings-layout">
         <header className="page-intro archive-intro">
           <div>
             <span className="status-badge"><FolderArchive size={12} />可恢复归档</span>
@@ -92,6 +93,7 @@ export function ArchivePage() {
             </div>
           </section>
         )}
+        </div>
       </div>
     </main>
   );

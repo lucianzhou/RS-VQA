@@ -29,7 +29,8 @@ export function SettingsPage() {
   return (
     <main className="page">
       <AppTopbar title="模型与设置" subtitle="能力、来源和运行状态" />
-      <div className="page-scroll settings-layout">
+      <div className="page-scroll">
+        <div className="settings-layout">
         <header className="page-intro"><div><StatusBadge tone="success">来源隔离已启用</StatusBadge><h2>每一次回答都保留自己的模型身份</h2><p>研究模型、外部视觉模型和 Mock 不共享模糊标签；历史消息不会被当前配置覆盖。</p></div></header>
         <section className="plain-section">
           <div className="section-heading"><div><span>01</span><h3>可用模型</h3></div></div>
@@ -90,6 +91,7 @@ export function SettingsPage() {
           </div>
         </section>
         <aside className="boundary-note"><ShieldCheck size={19} /><div><strong>研究模型能力边界</strong><p>当前候选是 RSVQA-HR 特定答案词表的闭集分类器，不是开放式视觉助手、目标检测或零样本识别模型。Mock 回答不能用于论文结论。</p></div></aside>
+        </div>
       </div>
     </main>
   );

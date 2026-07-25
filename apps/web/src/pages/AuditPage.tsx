@@ -8,7 +8,8 @@ export function AuditPage() {
   return (
     <main className="page">
       <AppTopbar title="调用审计" subtitle="最近 100 条当前用户操作 · 不记录凭据与请求正文" />
-      <div className="page-scroll settings-layout">
+      <div className="page-scroll">
+        <div className="settings-layout">
         <header className="page-intro"><div><StatusBadge><ShieldCheck size={12} />可追踪</StatusBadge><h2>从回答回到请求，从工具回到 Trace</h2><p>这里只保存操作类型、结果、时间和 Trace ID；密码、Token、Cookie、图像内容及问题正文不会写入审计摘要。</p></div></header>
         <section className="plain-section">
           <div className="section-heading"><div><span>01</span><h3>操作轨迹</h3></div></div>
@@ -22,6 +23,7 @@ export function AuditPage() {
             {events.data?.length === 0 && <p className="empty-copy">尚无已记录的变更操作。</p>}
           </div>
         </section>
+        </div>
       </div>
     </main>
   );

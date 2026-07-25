@@ -86,7 +86,8 @@ export function ReportsPage() {
   return (
     <main className="page">
       <AppTopbar title="分析报告" subtitle="确定性统计 · Agent 解释 · 人工确认" />
-      <div className="page-scroll report-layout">
+      <div className="page-scroll">
+        <div className="report-layout">
         <header className="page-intro">
           <div>
             <StatusBadge tone="success">事实与解释分层</StatusBadge>
@@ -204,6 +205,7 @@ export function ReportsPage() {
               )}
             </AnimatePresence>
           </section>
+        </div>
         </div>
       </div>
     </main>

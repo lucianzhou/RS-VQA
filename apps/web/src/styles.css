@@ -139,12 +139,12 @@ button, a { touch-action: manipulation; }
 .topbar-actions { display: flex; align-items: center; gap: 8px; }
 .agent-toggle { display: inline-flex; min-height: 36px; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 7px; padding: 0 10px; color: #53605a; background: white; font-size: 10px; font-weight: 620; text-decoration: none; }
 .agent-toggle:hover, .agent-toggle.is-active { border-color: #b5c8bd; color: var(--forest); background: #f5f8f6; }
-.model-selector { position: relative; display: flex; min-width: 268px; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 9px; padding: 6px 11px; color: var(--forest); background: var(--white); text-align: left; transition: border-color var(--motion-press) ease, background var(--motion-press) ease, transform var(--motion-press) var(--ease-out); }
+.model-selector { position: relative; display: flex; width: clamp(292px, 22vw, 340px); min-width: 292px; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 9px; padding: 6px 11px; color: var(--forest); background: var(--white); text-align: left; transition: border-color var(--motion-press) ease, background var(--motion-press) ease, transform var(--motion-press) var(--ease-out); }
 .model-selector:hover { border-color: #b8c8be; background: #fbfcfb; }
 .model-selector:active { transform: scale(.985); }
 .model-selector > .model-option-icon { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
 .model-selector-info { min-width: 0; flex: 1; display: flex; flex-direction: column; justify-content: center; }
-.model-selector strong, .model-selector small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model-selector strong, .model-selector small { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .model-selector strong { color: var(--ink); font-size: 10px; font-weight: 650; line-height: 1.35; }
 .model-selector small { margin-top: 1px; color: var(--muted); font-size: 9px; line-height: 1.35; }
 .model-selector > svg:last-child { flex: 0 0 auto; transition: transform var(--motion-popover) var(--ease-out); }
@@ -255,7 +255,7 @@ button, a { touch-action: manipulation; }
   .workspace-page.agent-open .composer-wrap { padding-right: 398px; }
 }
 
-.page-scroll { min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+.page-scroll { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable both-edges; }
 .batch-layout, .settings-layout { width: min(980px, calc(100% - 56px)); margin: 0 auto; padding: 42px 0 70px; }
 .page-intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 40px; padding-bottom: 30px; }
 .page-intro h2 { max-width: 620px; margin: 14px 0 8px; font-size: 24px; font-weight: 620; line-height: 1.25; }
