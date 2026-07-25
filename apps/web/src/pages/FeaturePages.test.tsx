@@ -213,7 +213,7 @@ describe("feature pages", () => {
       if (path.endsWith("/api/v1/providers")) return jsonResponse([{
         providerId: "gemini",
         modelId: "gemini-2.5-flash",
-        displayName: "Gemini 通用视觉助手",
+        displayName: "gemini-2.5-flash",
         kind: "EXTERNAL_VLM",
         configurationState: "CONFIGURED",
         capabilities: ["vision"],
@@ -237,7 +237,7 @@ describe("feature pages", () => {
     }));
 
     renderPage(<SettingsPage />);
-    expect(await screen.findByText("Gemini 通用视觉助手 · gemini-2.5-flash · 已配置")).toBeInTheDocument();
+    expect(await screen.findByText("gemini-2.5-flash · gemini-2.5-flash · 已配置")).toBeInTheDocument();
   });
 });
 

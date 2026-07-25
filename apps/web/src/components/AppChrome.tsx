@@ -26,7 +26,7 @@ export const modelOptions: ModelOption[] = [
   },
   {
     id: "external-vlm",
-    name: "Gemini 通用视觉助手",
+    name: "Gemini-3.6-flash",
     description: "Google GenAI · 外部通用视觉模型",
     kind: "EXTERNAL_VLM",
     configured: false,
@@ -70,7 +70,7 @@ export function ModelSelector() {
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <button className="model-selector" type="button" aria-label={`选择分析模式，当前为${selected.name}`}>
-          <ProviderAvatar providerId={selected.id} kind={selected.kind} size={20} />
+          <span className="model-option-icon"><ProviderAvatar providerId={selected.id} kind={selected.kind} size={20} /></span>
           <span><strong>{selected.name}</strong><small>{selected.configured ? selected.description : "未配置"}</small></span>
           <ChevronDown className={open ? "is-open" : ""} size={14} />
         </button>

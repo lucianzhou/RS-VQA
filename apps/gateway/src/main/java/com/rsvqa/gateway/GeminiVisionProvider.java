@@ -53,7 +53,7 @@ public class GeminiVisionProvider implements AiProvider {
         return new ProviderDescriptor(
                 "gemini",
                 properties.model(),
-                "Gemini 通用视觉助手",
+                properties.model(),
                 "EXTERNAL_VLM",
                 properties.configured() ? "CONFIGURED" : "UNCONFIGURED",
                 Set.of("open_visual_question_answering", "image_description", "reasoned_explanation"),

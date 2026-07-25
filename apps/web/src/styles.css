@@ -135,7 +135,7 @@ button, a { touch-action: manipulation; }
 .topbar-actions { display: flex; align-items: center; gap: 8px; }
 .agent-toggle { display: inline-flex; min-height: 36px; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 7px; padding: 0 10px; color: #53605a; background: white; font-size: 10px; font-weight: 620; text-decoration: none; }
 .agent-toggle:hover, .agent-toggle.is-active { border-color: #b5c8bd; color: var(--forest); background: #f5f8f6; }
-.model-selector { position: relative; display: flex; min-width: 240px; align-items: center; gap: 9px; border: 1px solid var(--line); border-radius: 9px; padding: 7px 9px; color: var(--forest); background: var(--white); text-align: left; transition: border-color var(--motion-press) ease, background var(--motion-press) ease, transform var(--motion-press) var(--ease-out); }
+.model-selector { position: relative; display: flex; min-width: 252px; align-items: center; gap: 9px; border: 1px solid var(--line); border-radius: 9px; padding: 7px 9px; color: var(--forest); background: var(--white); text-align: left; transition: border-color var(--motion-press) ease, background var(--motion-press) ease, transform var(--motion-press) var(--ease-out); }
 .model-selector:hover { border-color: #b8c8be; background: #fbfcfb; }
 .model-selector:active { transform: scale(.985); }
 .model-selector > span { min-width: 0; flex: 1; }
