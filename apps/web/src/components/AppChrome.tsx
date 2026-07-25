@@ -1,6 +1,6 @@
 import * as Popover from "@radix-ui/react-popover";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, Check, ChevronDown, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import { Bot, Check, ChevronDown, ShieldCheck, Sparkles } from "lucide-react";
 import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { listProviders } from "../api";
 import { useWorkspaceStore } from "../store";
@@ -70,7 +70,7 @@ export function ModelSelector() {
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <button className="model-selector" type="button" aria-label={`选择分析模式，当前为${selected.name}`}>
-          <ModelIcon model={selected} />
+          <ProviderAvatar providerId={selected.id} kind={selected.kind} size={16} />
           <span><strong>{selected.name}</strong><small>{selected.configured ? selected.description : "未配置"}</small></span>
           <ChevronDown className={open ? "is-open" : ""} size={14} />
         </button>
@@ -101,7 +101,7 @@ export function ModelSelector() {
                     setOpen(false);
                   }}
                 >
-                  <span className="model-option-icon"><ModelIcon model={model} /></span>
+                  <span className="model-option-icon"><ProviderAvatar providerId={model.id} kind={model.kind} size={18} /></span>
                   <span className="model-option-copy">
                     <strong>{model.name}</strong>
                     <small>{model.description}</small>
@@ -119,12 +119,18 @@ export function ModelSelector() {
   );
 }
 
-function ModelIcon({ model }: { model: ModelOption }) {
-  if (model.id === "qwen") return <Zap size={16} aria-hidden="true" />;
-  if (model.id === "gemini" || model.id === "external-vlm") return <Bot size={16} aria-hidden="true" />;
-  if (model.kind === "EXTERNAL_VLM") return <Bot size={16} aria-hidden="true" />;
-  if (model.kind === "MOCK") return <ShieldCheck size={16} aria-hidden="true" />;
-  return <ShieldCheck size={16} aria-hidden="true" />;
+export function ProviderAvatar({ providerId, kind, size = 28 }: { providerId?: string; kind: string; size?: number }) {
+  const isExternal = kind === "EXTERNAL_VLM";
+  if (!isExternal) {
+    return <span className="avatar-icon research" style={{ width: size, height: size }}><Bot size={Math.round(size * 0.57)} aria-hidden="true" /></span>;
+  }
+  if (providerId === "qwen") {
+    return <span className="avatar-icon external qwen" style={{ width: size, height: size }}>Q</span>;
+  }
+  if (providerId === "gemini") {
+    return <span className="avatar-icon external gemini" style={{ width: size, height: size }}>G</span>;
+  }
+  return <span className="avatar-icon external" style={{ width: size, height: size }}>E</span>;
 }
 
 export function providerToModelOption(provider: ProviderDescriptor): ModelOption {

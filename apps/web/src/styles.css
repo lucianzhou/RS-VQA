@@ -177,6 +177,12 @@ button, a { touch-action: manipulation; }
 .assistant-avatar { display: grid; width: 28px; height: 28px; flex: 0 0 auto; place-items: center; border-radius: 8px; color: white; background: var(--forest); font-size: 9px; font-weight: 780; }
 .assistant-avatar.warning { color: #7f5427; background: #f5eadc; }
 .assistant-avatar.external { color: #355047; background: #dfe9e3; }
+.avatar-icon { display: grid; flex: 0 0 auto; place-items: center; border-radius: 8px; color: white; font-size: 10px; font-weight: 780; }
+.avatar-icon.research { background: var(--forest); }
+.avatar-icon.external { color: #355047; background: #dfe9e3; }
+.avatar-icon.external.qwen { color: #2d5f8a; background: #dce9f4; }
+.avatar-icon.external.gemini { color: #5f3d7a; background: #e8ddf2; }
+.avatar-icon.warning { color: #7f5427; background: #f5eadc; border-radius: 8px; }
 .starter strong { color: var(--ink); font-size: 12px; }
 .starter p { margin: 5px 0 13px; font-size: 11px; }
 .starter-questions { display: flex; flex-wrap: wrap; gap: 7px; }

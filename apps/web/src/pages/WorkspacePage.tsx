@@ -30,7 +30,7 @@ import {
   uploadConversationImage,
   runTrustedAgentStream,
 } from "../api";
-import { AppTopbar, ModelSelector } from "../components/AppChrome";
+import { AppTopbar, ModelSelector, ProviderAvatar } from "../components/AppChrome";
 import { ImageLightbox } from "../components/ImageLightbox";
 import { useWorkspaceStore } from "../store";
 import type { ImageAsset, PersistedMessage } from "../types";
@@ -379,14 +379,16 @@ function Message({ message }: { message: PersistedMessage }) {
   const lowConfidence = answered && invocation?.confidence != null && invocation.confidence < 0.65;
   const metadata = messageMetadata(message.metadataJson);
   const needsReview = answered && metadata.requiresReview;
-  const providerInitial = metadata.providerId === "qwen" ? "Q" : metadata.providerId === "gemini" ? "G" : "E";
   const answerLabel = needsReview ? "答案形式异常，请复核"
     : lowConfidence ? "低置信度，请复核"
     : answered ? (isExternal ? "外部模型辅助回答" : "模型回答")
     : "超出能力范围";
+  const avatarKind = isExternal ? "EXTERNAL_VLM" : isMock ? "MOCK" : "RESEARCH_MODEL";
   return (
     <motion.article className="message assistant-message" initial={{ opacity: 0, y: 9 }} animate={{ opacity: 1, y: 0 }}>
-      <span className={`assistant-avatar ${answered ? "" : "warning"} ${isExternal ? "external" : ""}`}>{answered ? (isExternal ? providerInitial : "RS") : <AlertTriangle size={15} />}</span>
+      {answered
+        ? <ProviderAvatar providerId={metadata.providerId} kind={avatarKind} size={28} />
+        : <span className="avatar-icon warning" style={{ width: 28, height: 28 }}><AlertTriangle size={15} /></span>}
       <div className="answer-body">
         <div className="answer-heading">
           <span className={`result-state ${answered && !lowConfidence && !needsReview ? "success" : "warning"}`}>
