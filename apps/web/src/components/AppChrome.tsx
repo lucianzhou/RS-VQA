@@ -1,6 +1,6 @@
 import * as Popover from "@radix-ui/react-popover";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, Check, ChevronDown, ShieldCheck, Sparkles } from "lucide-react";
+import { Bot, Check, ChevronDown, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { listProviders } from "../api";
 import { useWorkspaceStore } from "../store";
@@ -70,7 +70,7 @@ export function ModelSelector() {
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <button className="model-selector" type="button" aria-label={`选择分析模式，当前为${selected.name}`}>
-          <ModelIcon kind={selected.kind} />
+          <ModelIcon model={selected} />
           <span><strong>{selected.name}</strong><small>{selected.configured ? selected.description : "未配置"}</small></span>
           <ChevronDown className={open ? "is-open" : ""} size={14} />
         </button>
@@ -101,26 +101,30 @@ export function ModelSelector() {
                     setOpen(false);
                   }}
                 >
-                  <span className="model-option-icon"><ModelIcon kind={model.kind} /></span>
+                  <span className="model-option-icon"><ModelIcon model={model} /></span>
                   <span className="model-option-copy">
                     <strong>{model.name}</strong>
                     <small>{model.description}</small>
-                    <em>{model.configured ? model.releaseId ?? "Provider 已配置" : "需要服务端 Gemini API 配置"}</em>
+                    <em>{model.configured ? model.releaseId ?? "Provider 已配置" : "需要服务端 API 配置"}</em>
                   </span>
                   {isSelected && <Check size={16} aria-hidden="true" />}
                 </button>
               );
             })}
           </div>
-          <div className="model-boundary-note"><ShieldCheck size={13} /><span>Gemini 输出不会覆盖论文研究模型结果。</span></div>
+          <div className="model-boundary-note"><ShieldCheck size={13} /><span>外部模型输出不会覆盖论文研究模型结果。</span></div>
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
   );
 }
 
-function ModelIcon({ kind }: { kind: ModelOption["kind"] }) {
-  return kind === "EXTERNAL_VLM" ? <Bot size={16} aria-hidden="true" /> : <ShieldCheck size={16} aria-hidden="true" />;
+function ModelIcon({ model }: { model: ModelOption }) {
+  if (model.id === "qwen") return <Zap size={16} aria-hidden="true" />;
+  if (model.id === "gemini" || model.id === "external-vlm") return <Bot size={16} aria-hidden="true" />;
+  if (model.kind === "EXTERNAL_VLM") return <Bot size={16} aria-hidden="true" />;
+  if (model.kind === "MOCK") return <ShieldCheck size={16} aria-hidden="true" />;
+  return <ShieldCheck size={16} aria-hidden="true" />;
 }
 
 export function providerToModelOption(provider: ProviderDescriptor): ModelOption {

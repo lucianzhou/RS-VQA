@@ -379,14 +379,19 @@ function Message({ message }: { message: PersistedMessage }) {
   const lowConfidence = answered && invocation?.confidence != null && invocation.confidence < 0.65;
   const metadata = messageMetadata(message.metadataJson);
   const needsReview = answered && metadata.requiresReview;
+  const providerInitial = metadata.providerId === "qwen" ? "Q" : metadata.providerId === "gemini" ? "G" : "E";
+  const answerLabel = needsReview ? "答案形式异常，请复核"
+    : lowConfidence ? "低置信度，请复核"
+    : answered ? (isExternal ? "外部模型辅助回答" : "模型回答")
+    : "超出能力范围";
   return (
     <motion.article className="message assistant-message" initial={{ opacity: 0, y: 9 }} animate={{ opacity: 1, y: 0 }}>
-      <span className={`assistant-avatar ${answered ? "" : "warning"} ${isExternal ? "external" : ""}`}>{answered ? (isExternal ? "G" : "RS") : <AlertTriangle size={15} />}</span>
+      <span className={`assistant-avatar ${answered ? "" : "warning"} ${isExternal ? "external" : ""}`}>{answered ? (isExternal ? providerInitial : "RS") : <AlertTriangle size={15} />}</span>
       <div className="answer-body">
         <div className="answer-heading">
           <span className={`result-state ${answered && !lowConfidence && !needsReview ? "success" : "warning"}`}>
             {answered && !lowConfidence && !needsReview ? <Check size={14} /> : <Info size={14} />}
-            {needsReview ? "答案形式异常，请复核" : lowConfidence ? "低置信度，请复核" : answered ? (isExternal ? "Gemini 辅助回答" : "模型回答") : "超出能力范围"}
+            {answerLabel}
           </span>
           {isMock && <span className="mock-flag">MOCK</span>}
           {isExternal && <span className="external-flag">外部模型</span>}
@@ -414,16 +419,17 @@ function Message({ message }: { message: PersistedMessage }) {
   );
 }
 
-function messageMetadata(metadata: string | null): { notice: string; requiresReview: boolean } {
-  if (!metadata) return { notice: "", requiresReview: false };
+function messageMetadata(metadata: string | null): { notice: string; requiresReview: boolean; providerId: string } {
+  if (!metadata) return { notice: "", requiresReview: false, providerId: "" };
   try {
-    const value = JSON.parse(metadata) as { capabilityNotice?: string; outputBoundary?: string; requiresReview?: boolean };
+    const value = JSON.parse(metadata) as { capabilityNotice?: string; outputBoundary?: string; requiresReview?: boolean; providerId?: string };
     return {
       notice: value.outputBoundary ?? value.capabilityNotice ?? "",
       requiresReview: value.requiresReview === true,
+      providerId: value.providerId ?? "",
     };
   } catch {
-    return { notice: "", requiresReview: false };
+    return { notice: "", requiresReview: false, providerId: "" };
   }
 }
 

@@ -19,7 +19,7 @@ export function SettingsPage() {
     ? "正在检查"
     : externalProvider?.configured
       ? `${externalProvider.name} · ${externalProvider.releaseId ?? "Provider"} · 已配置`
-      : `${externalProvider?.name ?? "Gemini"} · 未配置`;
+      : `${externalProvider?.name ?? "外部模型"} · 未配置`;
   const service = (name: string, fallback: string) => {
     const value = status.data?.services[name];
     if (!value) return fallback;

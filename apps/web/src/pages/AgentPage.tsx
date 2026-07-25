@@ -426,7 +426,7 @@ function AgentHeader({ session }: { session: AgentSession }) {
   return (
     <header className="agent-context-header">
       <div><span><Workflow size={15} />{contextTypeLabel(session.contextType)}</span><h1>{session.title}</h1><p>{session.contextLabel}</p></div>
-      <div><span className="agent-provider-state">确定性工具可用</span><span>Gemini 未配置时不参与生成</span></div>
+      <div><span className="agent-provider-state">确定性工具可用</span><span>外部模型未配置时不参与生成</span></div>
     </header>
   );
 }
