@@ -380,7 +380,7 @@ public class WorkspaceService {
         String metadata = json(Map.of(
                 "providerId", external.providerId(),
                 "providerModel", external.modelId(),
-                "outputBoundary", "外部 Gemini 辅助输出，不属于论文研究模型预测。"
+                "outputBoundary", "外部 " + provider.descriptor().displayName() + " 辅助输出，不属于论文研究模型预测。"
         ));
         MessageEntity assistant = messages.save(new MessageEntity(
                 conversation, invocation, "assistant", "EXTERNAL_VLM", external.content(), metadata
@@ -404,7 +404,7 @@ public class WorkspaceService {
                 null,
                 "external_general_vision_assistance",
                 List.of(
-                        "该输出来自外部 Gemini，不属于论文研究模型结果。",
+                        "该输出来自外部 " + provider.descriptor().displayName() + "，不属于论文研究模型结果。",
                         "不保证适用于专业遥感定量解译，重要结论需要人工核验。"
                 ),
                 "外部通用视觉辅助回答；与闭集 RS-VQA 研究模型严格分离。",
