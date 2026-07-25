@@ -27,14 +27,14 @@ export const modelOptions: ModelOption[] = [
   {
     id: "external-vlm",
     name: "Gemini 通用视觉助手",
-    description: "外部模型 · 不属于论文模型输出",
+    description: "Google GenAI · 外部通用视觉模型",
     kind: "EXTERNAL_VLM",
     configured: false,
   },
   {
     id: "qwen",
     name: "Qwen3-VL 32B",
-    description: "DashScope 外部模型 · 不属于论文模型输出",
+    description: "DashScope · 外部通用视觉模型",
     kind: "EXTERNAL_VLM",
     configured: false,
   },
@@ -70,7 +70,7 @@ export function ModelSelector() {
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <button className="model-selector" type="button" aria-label={`选择分析模式，当前为${selected.name}`}>
-          <ProviderAvatar providerId={selected.id} kind={selected.kind} size={16} />
+          <ProviderAvatar providerId={selected.id} kind={selected.kind} size={18} />
           <span><strong>{selected.name}</strong><small>{selected.configured ? selected.description : "未配置"}</small></span>
           <ChevronDown className={open ? "is-open" : ""} size={14} />
         </button>
@@ -142,7 +142,7 @@ export function providerToModelOption(provider: ProviderDescriptor): ModelOption
       ? "qdrop15 · predicted-soft · 当前为 Mock"
       : provider.kind === "RESEARCH_MODEL"
         ? "RSVQA-HR · qdrop15 · predicted-soft"
-        : "外部模型 · 不属于论文模型输出",
+        : "外部通用视觉模型",
     kind: isMock ? "MOCK" : provider.kind,
     configured: provider.configurationState === "CONFIGURED",
     releaseId: provider.modelId === "none" ? undefined : provider.modelId,
