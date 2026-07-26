@@ -85,6 +85,14 @@ rsvqa:
     max-retries: ${RSVQA_QWEN_MAX_RETRIES:2}
     max-output-tokens: ${RSVQA_QWEN_MAX_OUTPUT_TOKENS:1024}
     temperature: ${RSVQA_QWEN_TEMPERATURE:0.2}
+  rs-bot:
+    # Budgets for one planning run. An LLM tool loop has no natural stopping
+    # point, so every one of these is load-bearing.
+    max-tool-steps: ${RSVQA_RS_BOT_MAX_TOOL_STEPS:6}
+    max-tool-calls-per-step: ${RSVQA_RS_BOT_MAX_TOOL_CALLS_PER_STEP:4}
+    max-total-tokens: ${RSVQA_RS_BOT_MAX_TOTAL_TOKENS:40000}
+    timeout-seconds: ${RSVQA_RS_BOT_TIMEOUT_SECONDS:120}
+    max-tool-output-chars: ${RSVQA_RS_BOT_MAX_TOOL_OUTPUT_CHARS:24000}
   model-service:
     base-url: ${RSVQA_MODEL_SERVICE_URL:http://localhost:8000}
     timeout-seconds: 15

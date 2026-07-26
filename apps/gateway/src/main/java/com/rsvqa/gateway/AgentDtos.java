@@ -28,13 +28,21 @@ final class AgentDtos {
     record AgentResponse(
             UUID runId,
             String status,
+            /** LLM_PLANNING or RULE_BASED_TOOLS. */
             String providerState,
+            /** Human-readable rendering of providerState for the UI. */
+            String providerStateLabel,
             String answer,
             String traceId,
             long latencyMs,
             List<ToolCallResponse> toolCalls,
             List<Map<String, String>> citations,
-            String boundaryNotice
+            String boundaryNotice,
+            String providerModel,
+            String promptVersion,
+            String stopReason,
+            Integer toolSteps,
+            Integer totalTokens
     ) {
     }
 
@@ -83,7 +91,11 @@ final class AgentDtos {
             String providerModel,
             Integer totalTokens,
             List<ToolCallResponse> toolCalls,
-            Instant createdAt
+            Instant createdAt,
+            String providerState,
+            String promptVersion,
+            String stopReason,
+            Integer toolSteps
     ) {
     }
 
