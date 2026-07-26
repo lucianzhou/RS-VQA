@@ -97,18 +97,30 @@ Real Runtime 会 fail closed：契约版本、`type_source=predicted_soft`、che
 
 ## 可选 Gemini Provider
 
-Gemini 通过 Spring AI Google GenAI 原生多模态适配器运行。默认关闭；Google AI Pro
-网页登录会员不是 API 授权，系统不会读取浏览器 Cookie。需要使用时只在服务端进程环境
-提供以下变量，不要写入或提交 `.env`：
+Gemini 通过可配置的 OpenAI 兼容中转站运行，不依赖 Google 官方 endpoint；网页登录会员
+不是 API 授权，系统不会读取浏览器 Cookie。文本/工具角色与视觉角色各自独立开关：
 
 ```bash
 RSVQA_GEMINI_ENABLED=true
-RSVQA_GEMINI_MODEL=gemini-2.5-flash
-GEMINI_API_KEY=<server-side-secret>
+RSVQA_GEMINI_BASE_URL=https://<relay-host>
+RSVQA_GEMINI_API_KEY=<server-side-secret>
+
+# RS-Bot 文本与工具调用
+RSVQA_GEMINI_AGENT_ENABLED=true
+RSVQA_GEMINI_AGENT_MODEL=gemini-3.6-flash
+
+# 外部视觉 VQA：没有默认模型，必须显式指定已验证支持图像输入的模型
+RSVQA_GEMINI_VISION_ENABLED=true
+RSVQA_GEMINI_VISION_MODEL=<verified-multimodal-model>
 ```
 
+只在服务端进程环境提供这些变量，不要提交。未指定并验证 `RSVQA_GEMINI_VISION_MODEL`
+之前，外部视觉保持 `UNCONFIGURED`，界面不会显示外部通用视觉模型可用。能力验证脚本见
+`scripts/gemini_relay_live_smoke.py`，详见
+[`docs/architecture/adr-005-gemini-relay-provider.md`](docs/architecture/adr-005-gemini-relay-provider.md)。
+
 即使服务端已配置，用户仍须在“模型与设置”中显式允许向外部视觉 Provider 发送图像。
-Gemini 输出固定标为“外部模型”，不会覆盖或伪装成论文研究模型结果。
+外部输出固定标为“外部模型”，不会覆盖或伪装成论文研究模型结果。
 
 ## 本地开发
 
