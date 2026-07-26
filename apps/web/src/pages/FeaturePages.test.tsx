@@ -237,7 +237,7 @@ describe("feature pages", () => {
     }));
 
     const view = renderPage(<SettingsPage />);
-    expect(await screen.findByText("gemini-2.5-flash · gemini-2.5-flash · 已配置")).toBeInTheDocument();
+    expect(await screen.findByText("Gemini-2.5-flash · gemini-2.5-flash · 已配置")).toBeInTheDocument();
     expect(view.container.querySelector(".page-scroll > .settings-layout")).toBeInTheDocument();
     expect(view.container.querySelector(".page-scroll.settings-layout")).not.toBeInTheDocument();
   });

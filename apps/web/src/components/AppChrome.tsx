@@ -27,14 +27,14 @@ export const modelOptions: ModelOption[] = [
   {
     id: "external-vlm",
     name: "Gemini-3.6-flash",
-    description: "Google GenAI · 外部通用视觉模型",
+    description: "Google Gemini · 多模态视觉问答",
     kind: "EXTERNAL_VLM",
     configured: false,
   },
   {
     id: "qwen",
     name: "Qwen3-VL 32B",
-    description: "DashScope · 外部通用视觉模型",
+    description: "Qwen · 多模态视觉问答",
     kind: "EXTERNAL_VLM",
     configured: false,
   },
@@ -115,7 +115,7 @@ export function ModelSelector() {
               );
             })}
           </div>
-          <div className="model-boundary-note"><ShieldCheck size={13} /><span>外部模型输出不会覆盖论文研究模型结果。</span></div>
+          <div className="model-boundary-note"><ShieldCheck size={13} /><span>Gemini 与 Qwen3-VL 的回答不会覆盖 RS-VQA 研究模型结果。</span></div>
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
@@ -140,16 +140,31 @@ export function providerToModelOption(provider: ProviderDescriptor): ModelOption
   const isMock = provider.kind === "RESEARCH_MODEL" && provider.modelId.startsWith("mock-");
   return {
     id: provider.providerId,
-    name: isMock ? "标准化 RS-VQA" : provider.displayName,
+    name: isMock
+      ? "标准化 RS-VQA"
+      : provider.providerId === "gemini"
+        ? geminiModelName(provider.modelId)
+        : provider.providerId === "qwen"
+          ? "Qwen3-VL 32B"
+          : provider.displayName,
     description: isMock
       ? "qdrop15 · predicted-soft · 当前为 Mock"
       : provider.kind === "RESEARCH_MODEL"
         ? "RSVQA-HR · qdrop15 · predicted-soft"
-        : "外部通用视觉模型",
+        : provider.providerId === "gemini"
+          ? "Google Gemini · 多模态视觉问答"
+          : provider.providerId === "qwen"
+            ? "Qwen · 多模态视觉问答"
+            : provider.modelId,
     kind: isMock ? "MOCK" : provider.kind,
     configured: provider.configurationState === "CONFIGURED",
     releaseId: provider.modelId === "none" ? undefined : provider.modelId,
   };
+}
+
+function geminiModelName(modelId: string) {
+  if (!modelId || modelId === "none" || modelId === "未配置") return "Gemini";
+  return modelId.startsWith("gemini-") ? `Gemini-${modelId.slice("gemini-".length)}` : modelId;
 }
 
 export function StatusBadge({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "success" | "warning" }) {

@@ -164,6 +164,8 @@ describe("ModelSelector", () => {
     expect(within(listbox).getAllByRole("option")).toHaveLength(2);
     expect(document.querySelector("select")).not.toBeInTheDocument();
     expect(within(listbox).getByRole("option", { name: /Gemini/ })).toHaveAttribute("aria-disabled", "true");
+    expect(within(listbox).queryByText("Gemini 通用视觉助手")).toBeNull();
+    expect(within(listbox).queryByText("外部通用视觉模型")).toBeNull();
   });
 });
 

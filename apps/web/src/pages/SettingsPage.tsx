@@ -18,7 +18,7 @@ export function SettingsPage() {
   const externalProviderStatus = providers.isPending
     ? "正在检查"
     : externalProviders.length === 0
-      ? "未检测到外部 Provider"
+      ? "未检测到 Gemini 或 Qwen3-VL"
       : externalProviders.map((p) => `${p.name}${p.releaseId ? " · " + p.releaseId : ""}${p.configured ? " · 已配置" : " · 未配置"}`).join(" / ");
   const service = (name: string, fallback: string) => {
     const value = status.data?.services[name];
@@ -31,7 +31,7 @@ export function SettingsPage() {
       <AppTopbar title="模型与设置" subtitle="能力、来源和运行状态" />
       <div className="page-scroll">
         <div className="settings-layout">
-        <header className="page-intro"><div><StatusBadge tone="success">来源隔离已启用</StatusBadge><h2>每一次回答都保留自己的模型身份</h2><p>研究模型、外部视觉模型和 Mock 不共享模糊标签；历史消息不会被当前配置覆盖。</p></div></header>
+        <header className="page-intro"><div><StatusBadge tone="success">来源隔离已启用</StatusBadge><h2>每一次回答都保留自己的模型身份</h2><p>RS-VQA、Gemini、Qwen3-VL 与 Mock 分别记录；历史消息不会被当前配置覆盖。</p></div></header>
         <section className="plain-section">
           <div className="section-heading"><div><span>01</span><h3>可用模型</h3></div></div>
           <div className="model-list">
@@ -72,10 +72,10 @@ export function SettingsPage() {
               />
               <Preference
                 icon={<ShieldCheck size={18} />}
-                title="允许向外部视觉 Provider 发送图像"
+                title="允许向 Gemini 或 Qwen3-VL 发送图像"
                 description={userSettings.data.externalImageBoundary}
                 warning
-                control={<Switch checked={userSettings.data.externalImageOptIn} label="外部图像发送许可" onChange={(checked) => updateSettings.mutate({ externalImageOptIn: checked })} />}
+                control={<Switch checked={userSettings.data.externalImageOptIn} label="Gemini / Qwen3-VL 图像发送许可" onChange={(checked) => updateSettings.mutate({ externalImageOptIn: checked })} />}
               />
             </div>
           )}

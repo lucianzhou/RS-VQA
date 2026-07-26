@@ -36,7 +36,7 @@ soft-vs-none 配对置信区间包含 0，因此不能宣称 predicted-soft 带�
 `rsvqa-hr-qdrop15-predicted-soft-20260724-8510bc9`。默认 Compose 仍运行
 `mock_demo`，便于低资源开发；Mock 只验证工程闭环，绝不是论文模型输出。真实模型使用
 `compose.real.yaml` 覆盖启动，并在 `/models/current` 与每次结果中显示 release、来源和哈希。
-外部通用视觉模型保持 Provider 抽象，未配置时明确显示“未配置”。
+Gemini-3.6-flash 与 Qwen3-VL 32B 保持独立 Provider 边界，未配置时明确显示“未配置”。
 
 ## 一条命令启动
 
@@ -109,18 +109,18 @@ RSVQA_GEMINI_API_KEY=<server-side-secret>
 RSVQA_GEMINI_AGENT_ENABLED=true
 RSVQA_GEMINI_AGENT_MODEL=gemini-3.6-flash
 
-# 外部视觉 VQA：没有默认模型，必须显式指定已验证支持图像输入的模型
+# Gemini-3.6-flash 视觉 VQA
 RSVQA_GEMINI_VISION_ENABLED=true
-RSVQA_GEMINI_VISION_MODEL=<verified-multimodal-model>
+RSVQA_GEMINI_VISION_MODEL=gemini-3.6-flash
 ```
 
 只在服务端进程环境提供这些变量，不要提交。未指定并验证 `RSVQA_GEMINI_VISION_MODEL`
-之前，外部视觉保持 `UNCONFIGURED`，界面不会显示外部通用视觉模型可用。能力验证脚本见
+之前，Gemini 视觉问答保持 `UNCONFIGURED`，界面不会将其显示为可用。能力验证脚本见
 `scripts/gemini_relay_live_smoke.py`，详见
 [`docs/architecture/adr-005-gemini-relay-provider.md`](docs/architecture/adr-005-gemini-relay-provider.md)。
 
-即使服务端已配置，用户仍须在“模型与设置”中显式允许向外部视觉 Provider 发送图像。
-外部输出固定标为“外部模型”，不会覆盖或伪装成论文研究模型结果。
+即使服务端已配置，用户仍须在“模型与设置”中显式允许向 Gemini 或 Qwen3-VL 发送图像。
+Gemini 与 Qwen3-VL 的回答会记录具体 Provider 和模型名，不会覆盖或伪装成论文研究模型结果。
 
 ## 本地开发
 

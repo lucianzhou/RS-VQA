@@ -125,6 +125,14 @@ class GeminiRelayContractTest {
     }
 
     @Test
+    void descriptorUsesTheConcreteGeminiModelName() {
+        var descriptor = vision("gemini-3.6-flash", 0).descriptor();
+
+        assertThat(descriptor.displayName()).isEqualTo("Gemini-3.6-flash");
+        assertThat(descriptor.modelId()).isEqualTo("gemini-3.6-flash");
+    }
+
+    @Test
     void agentRoleFailsClosedWhenDisabled() {
         var agent = new GeminiRelayAgentModel(properties("", "", 0), ObservationRegistry.NOOP);
 

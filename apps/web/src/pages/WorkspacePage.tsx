@@ -373,11 +373,12 @@ function Message({ message, onSelect }: { message: PersistedMessage; onSelect?: 
   const answered = invocation?.status === "answered";
   const lowConfidence = answered && invocation?.confidence != null && invocation.confidence < 0.65;
   const metadata = messageMetadata(message.metadataJson);
+  const providerName = externalModelName(metadata.providerId, invocation?.providerModel);
   const needsReview = answered && metadata.requiresReview;
   const provisional = answered && !isExternal && metadata.scopeVerification === "provisional";
   const answerLabel = needsReview ? "答案形式异常，请复核"
     : lowConfidence ? "低置信度，请复核"
-    : answered ? (isExternal ? "外部模型辅助回答" : "模型回答")
+    : answered ? (isExternal ? `${providerName} 回答` : "模型回答")
     : metadata.needsClarification ? "需要补充说明"
     : "超出能力范围";
   const avatarKind = isExternal ? "EXTERNAL_VLM" : isMock ? "MOCK" : "RESEARCH_MODEL";
@@ -393,7 +394,7 @@ function Message({ message, onSelect }: { message: PersistedMessage; onSelect?: 
             {answerLabel}
           </span>
           {isMock && <span className="mock-flag">MOCK</span>}
-          {isExternal && <span className="external-flag">外部模型</span>}
+          {isExternal && <span className="external-flag">{providerName}</span>}
         </div>
         {metadata.interpretationNote && <p className="canonical-hint">{metadata.interpretationNote}</p>}
         {answered && <p className="answer-value">{message.content}</p>}
@@ -415,7 +416,7 @@ function Message({ message, onSelect }: { message: PersistedMessage; onSelect?: 
           <details className="provenance">
             <summary>查看模型与调用信息</summary>
             <dl>
-              <div><dt>输出来源</dt><dd>{originLabel(invocation.predictionOrigin)}</dd></div>
+              <div><dt>输出来源</dt><dd>{originLabel(invocation.predictionOrigin, providerName)}</dd></div>
               {invocation.providerModel && <div><dt>Provider 模型</dt><dd>{invocation.providerModel}</dd></div>}
               {!isExternal && <div><dt>发布版本</dt><dd>{invocation.modelReleaseId ?? "无"}</dd></div>}
               {metadata.modelInputQuestion && <div><dt>模型输入问题</dt><dd>{metadata.modelInputQuestion}</dd></div>}
@@ -496,9 +497,17 @@ function intentLabel(intent: string) {
   return intent;
 }
 
-function originLabel(origin: string) {
+function externalModelName(providerId: string, modelId?: string | null) {
+  if (providerId === "gemini") {
+    return modelId?.startsWith("gemini-") ? `Gemini-${modelId.slice("gemini-".length)}` : "Gemini";
+  }
+  if (providerId === "qwen") return "Qwen3-VL 32B";
+  return modelId || "已配置模型";
+}
+
+function originLabel(origin: string, providerName: string) {
   if (origin === "research_vilt_predicted_soft") return "研究 ViLT predicted-soft";
-  if (origin === "external_vlm_assist") return "外部通用视觉模型辅助";
+  if (origin === "external_vlm_assist") return `${providerName} 辅助`;
   if (origin === "mock_demo") return "Mock 演示，不是研究结果";
   return "不适用";
 }

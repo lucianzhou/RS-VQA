@@ -76,7 +76,7 @@ public class GeminiRelayVisionProvider implements AiProvider {
         return new ProviderDescriptor(
                 PROVIDER_ID,
                 properties.vision().model().isBlank() ? "未配置" : properties.vision().model(),
-                "外部通用视觉模型（中转站）",
+                geminiDisplayName(properties.vision().model()),
                 "EXTERNAL_VLM",
                 configurationState(),
                 Set.of("open_visual_question_answering", "image_description", "reasoned_explanation"),
@@ -88,6 +88,13 @@ public class GeminiRelayVisionProvider implements AiProvider {
                 properties.vision().maxRetries(),
                 OpenAiCompatibleEndpoint.payPerUseCostMetadata("relay_pay_per_use")
         );
+    }
+
+    private static String geminiDisplayName(String model) {
+        if (model == null || model.isBlank()) {
+            return "Gemini";
+        }
+        return model.startsWith("gemini-") ? "Gemini-" + model.substring("gemini-".length()) : model;
     }
 
     String configurationState() {
