@@ -18,6 +18,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @Service
 public class AgentStreamService {
 
+    private static final long STREAM_TIMEOUT_MS = 330_000L;
+
     private final TrustedAgentService agent;
     private final Executor executor;
 
@@ -30,7 +32,7 @@ public class AgentStreamService {
     }
 
     public SseEmitter run(AgentRequest request) {
-        SseEmitter emitter = new SseEmitter(60_000L);
+        SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String traceId = TraceId.current();
         AtomicBoolean closed = new AtomicBoolean(false);

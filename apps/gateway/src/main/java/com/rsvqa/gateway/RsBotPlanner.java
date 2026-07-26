@@ -22,6 +22,11 @@ import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
 /**
  * RS-Bot's planning loop: the model decides which tools to call, this class
  * decides whether it may.
@@ -48,10 +53,16 @@ public class RsBotPlanner {
 
     private final GeminiRelayAgentModel agentModel;
     private final RsBotProperties budgets;
+    private final ObjectMapper objectMapper;
 
-    public RsBotPlanner(GeminiRelayAgentModel agentModel, RsBotProperties budgets) {
+    public RsBotPlanner(
+            GeminiRelayAgentModel agentModel,
+            RsBotProperties budgets,
+            ObjectMapper objectMapper
+    ) {
         this.agentModel = agentModel;
         this.budgets = budgets;
+        this.objectMapper = objectMapper;
     }
 
     public boolean available() {
@@ -137,6 +148,10 @@ public class RsBotPlanner {
                 completionTokens += orZero(usage.getCompletionTokens());
                 totalTokens += orZero(usage.getTotalTokens());
             }
+            if (totalTokens > budgets.maxTotalTokens()) {
+                stopReason = "token_budget_exhausted";
+                break;
+            }
 
             AssistantMessage assistant = response == null || response.getResult() == null
                     ? null : response.getResult().getOutput();
@@ -156,7 +171,7 @@ public class RsBotPlanner {
             }
             List<ToolResponseMessage.ToolResponse> responses = new ArrayList<>();
             for (AssistantMessage.ToolCall call : calls) {
-                ExecutedTool result = invoke(callable, call);
+                ExecutedTool result = invoke(request, callable, call);
                 executed.add(result);
                 responses.add(new ToolResponseMessage.ToolResponse(
                         call.id(),
@@ -188,8 +203,16 @@ public class RsBotPlanner {
                 totalTokens == 0 ? null : totalTokens);
     }
 
-    private ExecutedTool invoke(Map<String, ToolCallback> callable, AssistantMessage.ToolCall call) {
-        String arguments = call.arguments() == null ? "{}" : call.arguments();
+    private ExecutedTool invoke(
+            AgentDtos.AgentRequest request,
+            Map<String, ToolCallback> callable,
+            AssistantMessage.ToolCall call
+    ) {
+        String arguments = bindContextArguments(
+                request,
+                call.name(),
+                call.arguments() == null ? "{}" : call.arguments()
+        );
         ToolCallback callback = callable.get(call.name());
         if (callback == null) {
             // Either outside this session's whitelist or a name the model invented.
@@ -209,6 +232,68 @@ public class RsBotPlanner {
             // explain, instead of aborting the whole run.
             return new ExecutedTool(call.name(), arguments, null, "FAILED", millisSince(started),
                     "工具调用失败：" + message);
+        }
+    }
+
+    /**
+     * Resource identifiers come from the authenticated session, never from the
+     * model. The model may choose a permitted tool and its query, but it cannot
+     * redirect that tool to another project, conversation or batch task.
+     */
+    private String bindContextArguments(
+            AgentDtos.AgentRequest request,
+            String toolName,
+            String arguments
+    ) {
+        final JsonNode parsed;
+        try {
+            parsed = objectMapper.readTree(arguments);
+        } catch (JsonProcessingException error) {
+            return arguments;
+        }
+        if (!(parsed instanceof ObjectNode object)) {
+            return arguments;
+        }
+
+        if (request.conversationId() != null && Set.of(
+                "conversation_history",
+                "conversation_vqa_results",
+                "single_image_vqa"
+        ).contains(toolName)) {
+            object.put("conversationId", request.conversationId().toString());
+        }
+        if (request.projectId() != null && Set.of(
+                "project_summary",
+                "project_conversations",
+                "project_vqa_statistics"
+        ).contains(toolName)) {
+            object.put("projectId", request.projectId().toString());
+        }
+        if (request.batchJobId() != null && Set.of(
+                "batch_job_status",
+                "batch_result_statistics"
+        ).contains(toolName)) {
+            object.put("batchJobId", request.batchJobId().toString());
+        }
+        if (Set.of(
+                "confidence_distribution",
+                "unsupported_question_summary",
+                "failed_invocation_summary",
+                "report_draft_data",
+                "create_batch_plan"
+        ).contains(toolName)) {
+            if (request.projectId() != null) {
+                object.put("scopeType", "project");
+                object.put("scopeId", request.projectId().toString());
+            } else if (request.batchJobId() != null) {
+                object.put("scopeType", "batch");
+                object.put("scopeId", request.batchJobId().toString());
+            }
+        }
+        try {
+            return objectMapper.writeValueAsString(object);
+        } catch (JsonProcessingException error) {
+            throw new IllegalStateException("RS-Bot 工具参数无法绑定到当前会话。", error);
         }
     }
 

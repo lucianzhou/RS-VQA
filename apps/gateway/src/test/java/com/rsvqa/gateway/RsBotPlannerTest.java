@@ -27,6 +27,8 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.DefaultToolDefinition;
 import org.springframework.ai.tool.definition.ToolDefinition;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 /**
  * RS-Bot's planning loop, driven by a scripted mock LLM.
  *
@@ -51,7 +53,7 @@ class RsBotPlannerTest {
     }
 
     private RsBotPlanner planner() {
-        return new RsBotPlanner(agentModel, budgets);
+        return new RsBotPlanner(agentModel, budgets, new ObjectMapper());
     }
 
     private static final UUID PROJECT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
@@ -162,6 +164,7 @@ class RsBotPlannerTest {
 
         assertThat(result.stopReason()).isEqualTo("token_budget_exhausted");
         assertThat(result.answer()).contains("token 预算");
+        assertThat(tool.calls()).isZero();
     }
 
     @Test
@@ -211,6 +214,20 @@ class RsBotPlannerTest {
         assertThat(result.toolCalls()).singleElement()
                 .extracting(RsBotPlanner.ExecutedTool::status).isEqualTo("REJECTED");
         assertThat(tool.calls()).isZero();
+    }
+
+    @Test
+    void bindsResourceIdsToTheAuthenticatedSessionContext() {
+        var summary = new RecordingTool("project_summary", "{}");
+        model.script(
+                toolCall("project_summary",
+                        "{\"projectId\":\"99999999-9999-9999-9999-999999999999\"}"),
+                text("完成。"));
+
+        planner().plan(projectRequest("汇总"), new ToolCallback[] {summary}, () -> false);
+
+        assertThat(summary.lastInput()).contains(PROJECT_ID.toString());
+        assertThat(summary.lastInput()).doesNotContain("99999999-9999-9999-9999-999999999999");
     }
 
     @Test
@@ -286,7 +303,7 @@ class RsBotPlannerTest {
         when(unconfigured.available()).thenReturn(false);
         when(unconfigured.chatModel()).thenThrow(new ProviderNotConfiguredException("未配置"));
 
-        var planner = new RsBotPlanner(unconfigured, budgets);
+        var planner = new RsBotPlanner(unconfigured, budgets, new ObjectMapper());
 
         assertThat(planner.available()).isFalse();
         assertThatThrownBy(() -> planner.plan(projectRequest("汇总"), new ToolCallback[0], () -> false))
@@ -356,6 +373,7 @@ class RsBotPlannerTest {
         private final String name;
         private final String output;
         private final AtomicInteger calls = new AtomicInteger();
+        private String lastInput;
 
         RecordingTool(String name, String output) {
             this.name = name;
@@ -364,6 +382,10 @@ class RsBotPlannerTest {
 
         int calls() {
             return calls.get();
+        }
+
+        String lastInput() {
+            return lastInput;
         }
 
         @Override
@@ -378,6 +400,7 @@ class RsBotPlannerTest {
         @Override
         public String call(String toolInput) {
             calls.incrementAndGet();
+            lastInput = toolInput;
             return output;
         }
     }
