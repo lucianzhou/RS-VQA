@@ -41,6 +41,7 @@ import {
   updateConversation,
 } from "../api";
 import { useWorkspaceStore } from "../store";
+import { BrandMark } from "./BrandMark";
 import type { CurrentUser, Project } from "../types";
 
 type Action =
@@ -258,7 +259,7 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
       <aside className={`sidebar ${sidebarOpen ? "is-open" : ""}`} aria-label="RS-VQA 导航侧栏">
         <div className="brand-row">
           <NavLink className="brand" to="/workspace" onClick={() => setSidebarOpen(false)}>
-            <span className="brand-mark" aria-hidden="true">RS</span>
+            <BrandMark />
             <span>RS-VQA</span>
           </NavLink>
           <button className="icon-button sidebar-close" type="button" aria-label="收起导航" onClick={() => setSidebarCollapsed(true)}><PanelLeftClose size={18} /></button>

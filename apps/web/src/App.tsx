@@ -5,6 +5,7 @@ import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { demoLogin, getUserSettings } from "./api";
 import { AppSidebar } from "./components/AppSidebar";
+import { BrandMark } from "./components/BrandMark";
 import {
   AppTopbar,
   ModelSelector,
@@ -108,7 +109,7 @@ function RouteLoading() {
 function BootstrapState({ title, detail, error = false }: { title: string; detail: string; error?: boolean }) {
   return (
     <main className={`bootstrap-state ${error ? "is-error" : ""}`}>
-      <span className="brand-mark" aria-hidden="true">RS</span>
+      <BrandMark />
       <h1>{title}</h1>
       <p>{detail}</p>
     </main>
