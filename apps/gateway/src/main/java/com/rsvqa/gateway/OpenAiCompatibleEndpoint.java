@@ -17,6 +17,8 @@ import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.ai.retry.NonTransientAiException;
 import org.springframework.ai.retry.TransientAiException;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.util.MimeType;
@@ -38,6 +40,9 @@ import io.micrometer.observation.ObservationRegistry;
  * of their boundary prompt, so those are parameters, not subclasses.
  */
 final class OpenAiCompatibleEndpoint {
+
+    private static final String USER_AGENT =
+            "RS-VQA/0.8.1 (+https://github.com/lucianzhou/RS-VQA)";
 
     private OpenAiCompatibleEndpoint() {
     }
@@ -75,8 +80,12 @@ final class OpenAiCompatibleEndpoint {
                 .baseUrl(endpoint.baseUrl())
                 .apiKey(endpoint.apiKey())
                 .completionsPath(endpoint.completionsPath())
-                .restClientBuilder(RestClient.builder().requestFactory(requestFactory))
-                .webClientBuilder(WebClient.builder())
+                .restClientBuilder(RestClient.builder()
+                        .requestFactory(requestFactory)
+                        .defaultHeader(HttpHeaders.USER_AGENT, USER_AGENT)
+                        .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE))
+                .webClientBuilder(WebClient.builder()
+                        .defaultHeader(HttpHeaders.USER_AGENT, USER_AGENT))
                 .responseErrorHandler(new RelayResponseErrorHandler(tuning.model()))
                 .build();
 

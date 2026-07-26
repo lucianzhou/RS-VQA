@@ -43,6 +43,8 @@ ONE_PIXEL_PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
 )
 
+USER_AGENT = "RS-VQA/0.8.1 (+https://github.com/lucianzhou/RS-VQA)"
+
 
 class RelayError(Exception):
     def __init__(self, status: int, detail: str) -> None:
@@ -61,7 +63,9 @@ def post(base_url: str, path: str, api_key: str, payload: dict[str, Any], timeou
         data=json.dumps(payload).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
+            "Accept": "application/json",
             "Authorization": "Bearer " + api_key,
+            "User-Agent": USER_AGENT,
         },
         method="POST",
     )
@@ -162,7 +166,12 @@ def probe_stream(base_url: str, key: str, model: str, timeout: int) -> dict[str,
             "stream": True,
             "max_tokens": 32,
         }).encode("utf-8"),
-        headers={"Content-Type": "application/json", "Authorization": "Bearer " + key},
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+            "Authorization": "Bearer " + key,
+            "User-Agent": USER_AGENT,
+        },
         method="POST",
     )
     started = time.perf_counter()
