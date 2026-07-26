@@ -77,7 +77,7 @@ final class OpenAiCompatibleEndpoint {
                 .completionsPath(endpoint.completionsPath())
                 .restClientBuilder(RestClient.builder().requestFactory(requestFactory))
                 .webClientBuilder(WebClient.builder())
-                .responseErrorHandler(new RelayResponseErrorHandler(endpoint.apiKey(), tuning.model()))
+                .responseErrorHandler(new RelayResponseErrorHandler(tuning.model()))
                 .build();
 
         OpenAiChatOptions options = OpenAiChatOptions.builder()

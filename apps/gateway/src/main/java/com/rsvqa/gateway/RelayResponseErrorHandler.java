@@ -1,14 +1,11 @@
 package com.rsvqa.gateway;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.retry.NonTransientAiException;
 import org.springframework.ai.retry.TransientAiException;
 import org.springframework.http.client.ClientHttpResponse;
-import org.springframework.util.FileCopyUtils;
 import org.springframework.web.client.ResponseErrorHandler;
 
 /**
@@ -24,20 +21,16 @@ import org.springframework.web.client.ResponseErrorHandler;
  *       written out here rather than inherited so it cannot drift.</li>
  *   <li><b>Secret hygiene.</b> A relay can echo the submitted key back inside
  *       its error body. That body must never reach a log line, an exception
- *       message or a user, so it is redacted before either.</li>
+ *       message or a user.</li>
  * </ol>
  */
 final class RelayResponseErrorHandler implements ResponseErrorHandler {
 
     private static final Logger log = LoggerFactory.getLogger(RelayResponseErrorHandler.class);
 
-    private static final int MAX_LOGGED_BODY = 500;
-
-    private final String apiKey;
     private final String providerId;
 
-    RelayResponseErrorHandler(String apiKey, String providerId) {
-        this.apiKey = apiKey == null ? "" : apiKey;
+    RelayResponseErrorHandler(String providerId) {
         this.providerId = providerId;
     }
 
@@ -49,9 +42,10 @@ final class RelayResponseErrorHandler implements ResponseErrorHandler {
     @Override
     public void handleError(ClientHttpResponse response) throws IOException {
         int status = response.getStatusCode().value();
-        String body = redact(readBody(response));
-        log.warn("provider={} status={} failureType={} body={}",
-                providerId, status, transient_(status) ? "transient" : "non_transient", body);
+        // A third-party body can contain credentials or internal upstream
+        // details in encodings that string replacement cannot safely redact.
+        log.warn("provider={} status={} failureType={}",
+                providerId, status, transient_(status) ? "transient" : "non_transient");
 
         String message = "中转站返回 HTTP " + status + "。";
         if (transient_(status)) {
@@ -75,20 +69,4 @@ final class RelayResponseErrorHandler implements ResponseErrorHandler {
         };
     }
 
-    private static String readBody(ClientHttpResponse response) {
-        try {
-            String body = new String(
-                    FileCopyUtils.copyToByteArray(response.getBody()), StandardCharsets.UTF_8);
-            String collapsed = body.replaceAll("\\s+", " ").trim();
-            return collapsed.length() <= MAX_LOGGED_BODY
-                    ? collapsed
-                    : collapsed.substring(0, MAX_LOGGED_BODY) + "…";
-        } catch (IOException error) {
-            return "<unreadable>";
-        }
-    }
-
-    private String redact(String value) {
-        return apiKey.isBlank() ? value : value.replace(apiKey, "***");
-    }
 }
