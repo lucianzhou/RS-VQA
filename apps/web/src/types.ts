@@ -248,16 +248,26 @@ export interface AgentToolCall {
   latencyMs: number;
 }
 
+/** LLM_PLANNING when a planning model is configured, RULE_BASED_TOOLS otherwise. */
+export type AgentProviderState = "LLM_PLANNING" | "RULE_BASED_TOOLS";
+
 export interface AgentRun {
   runId: string;
   status: string;
-  providerState: string;
+  providerState: AgentProviderState | string;
+  /** Chinese rendering of providerState; shown instead of the raw token. */
+  providerStateLabel?: string | null;
   answer: string;
   traceId: string;
   latencyMs: number;
   toolCalls: AgentToolCall[];
   citations: Array<Record<string, string>>;
   boundaryNotice: string;
+  providerModel?: string | null;
+  promptVersion?: string | null;
+  stopReason?: string | null;
+  toolSteps?: number | null;
+  totalTokens?: number | null;
 }
 
 export interface AgentHistoryRun {
@@ -272,6 +282,10 @@ export interface AgentHistoryRun {
   totalTokens: number | null;
   toolCalls: AgentToolCall[];
   createdAt: string;
+  providerState?: string | null;
+  promptVersion?: string | null;
+  stopReason?: string | null;
+  toolSteps?: number | null;
 }
 
 export interface AgentSessionSummary {

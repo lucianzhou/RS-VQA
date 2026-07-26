@@ -5,7 +5,6 @@ import {
   ArrowUp,
   Bot,
   Check,
-  FileImage,
   FileDown,
   ImagePlus,
   Info,
@@ -28,12 +27,13 @@ import {
   deleteConversationImage,
   getConversation,
   uploadConversationImage,
-  runTrustedAgentStream,
 } from "../api";
 import { AppTopbar, ModelSelector, ProviderAvatar } from "../components/AppChrome";
 import { ImageLightbox } from "../components/ImageLightbox";
+import { RsBotChat } from "../components/RsBotChat";
+import { RS_BOT_NAME, RS_BOT_SUBTITLE, toTranscriptRun, useRsBotSession } from "../rsbot";
 import { useWorkspaceStore } from "../store";
-import type { ImageAsset, PersistedMessage } from "../types";
+import type { AgentHistoryRun, ImageAsset, PersistedMessage } from "../types";
 
 const questionSchema = z.object({
   question: z.string().trim().min(1, "请输入问题。").max(300, "问题不能超过 300 个字符。"),
@@ -50,9 +50,6 @@ export function WorkspacePage() {
   const [optimisticQuestion, setOptimisticQuestion] = useState("");
   const [controller, setController] = useState<AbortController>();
   const [agentOpen, setAgentOpen] = useState(false);
-  const [agentQuestion, setAgentQuestion] = useState("这个模型支持哪些问题？");
-  const [agentStage, setAgentStage] = useState("");
-  const [agentController, setAgentController] = useState<AbortController>();
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const conversationQuery = useQuery({
     queryKey: ["conversation", activeConversationId],
@@ -65,7 +62,6 @@ export function WorkspacePage() {
   });
 
   useEffect(() => () => controller?.abort(), [controller]);
-  useEffect(() => () => agentController?.abort(), [agentController]);
 
   const refresh = async () => {
     await Promise.all([
@@ -93,15 +89,22 @@ export function WorkspacePage() {
       setOptimisticQuestion("");
     },
   });
-  const agentMutation = useMutation({
-    mutationFn: ({ signal }: { signal: AbortSignal }) =>
-      runTrustedAgentStream(
-        { message: agentQuestion, conversationId: activeConversationId ?? undefined },
-        setAgentStage,
-        signal,
-      ),
-    onSettled: () => setAgentController(undefined),
-  });
+  // Same hook, same session and same endpoint as the standalone RS-Bot page,
+  // so the drawer can never become a second agent with its own history.
+  const rsBot = useRsBotSession({ conversationId: activeConversationId ?? undefined });
+  const [drawerRuns, setDrawerRuns] = useState<AgentHistoryRun[]>([]);
+  useEffect(() => {
+    if (rsBot.lastRun) {
+      setDrawerRuns((current) => current.some((item) => item.runId === rsBot.lastRun!.runId)
+        ? current
+        : [...current, toTranscriptRun(rsBot.lastRun!, rsBot.pendingQuestion || lastAskRef.current)]);
+    }
+  }, [rsBot.lastRun, rsBot.pendingQuestion]);
+  const lastAskRef = useRef("");
+  useEffect(() => {
+    if (rsBot.pendingQuestion) lastAskRef.current = rsBot.pendingQuestion;
+  }, [rsBot.pendingQuestion]);
+  useEffect(() => setDrawerRuns([]), [activeConversationId]);
 
   const selectImage = (file?: File) => {
     if (!file) return;
@@ -142,7 +145,7 @@ export function WorkspacePage() {
       <AppTopbar
         title={conversation.title}
         subtitle={conversation.image ? "影像上下文已持久化" : "新分析"}
-        actions={<><a className="agent-toggle" href={`/api/v1/conversations/${activeConversationId}/report`}><FileDown size={15} />导出记录</a><button className={`agent-toggle ${agentOpen ? "is-active" : ""}`} type="button" onClick={() => setAgentOpen(!agentOpen)}><Sparkles size={15} />可信 Agent</button><ModelSelector /></>}
+        actions={<><a className="agent-toggle" href={`/api/v1/conversations/${activeConversationId}/report`}><FileDown size={15} />导出记录</a><button className={`agent-toggle ${agentOpen ? "is-active" : ""}`} type="button" onClick={() => setAgentOpen(!agentOpen)}><Sparkles size={15} />{RS_BOT_NAME}</button><ModelSelector /></>}
       />
       <section className="conversation-canvas">
         {!conversation.image ? (
@@ -204,42 +207,28 @@ export function WorkspacePage() {
         {agentOpen && (
         <motion.aside
           className="agent-drawer"
-          aria-label="可信 Agent"
+          aria-label={RS_BOT_NAME}
           initial={{ opacity: 0, x: 28, scale: 0.985 }}
           animate={{ opacity: 1, x: 0, scale: 1 }}
           exit={{ opacity: 0, x: 18, scale: 0.99 }}
           transition={{ type: "spring", stiffness: 430, damping: 36, mass: 0.8 }}
         >
-          <header><span><Bot size={16} />可信 Agent</span><button className="icon-button" type="button" aria-label="关闭 Agent" onClick={() => setAgentOpen(false)}>×</button></header>
-          <p>只读工具编排，用于解释模型边界、版本和历史；不会修改模型原始答案。</p>
-          <div className="agent-suggestions">
-            {["这个模型支持哪些问题？", "查询当前模型版本", "检查系统健康状态", "读取当前会话历史"].map((item) => <button type="button" key={item} onClick={() => setAgentQuestion(item)}>{item}</button>)}
-          </div>
-          <form onSubmit={(event) => {
-            event.preventDefault();
-            if (!agentQuestion.trim()) return;
-            const requestController = new AbortController();
-            setAgentController(requestController);
-            setAgentStage("accepted");
-            agentMutation.mutate({ signal: requestController.signal });
-          }}>
-            <textarea aria-label="向可信 Agent 提问" value={agentQuestion} maxLength={500} onChange={(event) => setAgentQuestion(event.target.value)} />
-            {agentMutation.isPending ? (
-              <button className="primary-button" type="button" onClick={() => agentController?.abort()}>取消 · {agentStage === "tool_started" ? "工具执行中" : "建立流…"}</button>
-            ) : (
-              <button className="primary-button" type="submit">运行只读工具</button>
-            )}
-          </form>
-          {agentMutation.isError && <div className="inline-error"><AlertTriangle size={14} />{agentMutation.error.message}</div>}
-          {agentMutation.data && (
-            <article className="agent-result">
-              <span>AGENT 解释</span><p>{agentMutation.data.answer}</p>
-              <details><summary>工具调用与审计</summary>
-                {agentMutation.data.toolCalls.map((call) => <dl key={call.id}><div><dt>工具</dt><dd>{call.name}</dd></div><div><dt>状态</dt><dd>{call.status} · {call.latencyMs} ms</dd></div><div><dt>Trace</dt><dd>{agentMutation.data.traceId}</dd></div></dl>)}
-              </details>
-              <small>{agentMutation.data.boundaryNotice}</small>
-            </article>
-          )}
+          <header>
+            <span><Bot size={16} />{RS_BOT_NAME}<small>{RS_BOT_SUBTITLE}</small></span>
+            <button className="icon-button" type="button" aria-label={`关闭 ${RS_BOT_NAME}`} onClick={() => setAgentOpen(false)}>×</button>
+          </header>
+          <RsBotChat
+            compact
+            runs={rsBot.runs.length > 0 ? rsBot.runs : drawerRuns}
+            isRunning={rsBot.isRunning}
+            stage={rsBot.stage}
+            pendingQuestion={rsBot.pendingQuestion}
+            error={rsBot.error}
+            placeholder="询问模型版本、能力边界或当前会话记录…"
+            suggestions={["这个模型支持哪些问题？", "查询当前模型版本", "检查系统健康状态", "读取当前会话历史"]}
+            onAsk={rsBot.ask}
+            onCancel={rsBot.cancel}
+          />
         </motion.aside>
         )}
       </AnimatePresence>

@@ -343,7 +343,7 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
 
         <div className="sidebar-workspace">
           <p className="nav-section-label">工作区</p>
-          <NavItem to="/agent" icon={<Bot size={16} />} label="可信 Agent" />
+          <NavItem to="/agent" icon={<Bot size={16} />} label="RS-Bot" />
           <NavItem to="/batch" icon={<Layers3 size={16} />} label="批量 VQA" />
           <NavItem to="/reports" icon={<FileClock size={16} />} label="分析报告" />
           <NavItem to="/knowledge" icon={<BookOpen size={16} />} label="知识库" />

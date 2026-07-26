@@ -2,8 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Archive,
-  Bot,
-  CheckCircle2,
   ChevronDown,
   Clock3,
   Database,
@@ -11,10 +9,8 @@ import {
   FileText,
   LoaderCircle,
   Plus,
-  Send,
   ShieldCheck,
   Sparkles,
-  Square,
   Check,
   X,
   Workflow,
@@ -24,7 +20,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   archiveAgentSession,
   createAgentSession,
-  getAgentSession,
   confirmAgentAction,
   listAgentSessions,
   listAgentActions,
@@ -33,40 +28,37 @@ import {
   listProjects,
   proposeAgentAction,
   rejectAgentAction,
-  runTrustedAgentStream,
 } from "../api";
 import { AppTopbar, StatusBadge } from "../components/AppChrome";
-import type { AgentActionName, AgentActionProposal, AgentHistoryRun, AgentSession, AgentToolCall, ReportSummary } from "../types";
+import { RsBotChat } from "../components/RsBotChat";
+import { RS_BOT_NAME, RS_BOT_SUBTITLE, useRsBotSession } from "../rsbot";
+import type { AgentActionName, AgentActionProposal, AgentSession, ReportSummary } from "../types";
 
 type ContextType = "WORKSPACE" | "PROJECT" | "BATCH_JOB";
 
 export function AgentPage() {
   const queryClient = useQueryClient();
   const [activeSessionId, setActiveSessionId] = useState<string>();
-  const [composer, setComposer] = useState("");
-  const [stage, setStage] = useState("");
-  const [controller, setController] = useState<AbortController>();
   const [contextType, setContextType] = useState<ContextType>("PROJECT");
+  const [actionPanelOpen, setActionPanelOpen] = useState(false);
   const [contextId, setContextId] = useState("");
   const sessions = useQuery({ queryKey: ["agent-sessions"], queryFn: listAgentSessions });
   const projects = useQuery({ queryKey: ["projects"], queryFn: listProjects });
   const batches = useQuery({ queryKey: ["batch-jobs"], queryFn: listBatchJobs });
   const reports = useQuery({ queryKey: ["reports"], queryFn: listReports });
-  const session = useQuery({
-    queryKey: ["agent-session", activeSessionId],
-    queryFn: () => getAgentSession(activeSessionId!),
-    enabled: Boolean(activeSessionId),
-  });
   const actions = useQuery({
     queryKey: ["agent-actions", activeSessionId],
     queryFn: () => listAgentActions(activeSessionId),
     enabled: Boolean(activeSessionId),
   });
+  const pendingActions = (actions.data ?? []).filter((item) => item.status === "PENDING");
+  const showActionPanel = actionPanelOpen || pendingActions.length > 0;
 
   useEffect(() => {
     if (!activeSessionId && sessions.data?.[0]) setActiveSessionId(sessions.data[0].id);
   }, [activeSessionId, sessions.data]);
-  useEffect(() => () => controller?.abort(), [controller]);
+  // Same hook the workspace drawer uses, so both surfaces drive one session.
+  const rsBot = useRsBotSession({ sessionId: activeSessionId });
 
   const contextOptions = useMemo(() => {
     if (contextType === "PROJECT") {
@@ -95,22 +87,6 @@ export function AgentPage() {
       queryClient.setQueryData(["agent-session", created.id], created);
       await queryClient.invalidateQueries({ queryKey: ["agent-sessions"] });
     },
-  });
-  const runMutation = useMutation({
-    mutationFn: ({ message, signal }: { message: string; signal: AbortSignal }) => runTrustedAgentStream(
-      { message, sessionId: activeSessionId },
-      setStage,
-      signal,
-    ),
-    onSuccess: async () => {
-      setComposer("");
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["agent-session", activeSessionId] }),
-        queryClient.invalidateQueries({ queryKey: ["agent-sessions"] }),
-        queryClient.invalidateQueries({ queryKey: ["audit"] }),
-      ]);
-    },
-    onSettled: () => setController(undefined),
   });
   const archiveMutation = useMutation({
     mutationFn: (id: string) => archiveAgentSession(id),
@@ -141,18 +117,9 @@ export function AgentPage() {
     onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["agent-actions", activeSessionId] }),
   });
 
-  const submit = (message: string) => {
-    const value = message.trim();
-    if (!value || !activeSessionId || runMutation.isPending) return;
-    const requestController = new AbortController();
-    setController(requestController);
-    setStage("accepted");
-    runMutation.mutate({ message: value, signal: requestController.signal });
-  };
-
   return (
     <main className="page agent-page">
-      <AppTopbar title="可信 Agent" subtitle="项目分析与可追溯工作流协作" />
+      <AppTopbar title={RS_BOT_NAME} subtitle={RS_BOT_SUBTITLE} />
       <div className="agent-workbench">
         <aside className="agent-session-rail" aria-label="Agent 分析会话">
           <div className="agent-rail-heading">
@@ -206,73 +173,48 @@ export function AgentPage() {
         <section className="agent-conversation">
           {!activeSessionId ? (
             <AgentWelcome />
-          ) : session.isPending ? (
+          ) : rsBot.isLoadingSession ? (
             <div className="agent-center-state"><LoaderCircle className="spin" size={20} />恢复分析上下文…</div>
-          ) : session.isError ? (
-            <div className="agent-center-state error"><AlertTriangle size={20} />{session.error.message}</div>
-          ) : session.data ? (
+          ) : rsBot.sessionError ? (
+            <div className="agent-center-state error"><AlertTriangle size={20} />{rsBot.sessionError}</div>
+          ) : rsBot.session ? (
             <>
-              <AgentHeader session={session.data} />
-              <AgentActionCenter
-                session={session.data}
-                actions={actions.data ?? []}
-                reports={reports.data ?? []}
-                disabled={proposalMutation.isPending || confirmMutation.isPending || rejectMutation.isPending}
-                onPropose={(input) => proposalMutation.mutate(input)}
-                onConfirm={(id) => confirmMutation.mutate(id)}
-                onReject={(id) => rejectMutation.mutate(id)}
+              <AgentHeader
+                session={rsBot.session}
+                pendingActions={pendingActions.length}
+                actionPanelOpen={actionPanelOpen}
+                onToggleActionPanel={() => setActionPanelOpen((open) => !open)}
               />
-              <div className="agent-thread" aria-live="polite">
-                {session.data.runs.length === 0 && (
-                  <section className="agent-starter">
-                    <span className="agent-orbit"><Bot size={22} /></span>
-                    <h2>从真实业务事实开始分析</h2>
-                    <p>选择一个建议，Agent 会调用已授权工具读取项目、批任务、模型版本或知识来源。</p>
-                    <div>{session.data.suggestedPrompts.map((prompt) => <button type="button" key={prompt} onClick={() => submit(prompt)}>{prompt}</button>)}</div>
-                  </section>
+              {/* Controlled actions are opt-in: they only take space when the
+                  user opens them or when something is actually waiting. */}
+              <AnimatePresence initial={false}>
+                {showActionPanel && (
+                  <AgentActionCenter
+                    session={rsBot.session}
+                    actions={actions.data ?? []}
+                    reports={reports.data ?? []}
+                    disabled={proposalMutation.isPending || confirmMutation.isPending || rejectMutation.isPending}
+                    onPropose={(input) => proposalMutation.mutate(input)}
+                    onConfirm={(id) => confirmMutation.mutate(id)}
+                    onReject={(id) => rejectMutation.mutate(id)}
+                  />
                 )}
-                <AnimatePresence initial={false}>
-                  {session.data.runs.map((run) => <AgentRunBlock key={run.runId} run={run} />)}
-                  {runMutation.isPending && (
-                    <motion.article className="agent-running" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                      <span className="agent-avatar"><Bot size={16} /></span>
-                      <div><strong>{stage === "tool_started" ? "正在执行确定性工具" : "正在建立受控执行"}</strong><p>原始模型结果和数据库事实不会被改写。</p><span className="agent-progress-line" /></div>
-                    </motion.article>
-                  )}
-                </AnimatePresence>
-              </div>
-              <div className="agent-suggestion-strip">
-                {session.data.suggestedPrompts.slice(0, 3).map((prompt) => <button type="button" key={prompt} disabled={runMutation.isPending} onClick={() => setComposer(prompt)}>{prompt}</button>)}
-              </div>
-              {runMutation.isError && <div className="agent-inline-error"><AlertTriangle size={14} />{runMutation.error.message}</div>}
+              </AnimatePresence>
+              <RsBotChat
+                runs={rsBot.session.runs}
+                isRunning={rsBot.isRunning}
+                stage={rsBot.stage}
+                pendingQuestion={rsBot.pendingQuestion}
+                error={rsBot.error}
+                placeholder={`分析“${rsBot.session.contextLabel}”中的模型事实、分布和复核线索…`}
+                suggestions={rsBot.session.suggestedPrompts}
+                onAsk={rsBot.ask}
+                onCancel={rsBot.cancel}
+              />
               {(proposalMutation.isError || confirmMutation.isError || rejectMutation.isError) && (
                 <div className="agent-inline-error"><AlertTriangle size={14} />{(proposalMutation.error ?? confirmMutation.error ?? rejectMutation.error)?.message}</div>
               )}
-              <form className="agent-composer" onSubmit={(event) => {
-                event.preventDefault();
-                submit(composer);
-              }}>
-                <textarea
-                  aria-label="向可信 Agent 提问"
-                  rows={2}
-                  maxLength={500}
-                  value={composer}
-                  onChange={(event) => setComposer(event.target.value)}
-                  placeholder={`分析“${session.data.contextLabel}”中的模型事实、分布和复核线索…`}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      submit(composer);
-                    }
-                  }}
-                />
-                {runMutation.isPending ? (
-                  <button type="button" aria-label="停止 Agent" onClick={() => controller?.abort()}><Square size={16} /></button>
-                ) : (
-                  <button type="submit" aria-label="发送给可信 Agent" disabled={!composer.trim()}><Send size={16} /></button>
-                )}
-              </form>
-              <p className="agent-composer-note"><ShieldCheck size={12} />外部模型未配置时仍可执行全部确定性分析工具；原始影像不会默认外发。</p>
+              <p className="agent-composer-note"><ShieldCheck size={12} />工具结果是事实来源；写操作需要你确认后才会执行，原始影像不会默认外发。</p>
             </>
           ) : null}
         </section>
@@ -343,7 +285,13 @@ function AgentActionCenter({
     onPropose(input);
   };
   return (
-    <motion.section className="agent-action-center" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}>
+    <motion.section
+      className="agent-action-center"
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.18 }}
+    >
       <div className="agent-action-heading">
         <div><span className="agent-action-kicker"><ShieldCheck size={13} />受控操作</span><strong>需要副作用时，先提交提案再人工确认</strong></div>
         <small>每次操作都有稳定 request ID 和审计记录</small>
@@ -422,70 +370,34 @@ function proposalStatus(status: AgentActionProposal["status"]) {
   return ({ PENDING: "待人工确认", EXECUTING: "正在执行", COMPLETED: "已完成", FAILED: "执行失败", REJECTED: "已拒绝", EXPIRED: "已过期" } as Record<string, string>)[status] ?? status;
 }
 
-function AgentHeader({ session }: { session: AgentSession }) {
+function AgentHeader({
+  session,
+  pendingActions,
+  actionPanelOpen,
+  onToggleActionPanel,
+}: {
+  session: AgentSession;
+  pendingActions: number;
+  actionPanelOpen: boolean;
+  onToggleActionPanel: () => void;
+}) {
   return (
     <header className="agent-context-header">
-      <div><span><Workflow size={15} />{contextTypeLabel(session.contextType)}</span><h1>{session.title}</h1><p>{session.contextLabel}</p></div>
-      <div><span className="agent-provider-state">确定性工具可用</span><span>外部模型未配置时不参与生成</span></div>
-    </header>
-  );
-}
-
-function AgentRunBlock({ run }: { run: AgentHistoryRun }) {
-  return (
-    <motion.div className="agent-turn" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-      <article className="agent-user-message"><p>{run.input}</p></article>
-      <article className="agent-answer">
-        <span className="agent-avatar"><Bot size={16} /></span>
-        <div>
-          <div className="agent-answer-meta"><span><CheckCircle2 size={13} />可信工具解释</span><small>{run.latencyMs ?? 0} ms</small></div>
-          <p>{run.answer}</p>
-          <div className="agent-tool-timeline">
-            {run.toolCalls.map((call) => <ToolTimelineItem key={call.id} call={call} traceId={run.traceId} />)}
-          </div>
-          <small className="agent-trace">Trace {run.traceId}</small>
-        </div>
-      </article>
-    </motion.div>
-  );
-}
-
-function ToolTimelineItem({ call, traceId }: { call: AgentToolCall; traceId: string }) {
-  return (
-    <details className="agent-tool-card">
-      <summary>
-        <span><span className="tool-status-dot" /><Database size={14} /><strong>{toolLabel(call.name)}</strong></span>
-        <small>{call.status} · {call.latencyMs} ms</small>
-      </summary>
-      <div className="agent-tool-detail">
-        <dl><div><dt>参数摘要</dt><dd>{call.inputSummary || "{}"}</dd></div><div><dt>请求追踪</dt><dd>{traceId}</dd></div></dl>
-        <ToolFacts output={call.output} />
+      <div className="agent-context-identity">
+        <span><Workflow size={15} />{contextTypeLabel(session.contextType)}</span>
+        <h1 title={session.title}>{session.title}</h1>
+        <p title={session.contextLabel}>{session.contextLabel}</p>
       </div>
-    </details>
-  );
-}
-
-function ToolFacts({ output }: { output: string }) {
-  let value: Record<string, unknown> | null = null;
-  try {
-    value = JSON.parse(output) as Record<string, unknown>;
-  } catch {
-    // Render a sanitized text snapshot below.
-  }
-  if (!value) return <pre>{output}</pre>;
-  const facts = [
-    ["会话", value.conversationCount],
-    ["图像", value.imageCount],
-    ["问题", value.questionCount],
-    ["已回答", value.answeredCount],
-    ["需复核", value.lowConfidenceCount],
-    ["失败", value.failedCount],
-  ].filter(([, item]) => typeof item === "number");
-  return (
-    <>
-      {facts.length > 0 && <div className="agent-fact-grid">{facts.map(([label, item]) => <span key={String(label)}><strong>{String(item)}</strong>{String(label)}</span>)}</div>}
-      <details className="agent-raw-facts"><summary>查看结构化工具输出</summary><pre>{JSON.stringify(value, null, 2)}</pre></details>
-    </>
+      <button
+        className={`quiet-button agent-action-toggle ${actionPanelOpen || pendingActions > 0 ? "is-active" : ""}`}
+        type="button"
+        aria-expanded={actionPanelOpen || pendingActions > 0}
+        onClick={onToggleActionPanel}
+      >
+        <ShieldCheck size={14} />受控操作
+        {pendingActions > 0 && <span className="agent-action-badge">{pendingActions}</span>}
+      </button>
+    </header>
   );
 }
 
@@ -494,28 +406,4 @@ function contextTypeLabel(value: AgentSession["contextType"]) {
   if (value === "BATCH_JOB") return "批量任务分析";
   if (value === "CONVERSATION") return "会话分析";
   return "工作区分析";
-}
-
-function toolLabel(value: string) {
-  return ({
-    current_model_release: "当前模型发布",
-    supported_question_types: "模型能力边界",
-    system_health: "系统健康状态",
-    conversation_history: "会话历史",
-    conversation_vqa_results: "会话 VQA 结果",
-    model_capabilities: "模型能力边界",
-    project_summary: "项目摘要",
-    project_conversations: "项目会话",
-    project_vqa_statistics: "项目 VQA 统计",
-    batch_job_status: "批量任务状态",
-    batch_result_statistics: "批量结果统计",
-    confidence_distribution: "置信度分布",
-    unsupported_question_summary: "超范围问题汇总",
-    failed_invocation_summary: "失败调用汇总",
-    audit_lookup: "审计检索",
-    create_batch_plan: "批量任务规划",
-    report_draft_data: "报告事实包",
-    search_knowledge: "知识库检索",
-    single_image_vqa: "受控单图 VQA",
-  } as Record<string, string>)[value] ?? value;
 }

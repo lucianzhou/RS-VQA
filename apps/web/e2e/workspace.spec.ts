@@ -34,6 +34,10 @@ test("persists an image, multi-turn VQA, provenance, and agent tools", async ({ 
   await page.getByRole("button", { name: "发送问题" }).click();
   await expect(page.locator(".user-message")).toHaveCount(2);
   await expect(page.locator(".assistant-message")).toHaveCount(2);
+  // Reloading while the second answer is still in flight would drop the
+  // optimistic turn and assert against a half-written conversation. The real
+  // runtime is slow enough for that to matter; wait for persistence first.
+  await expect(page.getByText("正在分析当前影像…")).toBeHidden({ timeout: 60_000 });
   await page.reload();
   await expect(page.locator(".user-message")).toHaveCount(2);
   await expect(page.locator(".assistant-message")).toHaveCount(2);
@@ -49,10 +53,18 @@ test("persists an image, multi-turn VQA, provenance, and agent tools", async ({ 
   await page.getByText("查看模型与调用信息").first().click();
   await expect(page.getByText(/Mock 演示，不是研究结果|研究 ViLT predicted-soft/).first()).toBeVisible();
 
-  await page.getByRole("button", { name: "可信 Agent" }).click();
-  await page.getByRole("button", { name: "运行只读工具" }).click();
-  await expect(page.getByText("AGENT 解释")).toBeVisible();
-  await expect(page.getByText("工具调用与审计")).toBeVisible();
+  // The workspace drawer is a contextual chat panel, not a fixed question list.
+  await page.getByRole("button", { name: "RS-Bot" }).click();
+  const drawer = page.getByLabel("RS-Bot", { exact: true });
+  await expect(drawer).toBeVisible();
+  const drawerComposer = drawer.getByLabel("向 RS-Bot 提问");
+  await drawerComposer.fill("查询当前模型版本");
+  await drawer.getByRole("button", { name: "发送给 RS-Bot" }).click();
+  await expect(drawer.locator(".rsbot-turn")).toHaveCount(1, { timeout: 20_000 });
+  await expect(drawer.getByText(/Trace /).first()).toBeVisible();
+  await drawerComposer.fill("这个模型支持哪些问题？");
+  await drawer.getByRole("button", { name: "发送给 RS-Bot" }).click();
+  await expect(drawer.locator(".rsbot-turn")).toHaveCount(2, { timeout: 20_000 });
   await page.screenshot({ path: test.info().outputPath("workspace-desktop.png"), fullPage: true });
 });
 
@@ -67,6 +79,9 @@ test("requires confirmation before a trusted Agent archive action", async ({ pag
   await page.reload();
   await page.getByLabel("选择项目").selectOption(project.id);
   await page.getByRole("button", { name: "新建分析会话" }).click();
+  // Controlled actions are opt-in and must not occupy the conversation by default.
+  await expect(page.getByText("需要副作用时，先提交提案再人工确认")).toBeHidden();
+  await page.getByRole("button", { name: "受控操作" }).click();
   await expect(page.getByText("需要副作用时，先提交提案再人工确认")).toBeVisible();
   await page.getByLabel("选择受控操作").selectOption("archive_project");
   await page.getByRole("button", { name: "提交操作提案" }).click();
@@ -214,20 +229,22 @@ test("persists a multi-turn project Agent session with deterministic tool eviden
   await page.goto("/agent");
   await expect(page.getByRole("heading", { name: "分析会话" })).toBeVisible();
   await page.getByRole("button", { name: "新建分析会话" }).click();
-  await expect(page.getByText("从真实业务事实开始分析")).toBeVisible();
 
   await page.getByRole("button", { name: "汇总这个项目的 VQA 结果和置信度分布" }).first().click();
-  await expect(page.locator(".agent-tool-card").filter({ hasText: "置信度分布" })).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator(".agent-turn")).toHaveCount(1);
+  await expect(page.locator(".rsbot-tool").filter({ hasText: "置信度分布" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator(".rsbot-turn")).toHaveCount(1);
 
-  const composer = page.getByLabel("向可信 Agent 提问");
+  const composer = page.getByLabel("向 RS-Bot 提问");
   await composer.fill("生成这个项目的报告事实包");
-  await page.getByRole("button", { name: "发送给可信 Agent" }).click();
-  await expect(page.locator(".agent-turn")).toHaveCount(2, { timeout: 15_000 });
-  await expect(page.locator(".agent-tool-card").filter({ hasText: "报告事实包" })).toHaveCount(1);
+  await page.getByRole("button", { name: "发送给 RS-Bot" }).click();
+  await expect(page.locator(".rsbot-turn")).toHaveCount(2, { timeout: 20_000 });
+  await expect(page.locator(".rsbot-tool").filter({ hasText: "报告事实包" })).toHaveCount(1);
+
+  // The generated title replaces the placeholder and is readable, not an id.
+  await expect(page.locator(".agent-context-header h1")).not.toHaveText(/^Agent action/);
 
   await page.reload();
-  await expect(page.locator(".agent-turn")).toHaveCount(2);
+  await expect(page.locator(".rsbot-turn")).toHaveCount(2);
   await expect(page.getByText(/Trace /).first()).toBeVisible();
   await page.screenshot({ path: test.info().outputPath("agent-project-analysis.png"), fullPage: true });
 });
