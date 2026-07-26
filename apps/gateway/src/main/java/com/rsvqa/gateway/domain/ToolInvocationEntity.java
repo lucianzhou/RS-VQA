@@ -56,6 +56,13 @@ public class ToolInvocationEntity extends BaseEntity {
         this.status = "FAILED";
     }
 
+    public void reject(String errorCode, String output, long latencyMs) {
+        this.outputSummary = truncate(output);
+        this.latencyMs = latencyMs;
+        this.errorCode = errorCode;
+        this.status = "REJECTED";
+    }
+
     private static String truncate(String value) {
         if (value == null) {
             return null;

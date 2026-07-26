@@ -2,16 +2,17 @@ package com.rsvqa.gateway;
 
 import static com.rsvqa.gateway.AgentDtos.*;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -53,6 +54,7 @@ public class TrustedAgentService {
     private final AgentToolRegistry toolRegistry;
     private final RsBotPlanner planner;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactions;
     private final Timer runTimer;
     private final Counter runErrors;
 
@@ -66,6 +68,7 @@ public class TrustedAgentService {
             AgentToolRegistry toolRegistry,
             RsBotPlanner planner,
             ObjectMapper objectMapper,
+            PlatformTransactionManager transactionManager,
             MeterRegistry registry
     ) {
         this.users = users;
@@ -77,6 +80,7 @@ public class TrustedAgentService {
         this.toolRegistry = toolRegistry;
         this.planner = planner;
         this.objectMapper = objectMapper;
+        this.transactions = new TransactionTemplate(transactionManager);
         this.runTimer = Timer.builder("rsvqa.agent.run")
                 .description("Trusted Agent run latency")
                 .publishPercentileHistogram()
@@ -86,7 +90,6 @@ public class TrustedAgentService {
                 .register(registry);
     }
 
-    @Transactional
     public AgentResponse run(AgentRequest request) {
         return run(request, () -> false);
     }
@@ -95,10 +98,19 @@ public class TrustedAgentService {
      * @param cancelled polled between planning steps so a disconnected SSE client
      *                  stops the loop instead of paying for the remaining steps.
      */
-    @Transactional
     public AgentResponse run(AgentRequest request, BooleanSupplier cancelled) {
         Timer.Sample metricSample = Timer.start();
         long started = System.nanoTime();
+        StartedRun startedRun = transaction(() -> startRun(request));
+
+        if (planner.available()
+                && (startedRun.request().toolName() == null || startedRun.request().toolName().isBlank())) {
+            return runPlanned(startedRun.request(), startedRun.runId(), started, metricSample, cancelled);
+        }
+        return runRuleBased(startedRun.request(), startedRun.runId(), started, metricSample);
+    }
+
+    private StartedRun startRun(AgentRequest request) {
         UserEntity user = currentUser();
         AgentSessionEntity session = request.sessionId() == null ? null : agentSessions.owned(request.sessionId());
         if (session != null && runs.countByAgentSessionId(session.getId()) >= MAX_SESSION_RUNS) {
@@ -114,11 +126,7 @@ public class TrustedAgentService {
                 user, session, project, conversation, batchJob, resolvedRequest.message().trim(), TraceId.current()
         ));
         titleFromFirstQuestion(session, resolvedRequest.message());
-
-        if (planner.available() && (resolvedRequest.toolName() == null || resolvedRequest.toolName().isBlank())) {
-            return runPlanned(resolvedRequest, run, started, metricSample, cancelled);
-        }
-        return runRuleBased(resolvedRequest, run, started, metricSample);
+        return new StartedRun(run.getId(), resolvedRequest);
     }
 
     /**
@@ -127,58 +135,30 @@ public class TrustedAgentService {
      */
     private AgentResponse runPlanned(
             AgentRequest request,
-            AgentRunEntity run,
+            UUID runId,
             long started,
             Timer.Sample metricSample,
             BooleanSupplier cancelled
     ) {
         try {
-            RsBotPlanner.PlanResult plan = planner.plan(request, toolRegistry.callbacks(), cancelled);
-            List<ToolCallResponse> calls = new ArrayList<>();
-            for (RsBotPlanner.ExecutedTool tool : plan.toolCalls()) {
-                ToolInvocationEntity invocation = toolInvocations.save(
-                        new ToolInvocationEntity(run, tool.name(), tool.arguments()));
-                if ("COMPLETED".equals(tool.status())) {
-                    invocation.complete(tool.output(), tool.latencyMs());
-                } else {
-                    invocation.fail(
-                            "REJECTED".equals(tool.status()) ? "TOOL_NOT_ALLOWED" : "TOOL_CALL_FAILED",
-                            tool.errorMessage(),
-                            tool.latencyMs());
-                }
-                calls.add(new ToolCallResponse(
-                        invocation.getId(), tool.name(), tool.status(), tool.arguments(),
-                        tool.output() == null ? tool.errorMessage() : tool.output(), tool.latencyMs()));
-            }
-            long latency = elapsedMillis(started);
-            run.complete(plan.answer(), latency);
-            run.recordProvenance(
-                    GeminiRelayVisionProvider.PROVIDER_ID, plan.providerModel(), PROVIDER_STATE_LLM,
-                    RsBotProperties.PROMPT_VERSION, plan.stopReason(), plan.steps(),
-                    plan.promptTokens(), plan.completionTokens(), plan.totalTokens());
-            return new AgentResponse(
-                    run.getId(),
-                    run.getStatus(),
-                    PROVIDER_STATE_LLM,
-                    "智能规划已启用",
-                    plan.answer(),
-                    run.getTraceId(),
-                    latency,
-                    calls,
-                    List.of(),
-                    "RS-Bot 的结论基于上述工具返回的事实；研究模型的原始答案不会被改写，"
-                            + "写操作需要你在界面上确认。",
-                    plan.providerModel(),
-                    RsBotProperties.PROMPT_VERSION,
-                    plan.stopReason(),
-                    plan.steps(),
-                    plan.totalTokens()
+            RsBotPlanner.PlanResult plan = planner.plan(
+                    request,
+                    toolRegistry.callbacks(),
+                    cancelled,
+                    tool -> transaction(() -> {
+                        recordPlannedTool(runId, tool);
+                        return null;
+                    })
             );
+            return transaction(() -> completePlannedRun(runId, plan, elapsedMillis(started)));
         } catch (RuntimeException error) {
             runErrors.increment();
             long latency = elapsedMillis(started);
             String safeMessage = error.getMessage() == null ? "智能规划失败。" : error.getMessage();
-            run.fail("AGENT_PLANNING_FAILED", safeMessage, latency);
+            transaction(() -> {
+                failRun(runId, "AGENT_PLANNING_FAILED", safeMessage, latency);
+                return null;
+            });
             throw error;
         } finally {
             metricSample.stop(runTimer);
@@ -188,56 +168,171 @@ public class TrustedAgentService {
     /** Deterministic single-tool orchestration used when no planning model is configured. */
     private AgentResponse runRuleBased(
             AgentRequest resolvedRequest,
-            AgentRunEntity run,
+            UUID runId,
             long started,
             Timer.Sample metricSample
     ) {
         String toolName = chooseTool(resolvedRequest);
         String arguments = argumentsSummary(resolvedRequest, toolName);
-        ToolInvocationEntity invocation = toolInvocations.save(new ToolInvocationEntity(run, toolName, arguments));
+        UUID invocationId = transaction(() -> startTool(runId, toolName, arguments));
         long toolStarted = System.nanoTime();
         try {
             Object output = execute(toolName, resolvedRequest);
             long toolLatency = elapsedMillis(toolStarted);
             String outputJson = json(output);
-            invocation.complete(outputJson, toolLatency);
             String answer = explain(toolName, output);
             long latency = elapsedMillis(started);
-            run.complete(answer, latency);
-            run.recordProvenance(
-                    null, null, PROVIDER_STATE_RULES, RsBotProperties.PROMPT_VERSION,
-                    "rule_based_single_tool", 1, null, null, null);
-            return new AgentResponse(
-                    run.getId(),
-                    run.getStatus(),
-                    PROVIDER_STATE_RULES,
-                    RULE_BASED_LABEL,
-                    answer,
-                    run.getTraceId(),
-                    latency,
-                    List.of(new ToolCallResponse(
-                            invocation.getId(), toolName, "COMPLETED", arguments, outputJson, toolLatency
-                    )),
-                    List.of(),
-                    RULE_BASED_LABEL + "：本轮只按关键词选择了一个只读工具并解释其结果，"
-                            + "不会生成或改写研究模型答案。",
-                    null,
-                    RsBotProperties.PROMPT_VERSION,
-                    "rule_based_single_tool",
-                    1,
-                    null
-            );
+            return transaction(() -> completeRuleBasedRun(
+                    runId, invocationId, toolName, arguments, outputJson, toolLatency, answer, latency));
         } catch (RuntimeException error) {
             runErrors.increment();
             long toolLatency = elapsedMillis(toolStarted);
             String safeMessage = error.getMessage() == null ? "工具调用失败。" : error.getMessage();
-            invocation.fail("TOOL_CALL_FAILED", safeMessage, toolLatency);
             long latency = elapsedMillis(started);
-            run.fail("TOOL_CALL_FAILED", safeMessage, latency);
+            transaction(() -> {
+                failRuleBasedRun(runId, invocationId, safeMessage, toolLatency, latency);
+                return null;
+            });
             throw error;
         } finally {
             metricSample.stop(runTimer);
         }
+    }
+
+    private void recordPlannedTool(UUID runId, RsBotPlanner.ExecutedTool tool) {
+        ToolInvocationEntity invocation = toolInvocations.save(
+                new ToolInvocationEntity(requireRun(runId), tool.name(), tool.arguments()));
+        if ("COMPLETED".equals(tool.status())) {
+            invocation.complete(tool.output(), tool.latencyMs());
+        } else if ("REJECTED".equals(tool.status())) {
+            invocation.reject("TOOL_NOT_ALLOWED", tool.errorMessage(), tool.latencyMs());
+        } else {
+            invocation.fail("TOOL_CALL_FAILED", tool.errorMessage(), tool.latencyMs());
+        }
+    }
+
+    private AgentResponse completePlannedRun(
+            UUID runId,
+            RsBotPlanner.PlanResult plan,
+            long latency
+    ) {
+        AgentRunEntity run = requireRun(runId);
+        run.complete(plan.answer(), latency);
+        run.recordProvenance(
+                GeminiRelayVisionProvider.PROVIDER_ID, plan.providerModel(), PROVIDER_STATE_LLM,
+                RsBotProperties.PROMPT_VERSION, plan.stopReason(), plan.steps(),
+                plan.promptTokens(), plan.completionTokens(), plan.totalTokens());
+        List<ToolCallResponse> calls = toolInvocations
+                .findByAgentRunIdOrderByCreatedAtAsc(runId)
+                .stream()
+                .map(this::toolResponse)
+                .toList();
+        return new AgentResponse(
+                run.getId(),
+                run.getStatus(),
+                PROVIDER_STATE_LLM,
+                "智能规划已启用",
+                plan.answer(),
+                run.getTraceId(),
+                latency,
+                calls,
+                List.of(),
+                "RS-Bot 的结论基于上述工具返回的事实；研究模型的原始答案不会被改写，"
+                        + "写操作需要你在界面上确认。",
+                plan.providerModel(),
+                RsBotProperties.PROMPT_VERSION,
+                plan.stopReason(),
+                plan.steps(),
+                plan.totalTokens()
+        );
+    }
+
+    private UUID startTool(UUID runId, String toolName, String arguments) {
+        return toolInvocations.save(
+                new ToolInvocationEntity(requireRun(runId), toolName, arguments)
+        ).getId();
+    }
+
+    private AgentResponse completeRuleBasedRun(
+            UUID runId,
+            UUID invocationId,
+            String toolName,
+            String arguments,
+            String outputJson,
+            long toolLatency,
+            String answer,
+            long latency
+    ) {
+        AgentRunEntity run = requireRun(runId);
+        ToolInvocationEntity invocation = requireTool(invocationId);
+        invocation.complete(outputJson, toolLatency);
+        run.complete(answer, latency);
+        run.recordProvenance(
+                null, null, PROVIDER_STATE_RULES, RsBotProperties.PROMPT_VERSION,
+                "rule_based_single_tool", 1, null, null, null);
+        return new AgentResponse(
+                run.getId(),
+                run.getStatus(),
+                PROVIDER_STATE_RULES,
+                RULE_BASED_LABEL,
+                answer,
+                run.getTraceId(),
+                latency,
+                List.of(new ToolCallResponse(
+                        invocation.getId(), toolName, "COMPLETED", arguments, outputJson, toolLatency
+                )),
+                List.of(),
+                RULE_BASED_LABEL + "：本轮只按关键词选择了一个只读工具并解释其结果，"
+                        + "不会生成或改写研究模型答案。",
+                null,
+                RsBotProperties.PROMPT_VERSION,
+                "rule_based_single_tool",
+                1,
+                null
+        );
+    }
+
+    private void failRuleBasedRun(
+            UUID runId,
+            UUID invocationId,
+            String message,
+            long toolLatency,
+            long runLatency
+    ) {
+        requireTool(invocationId).fail("TOOL_CALL_FAILED", message, toolLatency);
+        failRun(runId, "TOOL_CALL_FAILED", message, runLatency);
+    }
+
+    private void failRun(UUID runId, String code, String message, long latency) {
+        requireRun(runId).fail(code, message, latency);
+    }
+
+    private AgentRunEntity requireRun(UUID runId) {
+        return runs.findById(runId)
+                .orElseThrow(() -> new ResourceNotFoundException("Agent 运行不存在。"));
+    }
+
+    private ToolInvocationEntity requireTool(UUID invocationId) {
+        return toolInvocations.findById(invocationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Agent 工具调用不存在。"));
+    }
+
+    private ToolCallResponse toolResponse(ToolInvocationEntity invocation) {
+        return new ToolCallResponse(
+                invocation.getId(),
+                invocation.getToolName(),
+                invocation.getStatus(),
+                invocation.getArgumentsSummary(),
+                invocation.getOutputSummary(),
+                invocation.getLatencyMs() == null ? 0 : invocation.getLatencyMs()
+        );
+    }
+
+    private <T> T transaction(Supplier<T> work) {
+        return transactions.execute(ignored -> work.get());
+    }
+
+    private record StartedRun(UUID runId, AgentRequest request) {
     }
 
     private Object execute(String toolName, AgentRequest request) {

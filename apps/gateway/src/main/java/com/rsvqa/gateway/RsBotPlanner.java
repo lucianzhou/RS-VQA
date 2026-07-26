@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,6 +98,16 @@ public class RsBotPlanner {
             ToolCallback[] catalogue,
             BooleanSupplier cancelled
     ) {
+        return plan(request, catalogue, cancelled, ignored -> {
+        });
+    }
+
+    public PlanResult plan(
+            AgentDtos.AgentRequest request,
+            ToolCallback[] catalogue,
+            BooleanSupplier cancelled,
+            Consumer<ExecutedTool> toolObserver
+    ) {
         Set<String> allowed = RsBotToolPolicy.allowedFor(request);
         Map<String, ToolCallback> callable = new LinkedHashMap<>();
         for (ToolCallback callback : catalogue) {
@@ -173,6 +184,7 @@ public class RsBotPlanner {
             for (AssistantMessage.ToolCall call : calls) {
                 ExecutedTool result = invoke(request, callable, call);
                 executed.add(result);
+                toolObserver.accept(result);
                 responses.add(new ToolResponseMessage.ToolResponse(
                         call.id(),
                         call.name(),
