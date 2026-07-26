@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { RULE_BASED_NOTICE, stageLabel, stopReasonLabel, type RsBotStage } from "../rsbot";
 import type { AgentHistoryRun, AgentToolCall } from "../types";
 
@@ -151,7 +153,7 @@ function RsBotTurn({ run, compact }: { run: AgentHistoryRun; compact: boolean })
           </div>
           {ruleBased && <p className="rsbot-mode-note"><Info size={12} />{RULE_BASED_NOTICE}</p>}
           {stopNote && <p className="rsbot-mode-note"><AlertTriangle size={12} />{stopNote}</p>}
-          <p className="rsbot-answer-text">{run.answer}</p>
+          <RsBotMarkdown content={run.answer} />
           {run.toolCalls.length > 0 && (
             <div className="rsbot-tools">
               {run.toolCalls.map((call) => <RsBotToolCall key={call.id} call={call} traceId={run.traceId} />)}
@@ -165,6 +167,47 @@ function RsBotTurn({ run, compact }: { run: AgentHistoryRun; compact: boolean })
         </div>
       </article>
     </motion.div>
+  );
+}
+
+const SAFE_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
+
+function safeMarkdownUrl(url: string) {
+  const value = url.trim();
+  if (/^(?:\/(?!\/)|#|\?|\.\.?\/)/.test(value)) return value;
+
+  try {
+    const parsed = new URL(value);
+    return SAFE_LINK_PROTOCOLS.has(parsed.protocol) ? value : "";
+  } catch {
+    return "";
+  }
+}
+
+export function RsBotMarkdown({ content }: { content: string | null }) {
+  return (
+    <div className="rsbot-answer-text">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        skipHtml
+        disallowedElements={["img"]}
+        urlTransform={safeMarkdownUrl}
+        components={{
+          a: ({ children: linkText, href, node: _node, ...props }) => href ? (
+              <a
+                {...props}
+                href={href}
+                rel={href.startsWith("http") ? "noreferrer noopener" : undefined}
+                target={href.startsWith("http") ? "_blank" : undefined}
+              >
+                {linkText}
+              </a>
+            ) : <span>{linkText}</span>,
+        }}
+      >
+        {content ?? ""}
+      </ReactMarkdown>
+    </div>
   );
 }
 

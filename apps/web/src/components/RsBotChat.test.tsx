@@ -54,6 +54,52 @@ describe("RsBotChat", () => {
     expect(screen.getByText("3 步")).toBeInTheDocument();
   });
 
+  it("renders agent Markdown as safe semantic content", () => {
+    const { container } = render(
+      <RsBotChat
+        runs={[run({
+          answer: [
+            "### 模型状态",
+            "",
+            "**发布版本** `rsvqa-release-1234567890`",
+            "",
+            "- 服务正常",
+            "- 支持批量任务",
+            "",
+            "[查看说明](https://example.com/docs)",
+            "",
+            "---",
+            "",
+            "<script>window.bad = true</script>",
+          ].join("\n"),
+        })]}
+        isRunning={false}
+        stage=""
+        pendingQuestion=""
+        placeholder="p"
+        onAsk={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { level: 3, name: "模型状态" })).toBeInTheDocument();
+    expect(screen.getByText("发布版本").tagName).toBe("STRONG");
+    expect(screen.getByText("rsvqa-release-1234567890").tagName).toBe("CODE");
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.getByRole("separator")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "查看说明" })).toHaveAttribute("href", "https://example.com/docs");
+    expect(container.textContent).not.toContain("###");
+    expect(container.textContent).not.toContain("**");
+    expect(container.querySelector("script")).toBeNull();
+  });
+
+  it("removes unsafe Markdown link protocols", () => {
+    renderChat({ runs: [run({ answer: "[危险链接](javascript:alert('x'))" })] });
+
+    expect(screen.getByText("危险链接")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "危险链接" })).toBeNull();
+  });
+
   it("shows the multi-tool trace including rejected calls", () => {
     renderChat({
       runs: [run({
