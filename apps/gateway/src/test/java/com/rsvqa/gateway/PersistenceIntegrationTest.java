@@ -45,7 +45,7 @@ class PersistenceIntegrationTest {
 
     @Test
     void appliesFlywayPersistsOwnedDataAndUsesRedisAsCache() {
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("9");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("11");
 
         String suffix = UUID.randomUUID().toString();
         UserEntity user = users.save(new UserEntity("integration-" + suffix, "Integration", "USER", false));
