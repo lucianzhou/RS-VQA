@@ -203,8 +203,15 @@ button, a { touch-action: manipulation; }
 .result-state.warning { color: var(--ochre); }
 .mock-flag { border-radius: 4px; padding: 3px 5px; color: #7f5427; background: #f5eadc; font-size: 8px; font-weight: 750; }
 .external-flag { border: 1px solid #c9d8d0; border-radius: 4px; padding: 2px 5px; color: #416455; background: #f4f8f5; font-size: 8px; font-weight: 720; }
+.canonical-hint { margin: 0 0 6px; color: var(--muted); font-size: 10px; line-height: 1.6; }
+/* Deliberately smaller than .answer-value: the raw closed-set prediction stays
+   the primary reading, the localized rendering is a secondary aid. */
 .answer-value { margin: 0 0 8px; color: var(--ink); font-size: 18px; font-weight: 620; line-height: 1.35; }
+.answer-display { margin: -4px 0 8px; color: #4f5954; font-size: 13px; line-height: 1.55; }
 .capability-notice { margin: 0; color: #4f5954; font-size: 11px; line-height: 1.7; }
+.clarification-options { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+.clarification-options button { border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; color: #4f5a54; background: white; font-size: 10px; }
+.clarification-options button:hover { border-color: #b5c8bd; background: #f8faf8; }
 .provenance { margin-top: 12px; color: var(--muted); font-size: 9px; }
 .provenance summary { width: fit-content; color: var(--forest-support); cursor: pointer; }
 .provenance dl { width: min(540px,100%); margin: 10px 0 0; border-top: 1px solid var(--line); }

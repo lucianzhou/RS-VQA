@@ -45,7 +45,47 @@ class PredictionResponse(BaseModel):
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     margin: float | None = Field(default=None, ge=0.0, le=1.0)
     top_k: list[TopKPrediction] = Field(default_factory=list)
+    original_question: str = Field(
+        description="Verbatim user question; always preserved for audit and provenance.",
+    )
     canonical_question: str | None = None
+    canonical_question_display: str | None = Field(
+        default=None,
+        description="Localized rendering of the canonical question for the UI.",
+    )
+    model_input_question: str | None = Field(
+        default=None,
+        description="Exact question text handed to the research runtime.",
+    )
+    question_normalizer_version: str = Field(
+        description="Version of the controlled catalog that produced the canonical question.",
+    )
+    matched_intent: str | None = None
+    matched_objects: list[str] = Field(default_factory=list)
+    question_scope_verification: str | None = Field(
+        default=None,
+        description="How much local evidence backs this object/intent pairing.",
+    )
+    reason_code: str | None = None
+    needs_clarification: bool = Field(
+        default=False,
+        description=(
+            "The question is in scope but could not be resolved uniquely. Status stays"
+            " `unsupported` because no answer was produced; this flag plus"
+            " `clarification_options` carries the distinction."
+        ),
+    )
+    clarification_options: list[str] = Field(default_factory=list)
+    interpretation_note: str | None = Field(
+        default=None,
+        description="Short 'read as' hint for the UI when the question was rewritten.",
+    )
+    display_answer: str | None = Field(
+        default=None,
+        description="Presentation-only rendering of `prediction`; never a substitute for it.",
+    )
+    display_locale: str | None = None
+    answer_shape_mismatch: bool = False
     question_type: str | None = None
     predicted_question_type: str | None = None
     question_type_probabilities: dict[str, float] = Field(default_factory=dict)

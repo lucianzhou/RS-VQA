@@ -165,7 +165,13 @@ export function WorkspacePage() {
                 <StarterPrompt onSelect={(question) => form.setValue("question", question, { shouldValidate: true })} />
               ) : (
                 <>
-                  {conversation.messages.map((message) => <Message key={message.id} message={message} />)}
+                  {conversation.messages.map((message) => (
+                    <Message
+                      key={message.id}
+                      message={message}
+                      onSelect={(question) => form.setValue("question", question, { shouldValidate: true })}
+                    />
+                  ))}
                   {optimisticQuestion && (
                     <>
                       <article className="message user-message"><div>{optimisticQuestion}</div></article>
@@ -370,7 +376,7 @@ function PendingMessage() {
   return <motion.article className="message assistant-message" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}><span className="assistant-avatar">RS</span><div className="answer-body pending-answer"><LoaderCircle className="spin" size={17} /><span>正在分析当前影像…</span></div></motion.article>;
 }
 
-function Message({ message }: { message: PersistedMessage }) {
+function Message({ message, onSelect }: { message: PersistedMessage; onSelect?: (question: string) => void }) {
   if (message.role === "user") return <motion.article className="message user-message" initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }}><div>{message.content}</div></motion.article>;
   const invocation = message.invocation;
   const isMock = message.sourceType === "MOCK";
@@ -379,9 +385,11 @@ function Message({ message }: { message: PersistedMessage }) {
   const lowConfidence = answered && invocation?.confidence != null && invocation.confidence < 0.65;
   const metadata = messageMetadata(message.metadataJson);
   const needsReview = answered && metadata.requiresReview;
+  const provisional = answered && !isExternal && metadata.scopeVerification === "provisional";
   const answerLabel = needsReview ? "答案形式异常，请复核"
     : lowConfidence ? "低置信度，请复核"
     : answered ? (isExternal ? "外部模型辅助回答" : "模型回答")
+    : metadata.needsClarification ? "需要补充说明"
     : "超出能力范围";
   const avatarKind = isExternal ? "EXTERNAL_VLM" : isMock ? "MOCK" : "RESEARCH_MODEL";
   return (
@@ -398,9 +406,21 @@ function Message({ message }: { message: PersistedMessage }) {
           {isMock && <span className="mock-flag">MOCK</span>}
           {isExternal && <span className="external-flag">外部模型</span>}
         </div>
+        {metadata.interpretationNote && <p className="canonical-hint">{metadata.interpretationNote}</p>}
         {answered && <p className="answer-value">{message.content}</p>}
+        {answered && metadata.displayAnswer && metadata.displayAnswer !== message.content && (
+          <p className="answer-display">{metadata.displayAnswer}</p>
+        )}
         {lowConfidence && <p className="capability-notice">模型置信度低于 65% 展示阈值。答案保持原样，但不建议直接作为确定结论。</p>}
+        {provisional && <p className="capability-notice">该地物与题型组合仍在核验中，结果仅供参考。</p>}
         {!answered && <p className="capability-notice">{message.content}</p>}
+        {metadata.clarificationOptions.length > 0 && (
+          <div className="clarification-options">
+            {metadata.clarificationOptions.map((option) => (
+              <button type="button" key={option} onClick={() => onSelect?.(option)}>{option}</button>
+            ))}
+          </div>
+        )}
         {metadata.notice && <p className="capability-notice">{metadata.notice}</p>}
         {invocation && (
           <details className="provenance">
@@ -409,6 +429,9 @@ function Message({ message }: { message: PersistedMessage }) {
               <div><dt>输出来源</dt><dd>{originLabel(invocation.predictionOrigin)}</dd></div>
               {invocation.providerModel && <div><dt>Provider 模型</dt><dd>{invocation.providerModel}</dd></div>}
               {!isExternal && <div><dt>发布版本</dt><dd>{invocation.modelReleaseId ?? "无"}</dd></div>}
+              {metadata.modelInputQuestion && <div><dt>模型输入问题</dt><dd>{metadata.modelInputQuestion}</dd></div>}
+              {metadata.normalizerVersion && <div><dt>问题规范化版本</dt><dd>{metadata.normalizerVersion}</dd></div>}
+              {metadata.matchedIntent && <div><dt>识别题型</dt><dd>{intentLabel(metadata.matchedIntent)}</dd></div>}
               {invocation.confidence != null && <div><dt>置信度</dt><dd>{(invocation.confidence * 100).toFixed(1)}%</dd></div>}
               {invocation.totalTokens != null && <div><dt>Token 用量</dt><dd>{invocation.totalTokens}（输入 {invocation.promptTokens ?? "?"} / 输出 {invocation.completionTokens ?? "?"}）</dd></div>}
               {invocation.latencyMs != null && <div><dt>模型耗时</dt><dd>{invocation.latencyMs} ms</dd></div>}
@@ -421,18 +444,67 @@ function Message({ message }: { message: PersistedMessage }) {
   );
 }
 
-function messageMetadata(metadata: string | null): { notice: string; requiresReview: boolean; providerId: string } {
-  if (!metadata) return { notice: "", requiresReview: false, providerId: "" };
+interface MessageMetadata {
+  notice: string;
+  requiresReview: boolean;
+  providerId: string;
+  /** Localized rendering of the raw answer. Never replaces it. */
+  displayAnswer: string;
+  /** "已理解为：…" hint, present only when the question was rewritten. */
+  interpretationNote: string;
+  needsClarification: boolean;
+  clarificationOptions: string[];
+  canonicalQuestion: string;
+  modelInputQuestion: string;
+  normalizerVersion: string;
+  matchedIntent: string;
+  scopeVerification: string;
+}
+
+const EMPTY_METADATA: MessageMetadata = {
+  notice: "",
+  requiresReview: false,
+  providerId: "",
+  displayAnswer: "",
+  interpretationNote: "",
+  needsClarification: false,
+  clarificationOptions: [],
+  canonicalQuestion: "",
+  modelInputQuestion: "",
+  normalizerVersion: "",
+  matchedIntent: "",
+  scopeVerification: "",
+};
+
+function messageMetadata(metadata: string | null): MessageMetadata {
+  if (!metadata) return EMPTY_METADATA;
   try {
-    const value = JSON.parse(metadata) as { capabilityNotice?: string; outputBoundary?: string; requiresReview?: boolean; providerId?: string };
+    const value = JSON.parse(metadata) as Record<string, unknown>;
     return {
-      notice: value.outputBoundary ?? value.capabilityNotice ?? "",
+      notice: (value.outputBoundary as string) ?? (value.capabilityNotice as string) ?? "",
       requiresReview: value.requiresReview === true,
-      providerId: value.providerId ?? "",
+      providerId: (value.providerId as string) ?? "",
+      displayAnswer: (value.displayAnswer as string) ?? "",
+      interpretationNote: (value.interpretationNote as string) ?? "",
+      needsClarification: value.needsClarification === true,
+      clarificationOptions: Array.isArray(value.clarificationOptions) ? (value.clarificationOptions as string[]) : [],
+      canonicalQuestion: (value.canonicalQuestion as string) ?? "",
+      modelInputQuestion: (value.modelInputQuestion as string) ?? "",
+      normalizerVersion: (value.normalizerVersion as string) ?? "",
+      matchedIntent: (value.matchedIntent as string) ?? "",
+      scopeVerification: (value.scopeVerification as string) ?? "",
     };
   } catch {
-    return { notice: "", requiresReview: false, providerId: "" };
+    return EMPTY_METADATA;
   }
+}
+
+function intentLabel(intent: string) {
+  if (intent === "presence") return "存在性";
+  if (intent === "count") return "数量";
+  if (intent === "area") return "面积";
+  if (intent === "comparison") return "比较";
+  return intent;
 }
 
 function originLabel(origin: string) {

@@ -1,0 +1,113 @@
+{
+  "manifest_version": "1.0",
+  "purpose": "Golden demo and acceptance set for the deployed research model. Text-only: it names samples, questions, gold answers and this release's frozen predictions, and contains no imagery.",
+  "dataset": "RSVQA-HR",
+  "split": "test_phili",
+  "answer_mode": "rsvqa_hr_grouped",
+  "model_release_id": "rsvqa-hr-qdrop15-predicted-soft-20260724-8510bc9",
+  "checkpoint_sha256": "2426770af96a6f41b30e081c9719d6582471fab091e4b44ba2c3068d6e227109",
+  "answer_vocabulary_sha256": "23592881181ac284e46292921ce14d329eb437c1e3913b2e2f8a05ff9b75f99a",
+  "source": {
+    "document": "rs-vqa-fusion/docs/16_predicted_soft_case_audit.md",
+    "section": "3. Philadelphia predicted-soft 正反案例（corrected grouped evaluator）",
+    "authority": "Listed in this release's model-release.json evidence_references.",
+    "sampling_rule": "Not hand-picked: ordered by sample ID, first unused image per correctness stratum and per type order area -> count -> comp -> presence.",
+    "research_git_commit": "8510bc9cd1738f2cc3c61a3eff3b0faab0cbe556"
+  },
+  "image_acquisition": {
+    "status": "blocked",
+    "reason": "RSVQA-HR imagery is not present in this repository and is not redistributable here. Only the frozen sample identifiers are recorded.",
+    "expected_local_dir": "data/golden-samples/images",
+    "expected_filename_pattern": "<image_id>.tif, e.g. 9603.tif",
+    "remote_location": "RSVQA-HR raw corpus on the research host (see rs-vqa-fusion/scripts/download_rsvqa_hr.sh)",
+    "committed": false
+  },
+  "usage_boundary": [
+    "These 8 samples are a wiring and parity check, not an accuracy measurement.",
+    "Approved accuracy figures come only from the full-split evaluation recorded in model-release.json approved_metrics.",
+    "8 samples cannot support any accuracy, comparison or SOTA claim.",
+    "expected_prediction is what this frozen checkpoint produced, not what a correct answer would be; two of the eight are recorded as incorrect."
+  ],
+  "samples": [
+    {
+      "sample_id": "960688",
+      "image_id": "9603",
+      "image_path": "Data/9603.tif",
+      "question_type": "area",
+      "question": "What is the area covered by commercial buildings?",
+      "gold_answer": "0m2",
+      "expected_prediction": "0m2",
+      "stratum": "correct"
+    },
+    {
+      "sample_id": "960780",
+      "image_id": "9604",
+      "image_path": "Data/9604.tif",
+      "question_type": "count",
+      "question": "What is the number of commercial buildings?",
+      "gold_answer": "0",
+      "expected_prediction": "0",
+      "stratum": "correct"
+    },
+    {
+      "sample_id": "960872",
+      "image_id": "9605",
+      "image_path": "Data/9605.tif",
+      "question_type": "comp",
+      "question": "Are there less residential buildings than roads?",
+      "gold_answer": "no",
+      "expected_prediction": "no",
+      "stratum": "correct"
+    },
+    {
+      "sample_id": "960971",
+      "image_id": "9606",
+      "image_path": "Data/9606.tif",
+      "question_type": "presence",
+      "question": "Is a pedestrian present?",
+      "gold_answer": "yes",
+      "expected_prediction": "yes",
+      "stratum": "correct"
+    },
+    {
+      "sample_id": "961081",
+      "image_id": "9607",
+      "image_path": "Data/9607.tif",
+      "question_type": "area",
+      "question": "What is the area covered by residential buildings?",
+      "gold_answer": "between 100m2 and 1000m2",
+      "expected_prediction": "more than 1000m2",
+      "stratum": "incorrect"
+    },
+    {
+      "sample_id": "961169",
+      "image_id": "9608",
+      "image_path": "Data/9608.tif",
+      "question_type": "count",
+      "question": "What is the amount of roads?",
+      "gold_answer": "9",
+      "expected_prediction": "3",
+      "stratum": "incorrect"
+    },
+    {
+      "sample_id": "961283",
+      "image_id": "9609",
+      "image_path": "Data/9609.tif",
+      "question_type": "comp",
+      "question": "Are there more roads than residential buildings?",
+      "gold_answer": "yes",
+      "expected_prediction": "no",
+      "stratum": "incorrect"
+    },
+    {
+      "sample_id": "961485",
+      "image_id": "9611",
+      "image_path": "Data/9611.tif",
+      "question_type": "presence",
+      "question": "Is a commercial building present?",
+      "gold_answer": "yes",
+      "expected_prediction": "no",
+      "stratum": "incorrect"
+    }
+  ]
+}

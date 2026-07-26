@@ -5,6 +5,32 @@ export type PredictionOrigin =
   | "agent_synthesis"
   | "not_applicable";
 
+/**
+ * How the user's question was turned into the text the research model saw.
+ * Absent for external vision providers, which are never canonicalized.
+ */
+export interface QuestionUnderstanding {
+  originalQuestion?: string | null;
+  canonicalQuestion?: string | null;
+  canonicalQuestionDisplay?: string | null;
+  modelInputQuestion?: string | null;
+  normalizerVersion?: string | null;
+  matchedIntent?: string | null;
+  matchedObjects: string[];
+  scopeVerification?: "release_anchored" | "provisional" | null;
+  reasonCode?: string | null;
+  needsClarification: boolean;
+  clarificationOptions: string[];
+  interpretationNote?: string | null;
+}
+
+/** Presentation-only rendering; never a substitute for `answer`. */
+export interface AnswerPresentation {
+  displayAnswer?: string | null;
+  displayLocale?: string | null;
+  answerShapeMismatch: boolean;
+}
+
 export interface PredictionResponse {
   requestId: string;
   status: "answered" | "unsupported" | "model_unavailable";
@@ -21,6 +47,8 @@ export interface PredictionResponse {
   confidence?: number | null;
   margin?: number | null;
   latencyMs?: number | null;
+  understanding?: QuestionUnderstanding;
+  presentation?: AnswerPresentation;
 }
 
 export interface ApiError {
@@ -108,6 +136,12 @@ export interface PersistedInvocation {
   completionTokens: number | null;
   totalTokens: number | null;
   estimatedCostUsd: number | null;
+  canonicalQuestion?: string | null;
+  modelInputQuestion?: string | null;
+  questionNormalizerVersion?: string | null;
+  matchedIntent?: string | null;
+  questionScopeVerification?: string | null;
+  answerShapeMismatch?: boolean;
 }
 
 export interface PersistedMessage {

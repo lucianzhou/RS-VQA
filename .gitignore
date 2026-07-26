@@ -39,3 +39,6 @@ model-releases/
 # reproducible manifest in Git; never commit the downloaded image files.
 data/test-images/single/
 data/test-images/batch/
+
+# Golden demo imagery is restricted RSVQA-HR data. Keep only the manifest in Git.
+data/golden-samples/images/

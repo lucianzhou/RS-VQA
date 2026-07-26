@@ -78,6 +78,51 @@ public class ModelInvocationEntity extends BaseEntity {
     @Column(name = "estimated_cost_usd", precision = 14, scale = 8)
     private java.math.BigDecimal estimatedCostUsd;
 
+    // Question-normalization audit. `question` above always holds the verbatim
+    // user text; these record what the research model was actually asked and by
+    // which normalizer, so a stored answer stays replayable. They are populated
+    // only through recordQuestionNormalization, which the external-provider path
+    // never calls.
+
+    @Column(name = "canonical_question", columnDefinition = "TEXT")
+    private String canonicalQuestion;
+
+    @Column(name = "canonical_question_display", columnDefinition = "TEXT")
+    private String canonicalQuestionDisplay;
+
+    @Column(name = "model_input_question", columnDefinition = "TEXT")
+    private String modelInputQuestion;
+
+    @Column(name = "question_normalizer_version", length = 40)
+    private String questionNormalizerVersion;
+
+    @Column(name = "matched_intent", length = 40)
+    private String matchedIntent;
+
+    @Column(name = "matched_objects_json", columnDefinition = "TEXT")
+    private String matchedObjectsJson;
+
+    @Column(name = "question_scope_verification", length = 40)
+    private String questionScopeVerification;
+
+    @Column(name = "reason_code", length = 80)
+    private String reasonCode;
+
+    @Column(name = "needs_clarification", nullable = false)
+    private boolean needsClarification;
+
+    @Column(name = "clarification_options_json", columnDefinition = "TEXT")
+    private String clarificationOptionsJson;
+
+    @Column(name = "display_answer", columnDefinition = "TEXT")
+    private String displayAnswer;
+
+    @Column(name = "display_locale", length = 20)
+    private String displayLocale;
+
+    @Column(name = "answer_shape_mismatch", nullable = false)
+    private boolean answerShapeMismatch;
+
     protected ModelInvocationEntity() {
     }
 
@@ -158,6 +203,95 @@ public class ModelInvocationEntity extends BaseEntity {
         this.checkpointSha256 = checkpointSha256;
         this.answerVocabularySha256 = answerVocabularySha256;
         this.runtimeArtifactSha256 = runtimeArtifactSha256;
+    }
+
+    /**
+     * Records how the raw question was normalized before inference.
+     *
+     * <p>Only the research-model path calls this. External vision providers keep
+     * these columns NULL, which is what makes "this answer was canonicalized"
+     * verifiable from the database alone.
+     */
+    public void recordQuestionNormalization(
+            String canonicalQuestion,
+            String canonicalQuestionDisplay,
+            String modelInputQuestion,
+            String questionNormalizerVersion,
+            String matchedIntent,
+            String matchedObjectsJson,
+            String questionScopeVerification,
+            String reasonCode,
+            boolean needsClarification,
+            String clarificationOptionsJson,
+            String displayAnswer,
+            String displayLocale,
+            boolean answerShapeMismatch
+    ) {
+        this.canonicalQuestion = canonicalQuestion;
+        this.canonicalQuestionDisplay = canonicalQuestionDisplay;
+        this.modelInputQuestion = modelInputQuestion;
+        this.questionNormalizerVersion = questionNormalizerVersion;
+        this.matchedIntent = matchedIntent;
+        this.matchedObjectsJson = matchedObjectsJson;
+        this.questionScopeVerification = questionScopeVerification;
+        this.reasonCode = reasonCode;
+        this.needsClarification = needsClarification;
+        this.clarificationOptionsJson = clarificationOptionsJson;
+        this.displayAnswer = displayAnswer;
+        this.displayLocale = displayLocale;
+        this.answerShapeMismatch = answerShapeMismatch;
+    }
+
+    public String getCanonicalQuestion() {
+        return canonicalQuestion;
+    }
+
+    public String getCanonicalQuestionDisplay() {
+        return canonicalQuestionDisplay;
+    }
+
+    public String getModelInputQuestion() {
+        return modelInputQuestion;
+    }
+
+    public String getQuestionNormalizerVersion() {
+        return questionNormalizerVersion;
+    }
+
+    public String getMatchedIntent() {
+        return matchedIntent;
+    }
+
+    public String getMatchedObjectsJson() {
+        return matchedObjectsJson;
+    }
+
+    public String getQuestionScopeVerification() {
+        return questionScopeVerification;
+    }
+
+    public String getReasonCode() {
+        return reasonCode;
+    }
+
+    public boolean isNeedsClarification() {
+        return needsClarification;
+    }
+
+    public String getClarificationOptionsJson() {
+        return clarificationOptionsJson;
+    }
+
+    public String getDisplayAnswer() {
+        return displayAnswer;
+    }
+
+    public String getDisplayLocale() {
+        return displayLocale;
+    }
+
+    public boolean isAnswerShapeMismatch() {
+        return answerShapeMismatch;
     }
 
     public String getCheckpointSha256() {

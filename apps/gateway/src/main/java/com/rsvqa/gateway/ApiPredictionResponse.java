@@ -27,8 +27,75 @@ public record ApiPredictionResponse(
         List<String> limitations,
         String capabilityNotice,
         Long latencyMs,
-        String runtimeMode
+        String runtimeMode,
+        QuestionUnderstanding understanding,
+        AnswerPresentation presentation
 ) {
+
+    /**
+     * How the user's question was turned into the text the research model saw.
+     *
+     * <p>Grouped rather than flattened so that the external-provider path can
+     * only ever supply {@link #notApplicable(String)} — there is no way to
+     * accidentally populate half of it and imply a canonicalization that never
+     * ran.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record QuestionUnderstanding(
+            String originalQuestion,
+            String canonicalQuestion,
+            String canonicalQuestionDisplay,
+            String modelInputQuestion,
+            String normalizerVersion,
+            String matchedIntent,
+            List<String> matchedObjects,
+            String scopeVerification,
+            String reasonCode,
+            boolean needsClarification,
+            List<String> clarificationOptions,
+            String interpretationNote
+    ) {
+        /** External providers receive the raw question and are never canonicalized. */
+        static QuestionUnderstanding notApplicable(String originalQuestion) {
+            return new QuestionUnderstanding(
+                    originalQuestion, null, null, null, null, null,
+                    List.of(), null, null, false, List.of(), null
+            );
+        }
+
+        static QuestionUnderstanding from(ModelPredictionResponse response) {
+            return new QuestionUnderstanding(
+                    response.originalQuestion(),
+                    response.canonicalQuestion(),
+                    response.canonicalQuestionDisplay(),
+                    response.modelInputQuestion(),
+                    response.questionNormalizerVersion(),
+                    response.matchedIntent(),
+                    response.matchedObjects() == null ? List.of() : response.matchedObjects(),
+                    response.questionScopeVerification(),
+                    response.reasonCode(),
+                    Boolean.TRUE.equals(response.needsClarification()),
+                    response.clarificationOptions() == null ? List.of() : response.clarificationOptions(),
+                    response.interpretationNote()
+            );
+        }
+    }
+
+    /**
+     * Presentation-only rendering of the raw answer.
+     *
+     * <p>{@code displayAnswer} is never mapped into {@link #answer()}: the raw
+     * closed-set prediction stays the persisted and audited value.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record AnswerPresentation(
+            String displayAnswer,
+            String displayLocale,
+            boolean answerShapeMismatch
+    ) {
+        static final AnswerPresentation NONE = new AnswerPresentation(null, null, false);
+    }
+
     static ApiPredictionResponse from(ModelPredictionResponse response) {
         return new ApiPredictionResponse(
                 response.requestId(),
@@ -51,7 +118,13 @@ public record ApiPredictionResponse(
                 response.limitations(),
                 response.capabilityNotice(),
                 response.latencyMs(),
-                response.runtimeMode()
+                response.runtimeMode(),
+                QuestionUnderstanding.from(response),
+                new AnswerPresentation(
+                        response.displayAnswer(),
+                        response.displayLocale(),
+                        Boolean.TRUE.equals(response.answerShapeMismatch())
+                )
         );
     }
 
@@ -87,7 +160,9 @@ public record ApiPredictionResponse(
                 List.of(),
                 capabilityNotice,
                 null,
-                "mock"
+                "mock",
+                QuestionUnderstanding.notApplicable(null),
+                AnswerPresentation.NONE
         );
     }
 }
