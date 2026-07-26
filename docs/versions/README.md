@@ -16,4 +16,4 @@
 
 版本完成时，将状态改为“已完成”，写入实际验证结果；不要把计划中的能力写成已经交付的能力。
 
-当前版本：[`v0.6.0-gemini-relay-provider.md`](v0.6.0-gemini-relay-provider.md)。
+当前版本：[`v0.7.0-rs-bot-agent.md`](v0.7.0-rs-bot-agent.md)。

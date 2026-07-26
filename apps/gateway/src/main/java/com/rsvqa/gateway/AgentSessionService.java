@@ -146,7 +146,11 @@ public class AgentSessionService {
                 run.getProviderModel(),
                 run.getTotalTokens(),
                 calls,
-                run.getCreatedAt()
+                run.getCreatedAt(),
+                run.getProviderState(),
+                run.getPromptVersion(),
+                run.getStopReason(),
+                run.getToolSteps()
         );
     }
 

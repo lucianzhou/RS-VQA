@@ -2,10 +2,12 @@ package com.rsvqa.gateway;
 
 import static com.rsvqa.gateway.AgentDtos.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -34,6 +36,14 @@ public class TrustedAgentService {
 
     static final int MAX_SESSION_RUNS = 50;
 
+    static final String PROVIDER_STATE_LLM = "LLM_PLANNING";
+    static final String PROVIDER_STATE_RULES = "RULE_BASED_TOOLS";
+    /**
+     * Shown to ordinary users instead of an opaque status token. They need to
+     * know planning is off, not to decode an enum name.
+     */
+    static final String RULE_BASED_LABEL = "RS-Bot 当前处于规则工具模式，未启用智能规划";
+
     private final UserRepository users;
     private final ConversationRepository conversations;
     private final AgentRunRepository runs;
@@ -41,6 +51,7 @@ public class TrustedAgentService {
     private final AgentSessionService agentSessions;
     private final TrustedAgentTools tools;
     private final AgentToolRegistry toolRegistry;
+    private final RsBotPlanner planner;
     private final ObjectMapper objectMapper;
     private final Timer runTimer;
     private final Counter runErrors;
@@ -53,6 +64,7 @@ public class TrustedAgentService {
             AgentSessionService agentSessions,
             TrustedAgentTools tools,
             AgentToolRegistry toolRegistry,
+            RsBotPlanner planner,
             ObjectMapper objectMapper,
             MeterRegistry registry
     ) {
@@ -63,6 +75,7 @@ public class TrustedAgentService {
         this.agentSessions = agentSessions;
         this.tools = tools;
         this.toolRegistry = toolRegistry;
+        this.planner = planner;
         this.objectMapper = objectMapper;
         this.runTimer = Timer.builder("rsvqa.agent.run")
                 .description("Trusted Agent run latency")
@@ -75,6 +88,15 @@ public class TrustedAgentService {
 
     @Transactional
     public AgentResponse run(AgentRequest request) {
+        return run(request, () -> false);
+    }
+
+    /**
+     * @param cancelled polled between planning steps so a disconnected SSE client
+     *                  stops the loop instead of paying for the remaining steps.
+     */
+    @Transactional
+    public AgentResponse run(AgentRequest request, BooleanSupplier cancelled) {
         Timer.Sample metricSample = Timer.start();
         long started = System.nanoTime();
         UserEntity user = currentUser();
@@ -91,6 +113,85 @@ public class TrustedAgentService {
         AgentRunEntity run = runs.save(new AgentRunEntity(
                 user, session, project, conversation, batchJob, resolvedRequest.message().trim(), TraceId.current()
         ));
+        titleFromFirstQuestion(session, resolvedRequest.message());
+
+        if (planner.available() && (resolvedRequest.toolName() == null || resolvedRequest.toolName().isBlank())) {
+            return runPlanned(resolvedRequest, run, started, metricSample, cancelled);
+        }
+        return runRuleBased(resolvedRequest, run, started, metricSample);
+    }
+
+    /**
+     * LLM planning: the model chooses tools, {@link RsBotPlanner} decides whether
+     * it may, and the tool outputs remain the only source of facts.
+     */
+    private AgentResponse runPlanned(
+            AgentRequest request,
+            AgentRunEntity run,
+            long started,
+            Timer.Sample metricSample,
+            BooleanSupplier cancelled
+    ) {
+        try {
+            RsBotPlanner.PlanResult plan = planner.plan(request, toolRegistry.callbacks(), cancelled);
+            List<ToolCallResponse> calls = new ArrayList<>();
+            for (RsBotPlanner.ExecutedTool tool : plan.toolCalls()) {
+                ToolInvocationEntity invocation = toolInvocations.save(
+                        new ToolInvocationEntity(run, tool.name(), tool.arguments()));
+                if ("COMPLETED".equals(tool.status())) {
+                    invocation.complete(tool.output(), tool.latencyMs());
+                } else {
+                    invocation.fail(
+                            "REJECTED".equals(tool.status()) ? "TOOL_NOT_ALLOWED" : "TOOL_CALL_FAILED",
+                            tool.errorMessage(),
+                            tool.latencyMs());
+                }
+                calls.add(new ToolCallResponse(
+                        invocation.getId(), tool.name(), tool.status(), tool.arguments(),
+                        tool.output() == null ? tool.errorMessage() : tool.output(), tool.latencyMs()));
+            }
+            long latency = elapsedMillis(started);
+            run.complete(plan.answer(), latency);
+            run.recordProvenance(
+                    GeminiRelayVisionProvider.PROVIDER_ID, plan.providerModel(), PROVIDER_STATE_LLM,
+                    RsBotProperties.PROMPT_VERSION, plan.stopReason(), plan.steps(),
+                    plan.promptTokens(), plan.completionTokens(), plan.totalTokens());
+            return new AgentResponse(
+                    run.getId(),
+                    run.getStatus(),
+                    PROVIDER_STATE_LLM,
+                    "智能规划已启用",
+                    plan.answer(),
+                    run.getTraceId(),
+                    latency,
+                    calls,
+                    List.of(),
+                    "RS-Bot 的结论基于上述工具返回的事实；研究模型的原始答案不会被改写，"
+                            + "写操作需要你在界面上确认。",
+                    plan.providerModel(),
+                    RsBotProperties.PROMPT_VERSION,
+                    plan.stopReason(),
+                    plan.steps(),
+                    plan.totalTokens()
+            );
+        } catch (RuntimeException error) {
+            runErrors.increment();
+            long latency = elapsedMillis(started);
+            String safeMessage = error.getMessage() == null ? "智能规划失败。" : error.getMessage();
+            run.fail("AGENT_PLANNING_FAILED", safeMessage, latency);
+            throw error;
+        } finally {
+            metricSample.stop(runTimer);
+        }
+    }
+
+    /** Deterministic single-tool orchestration used when no planning model is configured. */
+    private AgentResponse runRuleBased(
+            AgentRequest resolvedRequest,
+            AgentRunEntity run,
+            long started,
+            Timer.Sample metricSample
+    ) {
         String toolName = chooseTool(resolvedRequest);
         String arguments = argumentsSummary(resolvedRequest, toolName);
         ToolInvocationEntity invocation = toolInvocations.save(new ToolInvocationEntity(run, toolName, arguments));
@@ -103,10 +204,14 @@ public class TrustedAgentService {
             String answer = explain(toolName, output);
             long latency = elapsedMillis(started);
             run.complete(answer, latency);
+            run.recordProvenance(
+                    null, null, PROVIDER_STATE_RULES, RsBotProperties.PROMPT_VERSION,
+                    "rule_based_single_tool", 1, null, null, null);
             return new AgentResponse(
                     run.getId(),
                     run.getStatus(),
-                    "UNCONFIGURED_RULE_BASED_TOOL_ORCHESTRATION",
+                    PROVIDER_STATE_RULES,
+                    RULE_BASED_LABEL,
                     answer,
                     run.getTraceId(),
                     latency,
@@ -114,7 +219,13 @@ public class TrustedAgentService {
                             invocation.getId(), toolName, "COMPLETED", arguments, outputJson, toolLatency
                     )),
                     List.of(),
-                    "Agent 仅解释已记录的只读工具或受控 VQA 原始结果；当前未配置外部 LLM，不会生成或改写研究模型答案。"
+                    RULE_BASED_LABEL + "：本轮只按关键词选择了一个只读工具并解释其结果，"
+                            + "不会生成或改写研究模型答案。",
+                    null,
+                    RsBotProperties.PROMPT_VERSION,
+                    "rule_based_single_tool",
+                    1,
+                    null
             );
         } catch (RuntimeException error) {
             runErrors.increment();
@@ -264,6 +375,31 @@ public class TrustedAgentService {
             return "single_image_vqa";
         }
         return "current_model_release";
+    }
+
+    /**
+     * Replaces the placeholder title with one derived from the opening question.
+     *
+     * <p>Only on the first run, and only while the title is still a placeholder,
+     * so a title the user set by hand is never overwritten.
+     */
+    private void titleFromFirstQuestion(AgentSessionEntity session, String question) {
+        if (session == null || !AgentSessionTitle.isPlaceholder(session.getTitle())) {
+            return;
+        }
+        if (runs.countByAgentSessionId(session.getId()) > 1) {
+            return;
+        }
+        session.rename(AgentSessionTitle.derive(contextLabel(session), question));
+    }
+
+    private static String contextLabel(AgentSessionEntity session) {
+        if (session.getProject() != null) return session.getProject().getName();
+        if (session.getConversation() != null) return session.getConversation().getTitle();
+        if (session.getBatchJob() != null) {
+            return "批量任务 " + session.getBatchJob().getId().toString().substring(0, 8);
+        }
+        return "";
     }
 
     private static AgentRequest resolveContext(AgentRequest request, AgentSessionEntity session) {

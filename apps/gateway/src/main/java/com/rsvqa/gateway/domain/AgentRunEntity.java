@@ -69,6 +69,21 @@ public class AgentRunEntity extends BaseEntity {
     @Column(name = "estimated_cost_usd", precision = 14, scale = 8)
     private BigDecimal estimatedCostUsd;
 
+    /** Which orchestration produced this run: LLM planning or the rule-based fallback. */
+    @Column(name = "provider_state", length = 40)
+    private String providerState;
+
+    /** Version of the RS-Bot system prompt and loop contract. */
+    @Column(name = "prompt_version", length = 40)
+    private String promptVersion;
+
+    /** Why the planning loop stopped: completed, max_steps_reached, timeout, cancelled. */
+    @Column(name = "stop_reason", length = 40)
+    private String stopReason;
+
+    @Column(name = "tool_steps")
+    private Integer toolSteps;
+
     protected AgentRunEntity() {
     }
 
@@ -106,6 +121,51 @@ public class AgentRunEntity extends BaseEntity {
         this.outputText = outputText;
         this.latencyMs = latencyMs;
         this.status = "FAILED";
+    }
+
+    /**
+     * Records who answered and under which instructions.
+     *
+     * <p>Without this an answer cannot be attributed: the same question can be
+     * served by LLM planning or by the deterministic fallback, and the two are
+     * not interchangeable evidence.
+     */
+    public void recordProvenance(
+            String providerId,
+            String providerModel,
+            String providerState,
+            String promptVersion,
+            String stopReason,
+            Integer toolSteps,
+            Integer promptTokens,
+            Integer completionTokens,
+            Integer totalTokens
+    ) {
+        this.providerId = providerId;
+        this.providerModel = providerModel;
+        this.providerState = providerState;
+        this.promptVersion = promptVersion;
+        this.stopReason = stopReason;
+        this.toolSteps = toolSteps;
+        this.promptTokens = promptTokens;
+        this.completionTokens = completionTokens;
+        this.totalTokens = totalTokens;
+    }
+
+    public String getProviderState() {
+        return providerState;
+    }
+
+    public String getPromptVersion() {
+        return promptVersion;
+    }
+
+    public String getStopReason() {
+        return stopReason;
+    }
+
+    public Integer getToolSteps() {
+        return toolSteps;
     }
 
     public String getStatus() {

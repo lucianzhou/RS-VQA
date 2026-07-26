@@ -45,7 +45,9 @@ public class AgentStreamService {
             try {
                 if (closed.get()) return;
                 send(emitter, "tool_started", Map.of("traceId", traceId, "state", "TOOL_RUNNING"));
-                var response = agent.run(request);
+                // A disconnected client must stop the planning loop between steps
+                // rather than paying for the remaining tool calls and tokens.
+                var response = agent.run(request, closed::get);
                 if (!closed.get()) {
                     send(emitter, "completed", response);
                     emitter.complete();
