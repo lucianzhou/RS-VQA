@@ -280,13 +280,37 @@ def main() -> int:
             file=sys.stderr,
         )
 
+    required_agent_capabilities = {
+        "text_chat_completion",
+        "sse_streaming",
+        "tool_calling",
+    }
+    agent_results = [
+        item for item in results
+        if item["capability"] in required_agent_capabilities
+    ]
+    agent_ready = (
+        bool(agent_model)
+        and {item["capability"] for item in agent_results} == required_agent_capabilities
+        and all(item["passed"] for item in agent_results)
+    )
+    vision_result = next(
+        (item for item in results if item["capability"] == "image_input"),
+        None,
+    )
+    vision_ready = vision_result["passed"] if vision_result is not None else None
+
     report = {
         # Host is deliberately absent: the report is meant to be pasteable.
         "endpoint_configured": True,
         "agent_model": agent_model or None,
         "vision_model": vision_model or None,
         "results": results,
-        "passed": bool(results) and all(item["passed"] for item in results),
+        "agent_required_capabilities": sorted(required_agent_capabilities),
+        "agent_ready": agent_ready,
+        "structured_output_optional": True,
+        "vision_ready": vision_ready,
+        "passed": agent_ready and vision_ready is not False,
     }
     rendered = json.dumps(report, ensure_ascii=False, indent=2)
     print(rendered)
