@@ -10,6 +10,7 @@ import {
   Info,
   LoaderCircle,
   Maximize2,
+  MessageSquarePlus,
   Paperclip,
   RefreshCw,
   ShieldCheck,
@@ -17,6 +18,7 @@ import {
   StopCircle,
   Trash2,
   UploadCloud,
+  X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
@@ -32,9 +34,9 @@ import { AppTopbar, ModelSelector, ProviderAvatar } from "../components/AppChrom
 import { ImageLightbox } from "../components/ImageLightbox";
 import { RsBotChat } from "../components/RsBotChat";
 import { SafeMarkdown } from "../components/SafeMarkdown";
-import { RS_BOT_NAME, RS_BOT_SUBTITLE, toTranscriptRun, useRsBotSession } from "../rsbot";
+import { RS_BOT_NAME, RS_BOT_SUBTITLE, useRsBotSession } from "../rsbot";
 import { useWorkspaceStore } from "../store";
-import type { AgentHistoryRun, ImageAsset, PersistedMessage } from "../types";
+import type { ImageAsset, PersistedMessage } from "../types";
 
 const questionSchema = z.object({
   question: z.string().trim().min(1, "请输入问题。").max(300, "问题不能超过 300 个字符。"),
@@ -95,19 +97,6 @@ export function WorkspacePage() {
   // Same hook, same session and same endpoint as the standalone RS-Bot page,
   // so the drawer can never become a second agent with its own history.
   const rsBot = useRsBotSession({ conversationId: activeConversationId ?? undefined });
-  const [drawerRuns, setDrawerRuns] = useState<AgentHistoryRun[]>([]);
-  useEffect(() => {
-    if (rsBot.lastRun) {
-      setDrawerRuns((current) => current.some((item) => item.runId === rsBot.lastRun!.runId)
-        ? current
-        : [...current, toTranscriptRun(rsBot.lastRun!, rsBot.pendingQuestion || lastAskRef.current)]);
-    }
-  }, [rsBot.lastRun, rsBot.pendingQuestion]);
-  const lastAskRef = useRef("");
-  useEffect(() => {
-    if (rsBot.pendingQuestion) lastAskRef.current = rsBot.pendingQuestion;
-  }, [rsBot.pendingQuestion]);
-  useEffect(() => setDrawerRuns([]), [activeConversationId]);
 
   const selectImage = (file?: File) => {
     if (!file) return;
@@ -219,11 +208,23 @@ export function WorkspacePage() {
         >
           <header>
             <span><Bot size={16} />{RS_BOT_NAME}<small>{RS_BOT_SUBTITLE}</small></span>
-            <button className="icon-button" type="button" aria-label={`关闭 ${RS_BOT_NAME}`} onClick={() => setAgentOpen(false)}>×</button>
+            <div className="agent-drawer-actions">
+              <button
+                className="icon-button"
+                type="button"
+                aria-label={`新建 ${RS_BOT_NAME} 对话`}
+                title={`新建 ${RS_BOT_NAME} 对话`}
+                disabled={rsBot.isRunning}
+                onClick={() => void rsBot.startNewSession()}
+              >
+                <MessageSquarePlus size={15} />
+              </button>
+              <button className="icon-button" type="button" aria-label={`关闭 ${RS_BOT_NAME}`} onClick={() => setAgentOpen(false)}><X size={16} /></button>
+            </div>
           </header>
           <RsBotChat
             compact
-            runs={rsBot.runs.length > 0 ? rsBot.runs : drawerRuns}
+            runs={rsBot.runs}
             isRunning={rsBot.isRunning}
             stage={rsBot.stage}
             pendingQuestion={rsBot.pendingQuestion}

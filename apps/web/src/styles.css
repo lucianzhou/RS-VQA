@@ -72,7 +72,7 @@ button, a { touch-action: manipulation; }
 .sidebar { z-index: 25; display: flex; width: 276px; min-height: 0; flex-direction: column; padding: 18px 14px 14px; border-right: 1px solid var(--line); background: var(--support); opacity: 1; transform: translateX(0); transition: transform var(--motion-layout) var(--ease-in-out), opacity 180ms var(--ease-out), visibility 0s; }
 .brand-row { display: flex; align-items: center; min-height: 38px; padding: 0 4px 0 6px; }
 .brand { display: inline-flex; flex: 1; align-items: center; gap: 10px; color: var(--ink); font-size: 15px; font-weight: 720; text-decoration: none; }
-.brand-mark { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 7px; color: white; background: var(--forest); font-size: 10px; font-weight: 800; }
+.brand-mark { display: block; width: 28px; height: 28px; flex: 0 0 auto; filter: drop-shadow(0 2px 5px rgba(25,69,54,.12)); }
 .icon-button { display: inline-grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 7px; background: transparent; transition: background 140ms ease, transform 100ms ease; }
 .icon-button:hover { background: rgba(36,91,73,.08); }
 .icon-button:active { transform: scale(.96); }
@@ -241,6 +241,9 @@ button, a { touch-action: manipulation; }
 .agent-drawer header { display: flex; align-items: center; justify-content: space-between; color: var(--forest); }
 .agent-drawer header > span { display: inline-flex; align-items: center; gap: 7px; color: var(--ink); font-size: 11px; font-weight: 680; }
 .agent-drawer header > span small { margin-left: 6px; color: var(--muted); font-size: 9px; font-weight: 500; }
+.agent-drawer-actions { display: inline-flex; align-items: center; gap: 1px; }
+.agent-drawer-actions .icon-button { width: 30px; height: 30px; color: var(--muted); }
+.agent-drawer-actions .icon-button:hover { color: var(--forest); }
 .agent-drawer > .rsbot-chat { min-height: 0; flex: 1; margin-top: 10px; }
 
 /* RS-Bot chat: one component, two hosts (workspace drawer and standalone page).
