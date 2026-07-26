@@ -28,7 +28,9 @@ from .contracts import (
     RuntimeStatusResponse,
     TopKPrediction,
 )
-from .question_matcher import QuestionMatch, match_question
+from .answer_display import interpretation_note, localize_answer
+from .question_catalog import SupportLevel
+from .question_matcher import MatchStatus, QuestionMatch, match_question
 from .release_manifest import ManifestValidationError, VerifiedRelease, load_and_verify_release
 
 
@@ -282,6 +284,9 @@ def _predict_bytes(
     mode = _runtime_mode()
 
     if not match.supported:
+        # Both refusal and clarification mean no answer was produced, so the
+        # status stays `unsupported` and downstream counters keep summing. The
+        # distinction is carried by `needs_clarification` and `reason_code`.
         return _response(
             request_id=request_id,
             status=PredictionStatus.UNSUPPORTED,
@@ -316,6 +321,7 @@ def _predict_bytes(
             mode=mode,
             result=result,
             limitations=["Mock output must not be used as thesis evidence."],
+            model_input_question=match.canonical_question,
         )
 
     if mode is RuntimeMode.REAL:
@@ -324,8 +330,15 @@ def _predict_bytes(
             raise HTTPException(status_code=503, detail=release_error or "模型发布未通过校验。")
         if requested_release_id and requested_release_id != release.manifest.model_release_id:
             raise HTTPException(status_code=503, detail="请求的模型发布版本与当前固定版本不一致。")
+        # The released classifier is an English RSVQA-HR template model. Feeding
+        # it the raw Chinese question makes it answer a different question than
+        # the one the type head predicts, so only the verified canonical form is
+        # ever sent. The user's original text is still preserved end to end.
+        model_input = match.canonical_question
+        if not model_input:
+            raise HTTPException(status_code=503, detail="规范化问题缺失，拒绝以原始文本调用研究模型。")
         try:
-            result = _load_research_backend(RELEASE_MANIFEST_PATH).predict(raw, question)
+            result = _load_research_backend(RELEASE_MANIFEST_PATH).predict(raw, model_input)
         except ModelReleaseUnavailable as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
         return _response(
@@ -342,6 +355,7 @@ def _predict_bytes(
             result=result,
             limitations=["Not an open-ended VQA, detection, or zero-shot recognition result."],
             release=release,
+            model_input_question=model_input,
         )
 
     raise HTTPException(status_code=503, detail="RSVQA_MODEL_MODE 配置无效；模型服务未启用。")
@@ -362,12 +376,21 @@ def _response(
     limitations: list[str],
     result: InferenceResult | None = None,
     release: VerifiedRelease | None = None,
+    model_input_question: str | None = None,
 ) -> PredictionResponse:
     answer = result.answer if result else None
     question_type = result.predicted_question_type if result else (
         str(match.question_type) if match.question_type else None
     )
     result_limitations = list(result.limitations) if result and result.limitations else limitations
+    display = localize_answer(match, answer)
+    if match.support_level is SupportLevel.PROVISIONAL and answer is not None:
+        # Answered, but the object/intent pairing is not confirmed against the
+        # RSVQA-HR training distribution from artifacts available here.
+        result_limitations = result_limitations + [
+            "This object/question-type pairing is provisional: it is inside the released task"
+            " scope but not individually verified against the RSVQA-HR training distribution.",
+        ]
     return PredictionResponse(
         request_id=request_id,
         status=status,
@@ -377,7 +400,23 @@ def _response(
         confidence=result.confidence if result else None,
         margin=result.margin if result else None,
         top_k=[TopKPrediction(answer=item, probability=probability) for item, probability in (result.top_k if result else ())],
+        original_question=match.original_question,
         canonical_question=match.canonical_question,
+        canonical_question_display=match.canonical_question_display,
+        model_input_question=model_input_question,
+        question_normalizer_version=match.normalizer_version,
+        matched_intent=str(match.question_type) if match.question_type else None,
+        matched_objects=list(match.object_keys),
+        question_scope_verification=(
+            str(match.support_level) if match.support_level is not None else None
+        ),
+        reason_code=str(match.reason_code),
+        needs_clarification=match.status is MatchStatus.NEEDS_CLARIFICATION,
+        clarification_options=list(match.clarification_options),
+        display_answer=display.text,
+        display_locale=display.locale if display.text else None,
+        answer_shape_mismatch=display.shape_mismatch,
+        interpretation_note=interpretation_note(match),
         question_type=question_type,
         predicted_question_type=question_type,
         question_type_probabilities=(

@@ -137,7 +137,13 @@ final class WorkspaceDtos {
             Double estimatedCostUsd,
             String checkpointSha256,
             String answerVocabularySha256,
-            String runtimeArtifactSha256
+            String runtimeArtifactSha256,
+            String canonicalQuestion,
+            String modelInputQuestion,
+            String questionNormalizerVersion,
+            String matchedIntent,
+            String questionScopeVerification,
+            boolean answerShapeMismatch
     ) {
     }
 

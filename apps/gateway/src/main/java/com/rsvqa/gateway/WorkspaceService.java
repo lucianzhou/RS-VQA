@@ -3,6 +3,7 @@ package com.rsvqa.gateway;
 import static com.rsvqa.gateway.WorkspaceDtos.*;
 
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -294,17 +295,49 @@ public class WorkspaceService {
                 result.answerVocabularySha256(),
                 result.runtimeArtifactSha256()
         );
+        ApiPredictionResponse.QuestionUnderstanding understanding = result.understanding();
+        ApiPredictionResponse.AnswerPresentation presentation = result.presentation();
+        invocation.recordQuestionNormalization(
+                understanding.canonicalQuestion(),
+                understanding.canonicalQuestionDisplay(),
+                understanding.modelInputQuestion(),
+                understanding.normalizerVersion(),
+                understanding.matchedIntent(),
+                json(understanding.matchedObjects()),
+                understanding.scopeVerification(),
+                understanding.reasonCode(),
+                understanding.needsClarification(),
+                json(understanding.clarificationOptions()),
+                presentation.displayAnswer(),
+                presentation.displayLocale(),
+                presentation.answerShapeMismatch()
+        );
         invocation = invocations.save(invocation);
         String sourceType = "mock_demo".equals(result.predictionOrigin()) ? "MOCK" : "RESEARCH_MODEL";
+        // The raw closed-set prediction is what gets stored and shown. The
+        // localized rendering travels alongside it in metadata and never
+        // replaces it.
         String content = result.answer() == null ? result.capabilityNotice() : result.answer();
-        boolean requiresReview = hasAnswerShapeMismatch(result.predictedQuestionType(), result.answer());
+        boolean requiresReview = requiresManualReview(result);
         String capabilityNotice = requiresReview
                 ? result.capabilityNotice() + " 当前答案形式与预测题型不一致，请人工复核；系统保留原始模型输出，未进行规则改写。"
                 : result.capabilityNotice();
-        String metadata = json(Map.of(
-                "capabilityNotice", capabilityNotice,
-                "requiresReview", requiresReview
-        ));
+        Map<String, Object> metadataValues = new LinkedHashMap<>();
+        metadataValues.put("capabilityNotice", capabilityNotice);
+        metadataValues.put("requiresReview", requiresReview);
+        metadataValues.put("needsClarification", understanding.needsClarification());
+        metadataValues.put("clarificationOptions", understanding.clarificationOptions());
+        putIfPresent(metadataValues, "canonicalQuestion", understanding.canonicalQuestion());
+        putIfPresent(metadataValues, "canonicalQuestionDisplay", understanding.canonicalQuestionDisplay());
+        putIfPresent(metadataValues, "modelInputQuestion", understanding.modelInputQuestion());
+        putIfPresent(metadataValues, "normalizerVersion", understanding.normalizerVersion());
+        putIfPresent(metadataValues, "matchedIntent", understanding.matchedIntent());
+        putIfPresent(metadataValues, "scopeVerification", understanding.scopeVerification());
+        putIfPresent(metadataValues, "reasonCode", understanding.reasonCode());
+        putIfPresent(metadataValues, "interpretationNote", understanding.interpretationNote());
+        putIfPresent(metadataValues, "displayAnswer", presentation.displayAnswer());
+        putIfPresent(metadataValues, "displayLocale", presentation.displayLocale());
+        String metadata = json(metadataValues);
         MessageEntity assistant = messages.save(new MessageEntity(
                 conversation,
                 invocation,
@@ -316,6 +349,28 @@ public class WorkspaceService {
         return new QuestionResponse(toMessage(userMessage), toMessage(assistant), result);
     }
 
+    /**
+     * The model service decides answer-shape validity against the frozen answer
+     * vocabulary; the local regex only widens that for an older service build.
+     */
+    static boolean requiresManualReview(ApiPredictionResponse result) {
+        return result.presentation().answerShapeMismatch()
+                || hasAnswerShapeMismatch(result.predictedQuestionType(), result.answer());
+    }
+
+    private static void putIfPresent(Map<String, Object> target, String key, String value) {
+        if (value != null && !value.isBlank()) {
+            target.put(key, value);
+        }
+    }
+
+    /**
+     * Legacy fallback for a model-service that predates {@code answer_shape_mismatch}.
+     *
+     * <p>The service-side flag is authoritative because it is computed against the
+     * matched intent and the frozen 55-class answer vocabulary; this only knows
+     * digits, {@code m2} and yes/no.
+     */
     static boolean hasAnswerShapeMismatch(String questionType, String answer) {
         if (questionType == null || answer == null || answer.isBlank()) return false;
         return switch (questionType) {
@@ -385,6 +440,10 @@ public class WorkspaceService {
         MessageEntity assistant = messages.save(new MessageEntity(
                 conversation, invocation, "assistant", "EXTERNAL_VLM", external.content(), metadata
         ));
+        // The research canonicalizer is never applied to an external provider:
+        // it receives the user's original question verbatim, so canonicalQuestion
+        // stays null rather than echoing the raw text into a field that means
+        // "this was rewritten into a verified RSVQA-HR form".
         ApiPredictionResponse response = new ApiPredictionResponse(
                 external.requestId(),
                 "answered",
@@ -393,7 +452,7 @@ public class WorkspaceService {
                 null,
                 null,
                 List.of(),
-                question,
+                null,
                 "open_visual_assistance",
                 "open_visual_assistance",
                 java.util.Map.of(),
@@ -409,7 +468,9 @@ public class WorkspaceService {
                 ),
                 "外部通用视觉辅助回答；与闭集 RS-VQA 研究模型严格分离。",
                 external.latencyMs(),
-                "external_provider"
+                "external_provider",
+                ApiPredictionResponse.QuestionUnderstanding.notApplicable(question),
+                ApiPredictionResponse.AnswerPresentation.NONE
         );
         return new QuestionResponse(toMessage(userMessage), toMessage(assistant), response);
     }
@@ -475,7 +536,13 @@ public class WorkspaceService {
                 invocation.getEstimatedCostUsd(),
                 invocation.getCheckpointSha256(),
                 invocation.getAnswerVocabularySha256(),
-                invocation.getRuntimeArtifactSha256()
+                invocation.getRuntimeArtifactSha256(),
+                invocation.getCanonicalQuestion(),
+                invocation.getModelInputQuestion(),
+                invocation.getQuestionNormalizerVersion(),
+                invocation.getMatchedIntent(),
+                invocation.getQuestionScopeVerification(),
+                invocation.isAnswerShapeMismatch()
         );
         return new MessageResponse(
                 message.getId(),

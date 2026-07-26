@@ -125,7 +125,110 @@ describe("WorkspacePage", () => {
     expect(screen.getByText("no", { selector: ".answer-value" })).toBeInTheDocument();
     expect(screen.getByText(/系统保留原始模型输出/)).toBeInTheDocument();
   });
+
+  it("shows how the question was understood without replacing the raw prediction", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(withAssistantMessage({
+      content: "3",
+      metadata: {
+        capabilityNotice: "研究模型输出仅适用于 RSVQA-HR 已验证的闭集问题分布。",
+        interpretationNote: "已理解为：图中有多少条道路？",
+        displayAnswer: "3 条道路",
+        canonicalQuestion: "What is the amount of roads?",
+        modelInputQuestion: "What is the amount of roads?",
+        normalizerVersion: "2.0.0",
+        matchedIntent: "count",
+        scopeVerification: "release_anchored",
+      },
+    }))));
+
+    renderPage();
+
+    expect(await screen.findByText("已理解为：图中有多少条道路？")).toBeInTheDocument();
+    // The raw closed-set prediction stays the primary value.
+    expect(screen.getByText("3", { selector: ".answer-value" })).toBeInTheDocument();
+    expect(screen.getByText("3 条道路", { selector: ".answer-display" })).toBeInTheDocument();
+  });
+
+  it("keeps the raw prediction when no localized rendering is available", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(withAssistantMessage({
+      content: "yes",
+      metadata: { capabilityNotice: "notice" },
+    }))));
+
+    renderPage();
+
+    expect(await screen.findByText("yes", { selector: ".answer-value" })).toBeInTheDocument();
+    expect(document.querySelector(".answer-display")).toBeNull();
+    expect(document.querySelector(".canonical-hint")).toBeNull();
+  });
+
+  it("offers clarification options that prefill the composer instead of answering", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(withAssistantMessage({
+      content: "“住宅”可能指住宅建筑或住宅区，请明确说明后重试。",
+      status: "unsupported",
+      metadata: {
+        capabilityNotice: "“住宅”可能指住宅建筑或住宅区，请明确说明后重试。",
+        needsClarification: true,
+        clarificationOptions: ["住宅建筑", "住宅区"],
+        reasonCode: "ambiguous_object_alias",
+        normalizerVersion: "2.0.0",
+      },
+    }))));
+    const user = userEvent.setup();
+
+    renderPage();
+
+    expect(await screen.findByText("需要补充说明")).toBeInTheDocument();
+    expect(document.querySelector(".answer-value")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "住宅区" }));
+    expect(screen.getByPlaceholderText("问问这张遥感图像…")).toHaveValue("住宅区");
+  });
+
+  it("flags a provisional object and question-type pairing", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(withAssistantMessage({
+      content: "2",
+      metadata: { capabilityNotice: "notice", scopeVerification: "provisional" },
+    }))));
+
+    renderPage();
+
+    expect(await screen.findByText("该地物与题型组合仍在核验中，结果仅供参考。")).toBeInTheDocument();
+  });
 });
+
+function withAssistantMessage(options: {
+  content: string;
+  metadata: Record<string, unknown>;
+  status?: string;
+}): ConversationDetail {
+  return {
+    ...detail(asset),
+    messages: [{
+      id: "message-1",
+      role: "assistant",
+      sourceType: "RESEARCH_MODEL",
+      content: options.content,
+      metadataJson: JSON.stringify(options.metadata),
+      invocation: {
+        id: "invocation-1",
+        requestId: "request-1",
+        status: options.status ?? "answered",
+        predictionOrigin: "research_vilt_predicted_soft",
+        modelReleaseId: "release-1",
+        providerType: "RESEARCH_MODEL",
+        providerModel: null,
+        confidence: 0.88,
+        margin: 0.4,
+        latencyMs: 700,
+        promptTokens: null,
+        completionTokens: null,
+        totalTokens: null,
+        estimatedCostUsd: null,
+      },
+      createdAt: new Date().toISOString(),
+    }],
+  };
+}
 
 function jsonResponse(value: unknown) {
   return new Response(JSON.stringify(value), {
