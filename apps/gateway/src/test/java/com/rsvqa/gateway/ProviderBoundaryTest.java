@@ -40,22 +40,23 @@ class ProviderBoundaryTest {
     }
 
     @Test
-    void geminiProviderFailsClosedWithoutExplicitServerConfiguration() {
-        var properties = new GeminiProviderProperties(
-                false, "", "gemini-2.5-flash", 60, 2, 1024, 0.2
+    void geminiRelayVisionFailsClosedWithoutExplicitServerConfiguration() {
+        var properties = new GeminiRelayProperties(
+                false, "", "", null,
+                new GeminiRelayProperties.Role(false, "", 60, 2, 1024, 0.2),
+                new GeminiRelayProperties.Role(false, "", 60, 2, 1024, 0.2)
         );
-        var provider = new GeminiVisionProvider(properties, ObservationRegistry.NOOP);
+        var provider = new GeminiRelayVisionProvider(properties, ObservationRegistry.NOOP);
 
         assertThat(provider.descriptor().providerId()).isEqualTo("gemini");
-        assertThat(provider.descriptor().modelId()).isEqualTo("gemini-2.5-flash");
         assertThat(provider.descriptor().configurationState()).isEqualTo("UNCONFIGURED");
         assertThat(provider.descriptor().costMetadata())
-                .doesNotContainKeys("apiKey", "credential", "token");
+                .doesNotContainKeys("apiKey", "credential", "token", "baseUrl");
         assertThatThrownBy(() -> provider.invoke(new AiProvider.ProviderRequest(
                 new byte[] {1}, "image/png", "描述图像", null
         )))
                 .isInstanceOf(ProviderNotConfiguredException.class)
-                .hasMessageContaining("网页会员不会被当作 API 授权");
+                .hasMessageContaining("RSVQA_GEMINI_ENABLED");
     }
 
     @Test

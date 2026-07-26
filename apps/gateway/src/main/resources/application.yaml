@@ -53,13 +53,30 @@ spring:
 
 rsvqa:
   gemini:
+    # OpenAI-compatible relay endpoint. No host is compiled in; both the base URL
+    # and the key are server-side only and never reach the browser.
     enabled: ${RSVQA_GEMINI_ENABLED:false}
-    api-key: ${GEMINI_API_KEY:}
-    model: ${RSVQA_GEMINI_MODEL:gemini-2.5-flash}
-    timeout-seconds: ${RSVQA_GEMINI_TIMEOUT_SECONDS:60}
-    max-retries: ${RSVQA_GEMINI_MAX_RETRIES:2}
-    max-output-tokens: ${RSVQA_GEMINI_MAX_OUTPUT_TOKENS:1024}
-    temperature: ${RSVQA_GEMINI_TEMPERATURE:0.2}
+    base-url: ${RSVQA_GEMINI_BASE_URL:}
+    api-key: ${RSVQA_GEMINI_API_KEY:}
+    completions-path: ${RSVQA_GEMINI_COMPLETIONS_PATH:/v1/chat/completions}
+    # External vision VQA role. `model` has no default on purpose: a relay model
+    # is only offered for image work after an operator has verified it accepts
+    # image input. Leaving it empty keeps external vision UNCONFIGURED.
+    vision:
+      enabled: ${RSVQA_GEMINI_VISION_ENABLED:false}
+      model: ${RSVQA_GEMINI_VISION_MODEL:}
+      timeout-seconds: ${RSVQA_GEMINI_VISION_TIMEOUT_SECONDS:60}
+      max-retries: ${RSVQA_GEMINI_VISION_MAX_RETRIES:2}
+      max-output-tokens: ${RSVQA_GEMINI_VISION_MAX_OUTPUT_TOKENS:1024}
+      temperature: ${RSVQA_GEMINI_VISION_TEMPERATURE:0.2}
+    # RS-Bot text and tool-calling role. Independent of the vision role.
+    agent:
+      enabled: ${RSVQA_GEMINI_AGENT_ENABLED:false}
+      model: ${RSVQA_GEMINI_AGENT_MODEL:gemini-3.6-flash}
+      timeout-seconds: ${RSVQA_GEMINI_AGENT_TIMEOUT_SECONDS:90}
+      max-retries: ${RSVQA_GEMINI_AGENT_MAX_RETRIES:2}
+      max-output-tokens: ${RSVQA_GEMINI_AGENT_MAX_OUTPUT_TOKENS:2048}
+      temperature: ${RSVQA_GEMINI_AGENT_TEMPERATURE:0.2}
   qwen:
     enabled: ${RSVQA_QWEN_ENABLED:false}
     api-key: ${DASHSCOPE_API_KEY:}
