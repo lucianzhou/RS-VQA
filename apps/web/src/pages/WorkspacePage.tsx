@@ -31,6 +31,7 @@ import {
 import { AppTopbar, ModelSelector, ProviderAvatar } from "../components/AppChrome";
 import { ImageLightbox } from "../components/ImageLightbox";
 import { RsBotChat } from "../components/RsBotChat";
+import { SafeMarkdown } from "../components/SafeMarkdown";
 import { RS_BOT_NAME, RS_BOT_SUBTITLE, toTranscriptRun, useRsBotSession } from "../rsbot";
 import { useWorkspaceStore } from "../store";
 import type { AgentHistoryRun, ImageAsset, PersistedMessage } from "../types";
@@ -48,6 +49,7 @@ export function WorkspacePage() {
   const selectedModelId = useWorkspaceStore((state) => state.selectedModelId);
   const [fileError, setFileError] = useState("");
   const [optimisticQuestion, setOptimisticQuestion] = useState("");
+  const [pendingProviderId, setPendingProviderId] = useState("");
   const [controller, setController] = useState<AbortController>();
   const [agentOpen, setAgentOpen] = useState(false);
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
@@ -81,12 +83,13 @@ export function WorkspacePage() {
     onError: (error) => setFileError(error.message),
   });
   const questionMutation = useMutation({
-    mutationFn: ({ question, signal }: { question: string; signal: AbortSignal }) =>
-      askConversation(activeConversationId!, question, selectedModelId, undefined, signal),
+    mutationFn: ({ question, providerId, signal }: { question: string; providerId: string; signal: AbortSignal }) =>
+      askConversation(activeConversationId!, question, providerId, undefined, signal),
     onSuccess: refresh,
     onSettled: () => {
       setController(undefined);
       setOptimisticQuestion("");
+      setPendingProviderId("");
     },
   });
   // Same hook, same session and same endpoint as the standalone RS-Bot page,
@@ -128,8 +131,9 @@ export function WorkspacePage() {
     const requestController = new AbortController();
     setController(requestController);
     setOptimisticQuestion(question);
+    setPendingProviderId(selectedModelId);
     form.reset();
-    questionMutation.mutate({ question, signal: requestController.signal });
+    questionMutation.mutate({ question, providerId: selectedModelId, signal: requestController.signal });
   });
 
   if (!activeConversationId || conversationQuery.isPending) {
@@ -178,7 +182,7 @@ export function WorkspacePage() {
                   {optimisticQuestion && (
                     <>
                       <article className="message user-message"><div>{optimisticQuestion}</div></article>
-                      <PendingMessage />
+                      <PendingMessage providerId={pendingProviderId} />
                     </>
                   )}
                 </>
@@ -361,8 +365,17 @@ function StarterPrompt({ onSelect }: { onSelect: (question: string) => void }) {
   );
 }
 
-function PendingMessage() {
-  return <motion.article className="message assistant-message" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}><span className="assistant-avatar">RS</span><div className="answer-body pending-answer"><LoaderCircle className="spin" size={17} /><span>正在分析当前影像…</span></div></motion.article>;
+function PendingMessage({ providerId }: { providerId: string }) {
+  const model = selectedModelPresentation(providerId);
+  return (
+    <motion.article className="message assistant-message" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+      <ProviderAvatar providerId={providerId} kind={model.kind} size={28} />
+      <div className="answer-body pending-answer">
+        <LoaderCircle className="spin" size={17} />
+        <span>{model.name} 正在分析当前影像…</span>
+      </div>
+    </motion.article>
+  );
 }
 
 function Message({ message, onSelect }: { message: PersistedMessage; onSelect?: (question: string) => void }) {
@@ -397,7 +410,9 @@ function Message({ message, onSelect }: { message: PersistedMessage; onSelect?: 
           {isExternal && <span className="external-flag">{providerName}</span>}
         </div>
         {metadata.interpretationNote && <p className="canonical-hint">{metadata.interpretationNote}</p>}
-        {answered && <p className="answer-value">{message.content}</p>}
+        {answered && (isExternal
+          ? <SafeMarkdown className="external-answer-markdown" content={message.content} />
+          : <p className="answer-value">{message.content}</p>)}
         {answered && metadata.displayAnswer && metadata.displayAnswer !== message.content && (
           <p className="answer-display">{metadata.displayAnswer}</p>
         )}
@@ -503,6 +518,16 @@ function externalModelName(providerId: string, modelId?: string | null) {
   }
   if (providerId === "qwen") return "Qwen3-VL 32B";
   return modelId || "已配置模型";
+}
+
+function selectedModelPresentation(providerId: string) {
+  if (providerId === "gemini" || providerId === "external-vlm") {
+    return { name: "Gemini-3.6-flash", kind: "EXTERNAL_VLM" };
+  }
+  if (providerId === "qwen") {
+    return { name: "Qwen3-VL 32B", kind: "EXTERNAL_VLM" };
+  }
+  return { name: "RS-VQA 研究模型", kind: "RESEARCH_MODEL" };
 }
 
 function originLabel(origin: string, providerName: string) {

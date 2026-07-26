@@ -194,6 +194,64 @@ describe("WorkspacePage", () => {
 
     expect(await screen.findByText("该地物与题型组合仍在核验中，结果仅供参考。")).toBeInTheDocument();
   });
+
+  it("uses the selected provider identity while an image request is pending", async () => {
+    useWorkspaceStore.setState({ selectedModelId: "qwen" });
+    vi.stubGlobal("fetch", vi.fn(async (input, init) => {
+      if (init?.method === "POST" && String(input).includes("/questions")) {
+        return new Promise<Response>(() => {});
+      }
+      return jsonResponse(detail(asset));
+    }));
+    const user = userEvent.setup();
+    renderPage();
+
+    const composer = await screen.findByPlaceholderText("问问这张遥感图像…");
+    await user.type(composer, "建筑物比道路多吗？");
+    await user.click(screen.getByRole("button", { name: "发送问题" }));
+
+    expect(await screen.findByText("Qwen3-VL 32B 正在分析当前影像…")).toBeInTheDocument();
+    expect(document.querySelector(".pending-answer")?.previousElementSibling).toHaveClass("qwen");
+  });
+
+  it("renders external model Markdown without changing research predictions", async () => {
+    const conversation: ConversationDetail = {
+      ...detail(asset),
+      messages: [{
+        id: "message-external",
+        role: "assistant",
+        sourceType: "EXTERNAL_VLM",
+        content: "### 分析结论\n\n**建筑物**多于道路。\n\n- 建筑密集\n- 道路呈网格状",
+        metadataJson: JSON.stringify({ providerId: "gemini" }),
+        invocation: {
+          id: "invocation-external",
+          requestId: "request-external",
+          status: "answered",
+          predictionOrigin: "external_vlm_assist",
+          modelReleaseId: null,
+          providerType: "EXTERNAL_VLM",
+          providerModel: "gemini-3.6-flash",
+          confidence: null,
+          margin: null,
+          latencyMs: 1200,
+          promptTokens: 20,
+          completionTokens: 30,
+          totalTokens: 50,
+          estimatedCostUsd: null,
+        },
+        createdAt: new Date().toISOString(),
+      }],
+    };
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(conversation)));
+    const { container } = renderPage();
+
+    expect(await screen.findByRole("heading", { level: 3, name: "分析结论" })).toBeInTheDocument();
+    expect(screen.getByText("建筑物").tagName).toBe("STRONG");
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(container.textContent).not.toContain("###");
+    expect(container.textContent).not.toContain("**");
+    expect(container.querySelector(".answer-value")).toBeNull();
+  });
 });
 
 function withAssistantMessage(options: {

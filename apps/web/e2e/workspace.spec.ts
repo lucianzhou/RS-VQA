@@ -180,9 +180,9 @@ test("creates, confirms, and exports a deterministic project report", async ({ p
 test("keeps Gemini fail-closed behind image consent and server configuration", async ({ page }) => {
   await page.goto("/workspace");
   await expect(page.getByText("RS-VQA", { exact: true })).toBeVisible();
-  await expect.poll(async () => (
-    await page.request.get("/api/v1/user/settings")
-  ).status()).toBe(200);
+  const initialSettingsResponse = await page.request.get("/api/v1/user/settings");
+  expect(initialSettingsResponse.status()).toBe(200);
+  const initialSettings = await initialSettingsResponse.json() as { externalImageOptIn: boolean };
   const projectsResponse = await page.request.get("/api/v1/projects");
   expect(projectsResponse.status()).toBe(200);
   const projects = await projectsResponse.json() as Array<{ conversations: Array<{ id: string }> }>;
@@ -209,19 +209,32 @@ test("keeps Gemini fail-closed behind image consent and server configuration", a
   expect(consentBlocked.status()).toBe(400);
   expect((await consentBlocked.json()).code).toBe("INVALID_REQUEST");
 
-  await page.request.patch("/api/v1/user/settings", {
-    data: { externalImageOptIn: true },
-  });
-  const providerBlocked = await page.request.post(`/api/v1/conversations/${conversationId}/questions`, {
-    data: { question: "请描述这张图。", providerId: "gemini" },
-  });
-  expect(providerBlocked.status()).toBe(503);
-  expect((await providerBlocked.json()).code).toBe("PROVIDER_NOT_CONFIGURED");
+  const providers = await (await page.request.get("/api/v1/providers")).json() as Array<{
+    providerId: string;
+    configurationState: string;
+  }>;
+  const gemini = providers.find((provider) => provider.providerId === "gemini");
+  expect(gemini).toBeDefined();
+
+  // A configured Provider would incur a real relay call and persist a message.
+  // The E2E suite verifies configuration discovery instead of spending quota.
+  if (gemini?.configurationState === "UNCONFIGURED") {
+    await page.request.patch("/api/v1/user/settings", {
+      data: { externalImageOptIn: true },
+    });
+    const providerBlocked = await page.request.post(`/api/v1/conversations/${conversationId}/questions`, {
+      data: { question: "请描述这张图。", providerId: "gemini" },
+    });
+    expect(providerBlocked.status()).toBe(503);
+    expect((await providerBlocked.json()).code).toBe("PROVIDER_NOT_CONFIGURED");
+  } else {
+    expect(gemini?.configurationState).toBe("CONFIGURED");
+  }
 
   const after = await (await page.request.get(`/api/v1/conversations/${conversationId}`)).json() as { messages: unknown[] };
   expect(after.messages).toHaveLength(beforeMessages);
   await page.request.patch("/api/v1/user/settings", {
-    data: { externalImageOptIn: false },
+    data: { externalImageOptIn: initialSettings.externalImageOptIn },
   });
 });
 

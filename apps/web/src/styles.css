@@ -258,36 +258,38 @@ button, a { touch-action: manipulation; }
 .rsbot-answer-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
 .rsbot-answer-meta span { display: inline-flex; align-items: center; gap: 5px; color: var(--forest); font-size: 9px; font-weight: 680; }
 .rsbot-answer-meta small, .rsbot-trace { color: var(--muted); font-size: 9px; }
-.rsbot-answer-text { min-width: 0; margin: 0 0 8px; color: var(--ink); font-size: 13px; line-height: 1.75; overflow-wrap: anywhere; }
-.rsbot-answer-text > :first-child { margin-top: 0; }
-.rsbot-answer-text > :last-child { margin-bottom: 0; }
-.rsbot-answer-text p { margin: 0 0 10px; white-space: pre-wrap; }
-.rsbot-answer-text h1,
-.rsbot-answer-text h2,
-.rsbot-answer-text h3,
-.rsbot-answer-text h4,
-.rsbot-answer-text h5,
-.rsbot-answer-text h6 { margin: 16px 0 7px; color: #24302a; font-size: 13px; font-weight: 690; line-height: 1.45; }
-.rsbot-answer-text h1 { font-size: 15px; }
-.rsbot-answer-text h2 { font-size: 14px; }
-.rsbot-answer-text ul,
-.rsbot-answer-text ol { margin: 7px 0 11px; padding-left: 22px; }
-.rsbot-answer-text li { margin: 3px 0; padding-left: 2px; }
-.rsbot-answer-text li::marker { color: var(--forest-support); }
-.rsbot-answer-text li > p { margin: 0; }
-.rsbot-answer-text a { color: var(--forest); text-decoration: underline; text-decoration-color: #a9bdb1; text-underline-offset: 3px; }
-.rsbot-answer-text a:hover { text-decoration-color: currentColor; }
-.rsbot-answer-text strong { color: #24302a; font-weight: 700; }
-.rsbot-answer-text code { border-radius: 4px; padding: 1px 4px; background: #edf3ef; color: #315344; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: .88em; overflow-wrap: anywhere; }
-.rsbot-answer-text pre { max-width: 100%; margin: 9px 0 12px; overflow-x: auto; border: 1px solid var(--line); border-radius: 7px; padding: 9px 10px; background: #f4f7f5; color: #304139; font-size: 11px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
-.rsbot-answer-text pre code { padding: 0; background: transparent; color: inherit; font-size: inherit; }
-.rsbot-answer-text blockquote { margin: 9px 0 12px; border-left: 2px solid #9eb5a7; padding-left: 10px; color: var(--muted); }
-.rsbot-answer-text blockquote p { margin: 0; }
-.rsbot-answer-text hr { height: 1px; margin: 14px 0; border: 0; background: var(--line); }
-.rsbot-answer-text table { display: block; max-width: 100%; margin: 9px 0 12px; overflow-x: auto; border-collapse: collapse; font-size: 11px; }
-.rsbot-answer-text th,
-.rsbot-answer-text td { border-bottom: 1px solid var(--line); padding: 6px 9px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
-.rsbot-answer-text th { color: #304139; background: #f4f7f5; font-weight: 680; }
+.safe-markdown { min-width: 0; color: var(--ink); overflow-wrap: anywhere; }
+.rsbot-answer-text { margin: 0 0 8px; font-size: 13px; line-height: 1.75; }
+.external-answer-markdown { margin: 0 0 8px; font-size: 14px; line-height: 1.75; }
+.safe-markdown > :first-child { margin-top: 0; }
+.safe-markdown > :last-child { margin-bottom: 0; }
+.safe-markdown p { margin: 0 0 10px; white-space: pre-wrap; }
+.safe-markdown h1,
+.safe-markdown h2,
+.safe-markdown h3,
+.safe-markdown h4,
+.safe-markdown h5,
+.safe-markdown h6 { margin: 16px 0 7px; color: #24302a; font-size: 13px; font-weight: 690; line-height: 1.45; }
+.safe-markdown h1 { font-size: 15px; }
+.safe-markdown h2 { font-size: 14px; }
+.safe-markdown ul,
+.safe-markdown ol { margin: 7px 0 11px; padding-left: 22px; }
+.safe-markdown li { margin: 3px 0; padding-left: 2px; }
+.safe-markdown li::marker { color: var(--forest-support); }
+.safe-markdown li > p { margin: 0; }
+.safe-markdown a { color: var(--forest); text-decoration: underline; text-decoration-color: #a9bdb1; text-underline-offset: 3px; }
+.safe-markdown a:hover { text-decoration-color: currentColor; }
+.safe-markdown strong { color: #24302a; font-weight: 700; }
+.safe-markdown code { border-radius: 4px; padding: 1px 4px; background: #edf3ef; color: #315344; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: .88em; overflow-wrap: anywhere; }
+.safe-markdown pre { max-width: 100%; margin: 9px 0 12px; overflow-x: auto; border: 1px solid var(--line); border-radius: 7px; padding: 9px 10px; background: #f4f7f5; color: #304139; font-size: 11px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.safe-markdown pre code { padding: 0; background: transparent; color: inherit; font-size: inherit; }
+.safe-markdown blockquote { margin: 9px 0 12px; border-left: 2px solid #9eb5a7; padding-left: 10px; color: var(--muted); }
+.safe-markdown blockquote p { margin: 0; }
+.safe-markdown hr { height: 1px; margin: 14px 0; border: 0; background: var(--line); }
+.safe-markdown table { display: block; max-width: 100%; margin: 9px 0 12px; overflow-x: auto; border-collapse: collapse; font-size: 11px; }
+.safe-markdown th,
+.safe-markdown td { border-bottom: 1px solid var(--line); padding: 6px 9px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.safe-markdown th { color: #304139; background: #f4f7f5; font-weight: 680; }
 .rsbot-mode-note { display: flex; align-items: center; gap: 5px; margin: 0 0 7px; color: var(--ochre); font-size: 10px; line-height: 1.6; }
 .rsbot-trace { display: block; margin-top: 8px; overflow-wrap: anywhere; }
 .rsbot-tools { display: grid; gap: 6px; margin: 4px 0 2px; }
