@@ -16,4 +16,4 @@
 
 版本完成时，将状态改为“已完成”，写入实际验证结果；不要把计划中的能力写成已经交付的能力。
 
-当前版本：[`v0.8.1-integration-review.md`](v0.8.1-integration-review.md)。
+当前版本：[`v0.9.0-product-aligned-evaluation-and-trusted-model.md`](v0.9.0-product-aligned-evaluation-and-trusted-model.md)。

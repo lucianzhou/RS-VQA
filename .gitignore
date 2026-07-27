@@ -32,6 +32,13 @@ outputs/
 logs/
 checkpoints/
 model-releases/
+evaluation-releases/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.whl
+*.npz
 *.jsonl
 *.pdf
 

@@ -2,7 +2,7 @@
 
 RS-VQA 是论文《跨模态特征融合机制及微调策略研究与应用》的独立应用工程。它把遥感视觉问答研究封装为可演示、可追踪、可部署的应用，但不训练模型，也不导入 `rs-vqa-fusion` 的训练脚本。
 
-当前稳定基线为 **v0.3.0**，**v0.4.0 正在实施**。前端使用 React + TypeScript
+当前稳定基线为 **v0.8.x**，**v0.9.0 正在进行产品对齐验收**。前端使用 React + TypeScript
 和 Mineral Forest 视觉体系；业务后端使用 Java 21 / Spring Boot / Spring AI；
 模型运行时和知识检索分别由 FastAPI 服务提供。
 
@@ -32,8 +32,10 @@ RS-VQA 是论文《跨模态特征融合机制及微调策略研究与应用》�
 
 soft-vs-none 配对置信区间包含 0，因此不能宣称 predicted-soft 带来显著提升；系统也不声称 SOTA。它不是开放式 VQA、通用视觉助手、目标检测、变化检测、零样本识别或风险自动判定系统。
 
-当前仓库已接入通过不可变 manifest 与 SHA-256 校验的真实 release
-`rsvqa-hr-qdrop15-predicted-soft-20260724-8510bc9`。默认 Compose 仍运行
+v0.9 目标 release 是
+`rsvqa-hr-qdrop15-predicted-soft-20260727-9b4ade2`；研究侧已冻结，工程侧只有在本地完成
+manifest 与全部制品哈希、golden replay 和真实 runtime 验收后才会标记交付。当前保留已验证的
+`rsvqa-hr-qdrop15-predicted-soft-20260724-8510bc9` 作为显式回退。默认 Compose 仍运行
 `mock_demo`，便于低资源开发；Mock 只验证工程闭环，绝不是论文模型输出。真实模型使用
 `compose.real.yaml` 覆盖启动，并在 `/models/current` 与每次结果中显示 release、来源和哈希。
 Gemini-3.6-flash 与 Qwen3-VL 32B 保持独立 Provider 边界，未配置时明确显示“未配置”。
@@ -90,8 +92,8 @@ docker-compose -f compose.yaml -f compose.real.yaml --profile rag up -d --build
 `RSVQA_MODEL_DEVICE=cuda`。factory 只能来自 manifest 中经过哈希校验的 wheel，不能由
 环境变量替换。
 
-Real Runtime 会 fail closed：契约版本、`type_source=predicted_soft`、checkpoint、55 类
-词表、wheel 与预处理器 SHA-256、禁用 oracle/routed/人工题型协议、预热和输出 Schema
+Real Runtime 会 fail closed：契约版本、`type_source=predicted_soft`、固定 release ID、
+manifest、checkpoint、55 类词表、wheel 与预处理器 SHA-256、禁用 oracle/routed/人工题型协议、预热和输出 Schema
 任一不满足，`/ready` 即不会通过。详细规范见
 [模型发布消费者契约](docs/architecture/model-release-consumer.md)。
 
@@ -140,7 +142,7 @@ mvn spring-boot:run
 使用已校验的真实 CPU 研究模型（首次构建会下载 CPU-only PyTorch；不启动 GPU 训练）：
 
 ```bash
-export RSVQA_RELEASE_MANIFEST=/opt/rsvqa/model-releases/rsvqa-hr-qdrop15-predicted-soft-20260724-8510bc9/model-release.json
+export RSVQA_RELEASE_MANIFEST=/opt/rsvqa/model-releases/rsvqa-hr-qdrop15-predicted-soft-20260727-9b4ade2/model-release.json
 export RSVQA_MODEL_DEVICE=cpu
 docker-compose -f compose.yaml -f compose.real.yaml up -d --build
 ```

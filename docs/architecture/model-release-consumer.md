@@ -6,25 +6,26 @@
 | --- | --- |
 | 支持的契约版本 | `1.0` |
 | 规范路径 | `rs-vqa-fusion/docs/24_model_release_contract.md` |
-| 审计时研究工作树 HEAD | `8510bc9cd1738f2cc3c61a3eff3b0faab0cbe556` |
-| 发布契约 Git 引用 | `b9077c8e8e91e4c88bad93c1135cbe9a095454e2` |
-| 当前真实 release | `rsvqa-hr-qdrop15-predicted-soft-20260724-8510bc9`（AutoDL 已冻结；应用端已完成消费校验与真实 CPU smoke） |
+| 当前研究交接 commit | `d12de614cb0b4a0275a4f829815e5d74c79a1ee7` |
+| 当前目标 release | `rsvqa-hr-qdrop15-predicted-soft-20260727-9b4ade2` |
+| 目标 manifest SHA-256 | `cce9b8bb48d5cf0213ce789290ceea7525ad2c1d96eba66867c733f1bbc78045` |
 | checkpoint SHA-256 | `2426770af96a6f41b30e081c9719d6582471fab091e4b44ba2c3068d6e227109` |
 | 答案词表 SHA-256 | `23592881181ac284e46292921ce14d329eb437c1e3913b2e2f8a05ff9b75f99a` |
-| runtime wheel SHA-256 | `cc604c70c65974dbd5826edf6f1bfc24766b17b27926087f154cb844a9d1f9ab` |
+| runtime wheel SHA-256 | `161f00c81f72d54c145b016fbc5c1cb8ed9f0822c3b17682f67b536330887734` |
+| 本地回退 release | `rsvqa-hr-qdrop15-predicted-soft-20260724-8510bc9`（显式旧 ID/manifest 哈希固定后，CPU ready 与四题型 parity 已复验） |
 | 当前默认 runtime | `MOCK`（默认 Compose 低资源开发路径；不得作为研究结果） |
-| 当前 Real runtime | `research_vilt_predicted_soft`（Real CPU `/ready`、单图连续推理和 2×2 批量 smoke 已通过） |
+| v0.9 Real runtime 状态 | 研究侧发布已冻结；本地取得与真实验收尚未完成，不得提前标记交付 |
 
 ## Fail-closed 条件
 
 Real Runtime 只有在以下条件全部成立时进入 ready：
 
 1. `contract_version` 为 `1.0`。
-2. `task.name` 为 `rsvqa_hr_grouped_closed_set`。
+2. `task.name` 为 `rsvqa_hr_grouped_answer_closed_set`；旧名称只用于显式回退兼容。
 3. `type_source_mode` 为 `predicted_soft`。
-4. release ID、研究 commit、运行时 digest、checkpoint/词表哈希完整。
+4. 实际 `model-release.json` SHA-256 与部署固定值一致，release ID 与部署固定版本一致。
 5. 实际文件 SHA-256 与 manifest 一致。
-6. `RSVQA_RUNTIME_ENTRYPOINT` 指向独立安装包中的 `package.module:factory`，且适配器声明的 runtime artifact digest 与 manifest 完全一致。
+6. manifest 的固定 factory 指向已校验 wheel，且运行时 digest 与 manifest 完全一致。
 7. 输入协议不接受 `question_type_id`、gold label、split 或 mask。
 8. 输出包含置信度、margin、top-k、题型审计、来源和能力边界。
 
@@ -32,7 +33,7 @@ Real Runtime 只有在以下条件全部成立时进入 ready：
 
 应用侧已经实现 manifest Pydantic Schema、流式 SHA-256、路径穿越防护、release/version 固定、runtime digest 比对、加载/预热和输出校验。`compose.real.yaml` 只切换到这个 fail-closed 边界，不会降低校验要求。
 
-研究侧已经提交契约和不可变 release。应用侧已完成所有制品的本地 SHA-256、独立
-wheel factory 加载、CPU warmup、真实单图和连续多轮 smoke；下载不完整或任何哈希不一致
-时继续 fail closed。当前应用兼容层暂时桥接 wheel 的旧 ViLT `head_mask` 调用签名，研究侧
-后续应将该修复回写并发布新的不可变 runtime artifact。
+Real Compose 默认固定目标 release ID 与 manifest SHA-256；环境未固定这两个值时模型服务
+直接保持 not-ready。旧发布不会被删除，但只能通过同时提供旧 release ID 与旧 manifest SHA-256
+显式回退。v0.9 的本地真实验收必须在受控取得新发布后完成，下载不完整或任一哈希不一致时
+继续 fail closed。
