@@ -47,7 +47,10 @@ class AnswerVocabularyArtifact(BaseModel):
 
 class TaskContract(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    name: Literal["rsvqa_hr_grouped_closed_set"]
+    name: Literal[
+        "rsvqa_hr_grouped_closed_set",
+        "rsvqa_hr_grouped_answer_closed_set",
+    ]
     answer_mode: Literal["rsvqa_hr_grouped"]
     type_source: Literal["predicted_soft"]
     input_protocol: tuple[Literal["image"], Literal["question"]]

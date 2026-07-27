@@ -11,11 +11,25 @@ from release_fixture import write_release
 
 def test_accepts_complete_predicted_soft_release(tmp_path: Path) -> None:
     release = load_and_verify_release(write_release(tmp_path))
+    assert release.manifest.task.name == "rsvqa_hr_grouped_answer_closed_set"
     assert release.manifest.task.type_source == "predicted_soft"
     assert release.manifest.task.input_protocol == ("image", "question")
     assert release.checkpoint_path.name == "vilt_classifier_best.pt"
     assert release.runtime_path.suffix == ".whl"
     assert release.preprocessor_path.name == "preprocessor"
+
+
+def test_accepts_legacy_task_name_during_release_rollover(tmp_path: Path) -> None:
+    release = load_and_verify_release(
+        write_release(tmp_path, task_name="rsvqa_hr_grouped_closed_set")
+    )
+    assert release.manifest.task.name == "rsvqa_hr_grouped_closed_set"
+
+
+def test_rejects_unknown_task_name(tmp_path: Path) -> None:
+    path = write_release(tmp_path, task_name="generic_open_vqa")
+    with pytest.raises(ManifestValidationError, match="manifest 无效"):
+        load_and_verify_release(path)
 
 
 def test_rejects_prohibited_oracle_release(tmp_path: Path) -> None:

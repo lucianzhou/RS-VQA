@@ -25,7 +25,11 @@ def sha256_tree(path: Path) -> str:
     return digest.hexdigest()
 
 
-def write_release(root: Path, release_id: str = RELEASE_ID) -> Path:
+def write_release(
+    root: Path,
+    release_id: str = RELEASE_ID,
+    task_name: str = "rsvqa_hr_grouped_answer_closed_set",
+) -> Path:
     checkpoint_path = root / "checkpoint" / "vilt_classifier_best.pt"
     checkpoint_path.parent.mkdir()
     checkpoint_path.write_bytes(b"checkpoint-fixture")
@@ -106,7 +110,7 @@ def load_released_predictor(release_dir, device="cpu"):
             "cli_entrypoint": "rsvqa-release",
         },
         "task": {
-            "name": "rsvqa_hr_grouped_closed_set",
+            "name": task_name,
             "answer_mode": "rsvqa_hr_grouped",
             "type_source": "predicted_soft",
             "input_protocol": ["image", "question"],
