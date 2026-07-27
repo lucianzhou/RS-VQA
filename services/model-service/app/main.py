@@ -226,29 +226,41 @@ def current_model() -> ModelInfoResponse:
 
 @app.post("/v1/vqa", response_model=PredictionResponse)
 async def vqa(
+    request: Request,
     image: UploadFile = File(...),
     question: str = Form(...),
     model_release_id: str | None = Form(default=None),
 ) -> PredictionResponse:
+    await _reject_unexpected_form_fields(
+        request,
+        {"image", "question", "model_release_id"},
+    )
     raw = await image.read()
     return _predict_bytes(raw, image.content_type, question, model_release_id)
 
 
 @app.post("/v1/predict", response_model=PredictionResponse, deprecated=True)
 async def predict_compatibility(
+    request: Request,
     image: UploadFile = File(...),
     question: str = Form(...),
 ) -> PredictionResponse:
+    await _reject_unexpected_form_fields(request, {"image", "question"})
     raw = await image.read()
     return _predict_bytes(raw, image.content_type, question, None)
 
 
 @app.post("/v1/vqa/batch", response_model=BatchPredictionResponse)
 async def vqa_batch(
+    request: Request,
     images: list[UploadFile] = File(...),
     questions: list[str] = Form(...),
     model_release_id: str | None = Form(default=None),
 ) -> BatchPredictionResponse:
+    await _reject_unexpected_form_fields(
+        request,
+        {"images", "questions", "model_release_id"},
+    )
     combinations = len(images) * len(questions)
     if not images or not questions:
         raise HTTPException(status_code=400, detail="批量请求至少包含一张图像和一个问题。")
@@ -268,6 +280,22 @@ async def vqa_batch(
         for question_index, question in enumerate(questions)
     ]
     return BatchPredictionResponse(request_id=str(uuid4()), item_count=len(items), items=items)
+
+
+async def _reject_unexpected_form_fields(
+    request: Request,
+    allowed_fields: set[str],
+) -> None:
+    submitted_fields = set((await request.form()).keys())
+    unexpected = sorted(submitted_fields - allowed_fields)
+    if unexpected:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "模型推理只接受图像、问题文本和可选发布标识；"
+                f"拒绝额外字段：{', '.join(unexpected)}。"
+            ),
+        )
 
 
 def _predict_bytes(

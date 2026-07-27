@@ -78,6 +78,51 @@ public class BatchItemEntity extends BaseEntity {
     @Column(name = "runtime_artifact_sha256", length = 64)
     private String runtimeArtifactSha256;
 
+    @Column(name = "top_k_json", columnDefinition = "TEXT")
+    private String topKJson;
+
+    @Column(name = "question_type_probabilities_json", columnDefinition = "TEXT")
+    private String questionTypeProbabilitiesJson;
+
+    @Column(name = "canonical_question", columnDefinition = "TEXT")
+    private String canonicalQuestion;
+
+    @Column(name = "model_input_question", columnDefinition = "TEXT")
+    private String modelInputQuestion;
+
+    @Column(name = "question_normalizer_version", length = 40)
+    private String questionNormalizerVersion;
+
+    @Column(name = "matched_intent", length = 40)
+    private String matchedIntent;
+
+    @Column(name = "question_scope_verification", length = 40)
+    private String questionScopeVerification;
+
+    @Column(name = "answer_shape_mismatch", nullable = false)
+    private boolean answerShapeMismatch;
+
+    @Column(name = "task_scope", length = 200)
+    private String taskScope;
+
+    @Column(name = "limitations_json", columnDefinition = "TEXT")
+    private String limitationsJson;
+
+    @Column(name = "capability_notice", columnDefinition = "TEXT")
+    private String capabilityNotice;
+
+    @Column(name = "review_status", length = 80)
+    private String reviewStatus;
+
+    @Column(name = "automatic_rejection_enabled", nullable = false)
+    private boolean automaticRejectionEnabled;
+
+    @Column(name = "confidence_display_enabled", nullable = false)
+    private boolean confidenceDisplayEnabled = true;
+
+    @Column(name = "manual_review_signal_enabled", nullable = false)
+    private boolean manualReviewSignalEnabled = true;
+
     @Column(name = "latency_ms")
     private Long latencyMs;
 
@@ -137,6 +182,10 @@ public class BatchItemEntity extends BaseEntity {
         return mimeType;
     }
 
+    public String getSha256() {
+        return sha256;
+    }
+
     public Double getConfidence() {
         return confidence;
     }
@@ -177,6 +226,66 @@ public class BatchItemEntity extends BaseEntity {
         return runtimeArtifactSha256;
     }
 
+    public String getTopKJson() {
+        return topKJson;
+    }
+
+    public String getQuestionTypeProbabilitiesJson() {
+        return questionTypeProbabilitiesJson;
+    }
+
+    public String getCanonicalQuestion() {
+        return canonicalQuestion;
+    }
+
+    public String getModelInputQuestion() {
+        return modelInputQuestion;
+    }
+
+    public String getQuestionNormalizerVersion() {
+        return questionNormalizerVersion;
+    }
+
+    public String getMatchedIntent() {
+        return matchedIntent;
+    }
+
+    public String getQuestionScopeVerification() {
+        return questionScopeVerification;
+    }
+
+    public boolean isAnswerShapeMismatch() {
+        return answerShapeMismatch;
+    }
+
+    public String getTaskScope() {
+        return taskScope;
+    }
+
+    public String getLimitationsJson() {
+        return limitationsJson;
+    }
+
+    public String getCapabilityNotice() {
+        return capabilityNotice;
+    }
+
+    public String getReviewStatus() {
+        return reviewStatus;
+    }
+
+    public boolean isAutomaticRejectionEnabled() {
+        return automaticRejectionEnabled;
+    }
+
+    public boolean isConfidenceDisplayEnabled() {
+        return confidenceDisplayEnabled;
+    }
+
+    public boolean isManualReviewSignalEnabled() {
+        return manualReviewSignalEnabled;
+    }
+
     public void start() {
         status = "RUNNING";
         attemptCount++;
@@ -195,6 +304,21 @@ public class BatchItemEntity extends BaseEntity {
             String checkpointSha256,
             String answerVocabularySha256,
             String runtimeArtifactSha256,
+            String topKJson,
+            String questionTypeProbabilitiesJson,
+            String canonicalQuestion,
+            String modelInputQuestion,
+            String questionNormalizerVersion,
+            String matchedIntent,
+            String questionScopeVerification,
+            boolean answerShapeMismatch,
+            String taskScope,
+            String limitationsJson,
+            String capabilityNotice,
+            String reviewStatus,
+            boolean automaticRejectionEnabled,
+            boolean confidenceDisplayEnabled,
+            boolean manualReviewSignalEnabled,
             Long latencyMs
     ) {
         status = "COMPLETED";
@@ -208,6 +332,21 @@ public class BatchItemEntity extends BaseEntity {
         this.checkpointSha256 = checkpointSha256;
         this.answerVocabularySha256 = answerVocabularySha256;
         this.runtimeArtifactSha256 = runtimeArtifactSha256;
+        this.topKJson = topKJson;
+        this.questionTypeProbabilitiesJson = questionTypeProbabilitiesJson;
+        this.canonicalQuestion = canonicalQuestion;
+        this.modelInputQuestion = modelInputQuestion;
+        this.questionNormalizerVersion = questionNormalizerVersion;
+        this.matchedIntent = matchedIntent;
+        this.questionScopeVerification = questionScopeVerification;
+        this.answerShapeMismatch = answerShapeMismatch;
+        this.taskScope = taskScope;
+        this.limitationsJson = limitationsJson;
+        this.capabilityNotice = capabilityNotice;
+        this.reviewStatus = reviewStatus;
+        this.automaticRejectionEnabled = automaticRejectionEnabled;
+        this.confidenceDisplayEnabled = confidenceDisplayEnabled;
+        this.manualReviewSignalEnabled = manualReviewSignalEnabled;
         this.latencyMs = latencyMs;
     }
 
@@ -231,6 +370,21 @@ public class BatchItemEntity extends BaseEntity {
             margin = null;
             predictedQuestionType = null;
             requestId = null;
+            topKJson = null;
+            questionTypeProbabilitiesJson = null;
+            canonicalQuestion = null;
+            modelInputQuestion = null;
+            questionNormalizerVersion = null;
+            matchedIntent = null;
+            questionScopeVerification = null;
+            answerShapeMismatch = false;
+            taskScope = null;
+            limitationsJson = null;
+            capabilityNotice = null;
+            reviewStatus = null;
+            automaticRejectionEnabled = false;
+            confidenceDisplayEnabled = true;
+            manualReviewSignalEnabled = true;
             errorCode = null;
             errorMessage = null;
         }

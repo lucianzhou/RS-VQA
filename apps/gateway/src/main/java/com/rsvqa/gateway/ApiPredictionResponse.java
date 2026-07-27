@@ -30,6 +30,7 @@ public record ApiPredictionResponse(
         boolean automaticRejectionEnabled,
         boolean confidenceDisplayEnabled,
         boolean manualReviewSignalEnabled,
+        String inputSha256,
         Long latencyMs,
         String runtimeMode,
         QuestionUnderstanding understanding,
@@ -129,6 +130,7 @@ public record ApiPredictionResponse(
                         || Boolean.TRUE.equals(response.confidenceDisplayEnabled()),
                 response.manualReviewSignalEnabled() == null
                         || Boolean.TRUE.equals(response.manualReviewSignalEnabled()),
+                response.inputSha256(),
                 response.latencyMs(),
                 response.runtimeMode(),
                 QuestionUnderstanding.from(response),
@@ -175,6 +177,7 @@ public record ApiPredictionResponse(
                 false,
                 true,
                 true,
+                null,
                 null,
                 "mock",
                 QuestionUnderstanding.notApplicable(null),

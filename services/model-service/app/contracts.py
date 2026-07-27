@@ -6,7 +6,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
-TASK_SCOPE = "rsvqa_hr_grouped_closed_set"
+TASK_SCOPE = "RSVQA-HR grouped 55-answer closed-set classification"
 MOCK_RELEASE_ID = "mock-demo-not-a-research-release"
 
 

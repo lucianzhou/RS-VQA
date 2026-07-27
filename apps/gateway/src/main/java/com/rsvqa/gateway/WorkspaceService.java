@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rsvqa.gateway.domain.ConversationEntity;
 import com.rsvqa.gateway.domain.ImageAssetEntity;
@@ -274,6 +275,7 @@ public class WorkspaceService {
                 storage.read(image.getStorageKey()), image.getOriginalName(), image.getMimeType(),
                 question, request.modelReleaseId()
         );
+        verifyInputDigest(image.getSha256(), result.inputSha256());
         ModelInvocationEntity invocation = new ModelInvocationEntity(
                 conversation,
                 result.modelReleaseId(),
@@ -294,6 +296,16 @@ public class WorkspaceService {
                 result.checkpointSha256(),
                 result.answerVocabularySha256(),
                 result.runtimeArtifactSha256()
+        );
+        invocation.recordInferenceContract(
+                result.inputSha256(),
+                result.taskScope(),
+                json(result.limitations()),
+                result.capabilityNotice(),
+                result.reviewStatus(),
+                result.automaticRejectionEnabled(),
+                result.confidenceDisplayEnabled(),
+                result.manualReviewSignalEnabled()
         );
         ApiPredictionResponse.QuestionUnderstanding understanding = result.understanding();
         ApiPredictionResponse.AnswerPresentation presentation = result.presentation();
@@ -368,6 +380,14 @@ public class WorkspaceService {
         }
     }
 
+    static void verifyInputDigest(String storedSha256, String modelSha256) {
+        if (modelSha256 == null || !modelSha256.equals(storedSha256)) {
+            throw new ModelServiceException(
+                    "模型服务返回的输入图像哈希与受控存储记录不一致；结果已拒绝保存。"
+            );
+        }
+    }
+
     /**
      * Legacy fallback for a model-service that predates {@code answer_shape_mismatch}.
      *
@@ -436,6 +456,19 @@ public class WorkspaceService {
                 external.totalTokens(),
                 external.estimatedCostUsd()
         ));
+        invocation.recordInferenceContract(
+                image.getSha256(),
+                "external_general_vision_assistance",
+                json(List.of(
+                        "该输出来自外部 " + provider.descriptor().displayName() + "，不属于论文研究模型结果。",
+                        "不保证适用于专业遥感定量解译，重要结论需要人工核验。"
+                )),
+                "外部视觉辅助回答；与闭集 RS-VQA 研究模型严格分离。",
+                "external_model_answer_requires_domain_verification",
+                false,
+                false,
+                true
+        );
         String metadata = json(Map.of(
                 "providerId", external.providerId(),
                 "providerModel", external.modelId(),
@@ -475,6 +508,7 @@ public class WorkspaceService {
                 false,
                 false,
                 true,
+                image.getSha256(),
                 external.latencyMs(),
                 "external_provider",
                 ApiPredictionResponse.QuestionUnderstanding.notApplicable(question),
@@ -545,6 +579,16 @@ public class WorkspaceService {
                 invocation.getCheckpointSha256(),
                 invocation.getAnswerVocabularySha256(),
                 invocation.getRuntimeArtifactSha256(),
+                invocation.getInputSha256(),
+                invocation.getTaskScope(),
+                readList(invocation.getLimitationsJson()),
+                invocation.getCapabilityNotice(),
+                invocation.getReviewStatus(),
+                invocation.isAutomaticRejectionEnabled(),
+                invocation.isConfidenceDisplayEnabled(),
+                invocation.isManualReviewSignalEnabled(),
+                readTopK(invocation.getTopKJson()),
+                readProbabilities(invocation.getQuestionTypeProbabilitiesJson()),
                 invocation.getCanonicalQuestion(),
                 invocation.getModelInputQuestion(),
                 invocation.getQuestionNormalizerVersion(),
@@ -595,6 +639,27 @@ public class WorkspaceService {
             return objectMapper.writeValueAsString(value);
         } catch (JsonProcessingException error) {
             throw new IllegalStateException("模型 provenance 无法序列化。", error);
+        }
+    }
+
+    private List<String> readList(String value) {
+        return readJson(value, new TypeReference<>() {}, List.of());
+    }
+
+    private List<ModelPredictionResponse.TopKPrediction> readTopK(String value) {
+        return readJson(value, new TypeReference<>() {}, List.of());
+    }
+
+    private Map<String, Double> readProbabilities(String value) {
+        return readJson(value, new TypeReference<>() {}, Map.of());
+    }
+
+    private <T> T readJson(String value, TypeReference<T> type, T fallback) {
+        if (value == null || value.isBlank()) return fallback;
+        try {
+            return objectMapper.readValue(value, type);
+        } catch (JsonProcessingException error) {
+            return fallback;
         }
     }
 

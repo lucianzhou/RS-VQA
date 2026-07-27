@@ -19,6 +19,10 @@ spring:
           time_zone: UTC
   flyway:
     enabled: true
+    # Feature branches historically introduced V10 and V11 in parallel. This
+    # allows an existing local V11 database to apply the now-canonical V10
+    # normalization audit before V12 without repair or data loss.
+    out-of-order: true
   data:
     redis:
       host: ${RSVQA_REDIS_HOST:localhost}

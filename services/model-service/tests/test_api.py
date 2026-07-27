@@ -54,6 +54,42 @@ def test_unsupported_question_is_not_answered() -> None:
     assert body["prediction_origin"] == "not_applicable"
 
 
+def test_rejects_evaluation_or_oracle_metadata() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/vqa",
+        files={"image": ("demo.png", png_bytes(), "image/png")},
+        data={
+            "question": "图中有没有道路？",
+            "question_type_id": "3",
+            "gold": "yes",
+            "split": "test",
+            "oracle": "true",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "gold" in response.json()["message"]
+    assert "oracle" in response.json()["message"]
+
+
+def test_batch_rejects_evaluation_metadata() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/vqa/batch",
+        files=[("images", ("demo.png", png_bytes(), "image/png"))],
+        data={
+            "questions": "图中有没有道路？",
+            "router": "oracle",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "router" in response.json()["message"]
+
+
 def test_rejects_non_image_upload() -> None:
     client = TestClient(app)
 

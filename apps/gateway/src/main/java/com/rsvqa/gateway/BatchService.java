@@ -5,6 +5,7 @@ import static com.rsvqa.gateway.BatchDtos.*;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -15,6 +16,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rsvqa.gateway.domain.BatchItemEntity;
 import com.rsvqa.gateway.domain.BatchJobEntity;
 import com.rsvqa.gateway.domain.ImageAssetEntity;
@@ -41,6 +45,7 @@ public class BatchService {
     private final ImageAssetRepository images;
     private final FileStorageService storage;
     private final ObjectProvider<StringRedisTemplate> redisProvider;
+    private final ObjectMapper objectMapper;
 
     public BatchService(
             UserRepository users,
@@ -49,7 +54,8 @@ public class BatchService {
             BatchItemRepository items,
             ImageAssetRepository images,
             FileStorageService storage,
-            ObjectProvider<StringRedisTemplate> redisProvider
+            ObjectProvider<StringRedisTemplate> redisProvider,
+            ObjectMapper objectMapper
     ) {
         this.users = users;
         this.projects = projects;
@@ -58,6 +64,7 @@ public class BatchService {
         this.images = images;
         this.storage = storage;
         this.redisProvider = redisProvider;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -243,6 +250,9 @@ public class BatchService {
     public void succeed(UUID jobId, UUID itemId, ApiPredictionResponse result) {
         BatchJobEntity job = jobs.findById(jobId).orElseThrow();
         BatchItemEntity item = items.findById(itemId).orElseThrow();
+        verifyInputDigest(item.getSha256(), result.inputSha256());
+        ApiPredictionResponse.QuestionUnderstanding understanding = result.understanding();
+        ApiPredictionResponse.AnswerPresentation presentation = result.presentation();
         item.succeed(
                 result.answer() == null ? result.capabilityNotice() : result.answer(),
                 result.predictionOrigin(),
@@ -254,6 +264,21 @@ public class BatchService {
                 result.checkpointSha256(),
                 result.answerVocabularySha256(),
                 result.runtimeArtifactSha256(),
+                json(result.topK()),
+                json(result.questionTypeProbabilities()),
+                understanding.canonicalQuestion(),
+                understanding.modelInputQuestion(),
+                understanding.normalizerVersion(),
+                understanding.matchedIntent(),
+                understanding.scopeVerification(),
+                presentation.answerShapeMismatch(),
+                result.taskScope(),
+                json(result.limitations()),
+                result.capabilityNotice(),
+                result.reviewStatus(),
+                result.automaticRejectionEnabled(),
+                result.confidenceDisplayEnabled(),
+                result.manualReviewSignalEnabled(),
                 result.latencyMs()
         );
         job.recordSuccess();
@@ -313,7 +338,13 @@ public class BatchService {
                         item.getId(), item.getOriginalName(), item.getQuestion(), item.getStatus(), item.getAnswer(),
                         item.getPredictionOrigin(), item.getConfidence(), item.getMargin(), item.getPredictedQuestionType(),
                         item.getRequestId(), item.getModelReleaseId(), item.getCheckpointSha256(),
-                        item.getAnswerVocabularySha256(), item.getRuntimeArtifactSha256(), item.getLatencyMs(), item.getErrorCode(),
+                        item.getAnswerVocabularySha256(), item.getRuntimeArtifactSha256(), item.getSha256(),
+                        readTopK(item.getTopKJson()), readProbabilities(item.getQuestionTypeProbabilitiesJson()),
+                        item.getCanonicalQuestion(), item.getModelInputQuestion(), item.getQuestionNormalizerVersion(),
+                        item.getMatchedIntent(), item.getQuestionScopeVerification(), item.isAnswerShapeMismatch(),
+                        item.getTaskScope(), readList(item.getLimitationsJson()), item.getCapabilityNotice(),
+                        item.getReviewStatus(), item.isAutomaticRejectionEnabled(), item.isConfidenceDisplayEnabled(),
+                        item.isManualReviewSignalEnabled(), item.getLatencyMs(), item.getErrorCode(),
                         item.getErrorMessage(), item.getAttemptCount()
                 ))
                 .toList();
@@ -336,6 +367,43 @@ public class BatchService {
             }
         } catch (RuntimeException ignored) {
             // PostgreSQL is authoritative; Redis is an acceleration/coordination layer only.
+        }
+    }
+
+    private String json(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException error) {
+            throw new IllegalStateException("批量模型 provenance 无法序列化。", error);
+        }
+    }
+
+    static void verifyInputDigest(String storedSha256, String modelSha256) {
+        if (modelSha256 == null || !modelSha256.equals(storedSha256)) {
+            throw new ModelServiceException(
+                    "模型服务返回的输入图像哈希与批量任务记录不一致；结果已拒绝保存。"
+            );
+        }
+    }
+
+    private List<String> readList(String value) {
+        return readJson(value, new TypeReference<>() {}, List.of());
+    }
+
+    private List<ModelPredictionResponse.TopKPrediction> readTopK(String value) {
+        return readJson(value, new TypeReference<>() {}, List.of());
+    }
+
+    private Map<String, Double> readProbabilities(String value) {
+        return readJson(value, new TypeReference<>() {}, Map.of());
+    }
+
+    private <T> T readJson(String value, TypeReference<T> type, T fallback) {
+        if (value == null || value.isBlank()) return fallback;
+        try {
+            return objectMapper.readValue(value, type);
+        } catch (JsonProcessingException error) {
+            return fallback;
         }
     }
 

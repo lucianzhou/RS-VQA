@@ -2,6 +2,7 @@ package com.rsvqa.gateway;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 final class BatchDtos {
@@ -40,6 +41,22 @@ final class BatchDtos {
             String checkpointSha256,
             String answerVocabularySha256,
             String runtimeArtifactSha256,
+            String imageSha256,
+            List<ModelPredictionResponse.TopKPrediction> topK,
+            Map<String, Double> questionTypeProbabilities,
+            String canonicalQuestion,
+            String modelInputQuestion,
+            String questionNormalizerVersion,
+            String matchedIntent,
+            String questionScopeVerification,
+            boolean answerShapeMismatch,
+            String taskScope,
+            List<String> limitations,
+            String capabilityNotice,
+            String reviewStatus,
+            boolean automaticRejectionEnabled,
+            boolean confidenceDisplayEnabled,
+            boolean manualReviewSignalEnabled,
             Long latencyMs,
             String errorCode,
             String errorMessage,

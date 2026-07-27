@@ -27,6 +27,30 @@ public class ModelInvocationEntity extends BaseEntity {
     @Column(name = "runtime_artifact_sha256", length = 64)
     private String runtimeArtifactSha256;
 
+    @Column(name = "input_sha256", length = 64)
+    private String inputSha256;
+
+    @Column(name = "task_scope", length = 200)
+    private String taskScope;
+
+    @Column(name = "limitations_json", columnDefinition = "TEXT")
+    private String limitationsJson;
+
+    @Column(name = "capability_notice", columnDefinition = "TEXT")
+    private String capabilityNotice;
+
+    @Column(name = "review_status", length = 80)
+    private String reviewStatus;
+
+    @Column(name = "automatic_rejection_enabled", nullable = false)
+    private boolean automaticRejectionEnabled;
+
+    @Column(name = "confidence_display_enabled", nullable = false)
+    private boolean confidenceDisplayEnabled = true;
+
+    @Column(name = "manual_review_signal_enabled", nullable = false)
+    private boolean manualReviewSignalEnabled = true;
+
     @Column(name = "provider_type", nullable = false, length = 40)
     private String providerType;
 
@@ -205,6 +229,26 @@ public class ModelInvocationEntity extends BaseEntity {
         this.runtimeArtifactSha256 = runtimeArtifactSha256;
     }
 
+    public void recordInferenceContract(
+            String inputSha256,
+            String taskScope,
+            String limitationsJson,
+            String capabilityNotice,
+            String reviewStatus,
+            boolean automaticRejectionEnabled,
+            boolean confidenceDisplayEnabled,
+            boolean manualReviewSignalEnabled
+    ) {
+        this.inputSha256 = inputSha256;
+        this.taskScope = taskScope;
+        this.limitationsJson = limitationsJson;
+        this.capabilityNotice = capabilityNotice;
+        this.reviewStatus = reviewStatus;
+        this.automaticRejectionEnabled = automaticRejectionEnabled;
+        this.confidenceDisplayEnabled = confidenceDisplayEnabled;
+        this.manualReviewSignalEnabled = manualReviewSignalEnabled;
+    }
+
     /**
      * Records how the raw question was normalized before inference.
      *
@@ -304,6 +348,38 @@ public class ModelInvocationEntity extends BaseEntity {
 
     public String getRuntimeArtifactSha256() {
         return runtimeArtifactSha256;
+    }
+
+    public String getInputSha256() {
+        return inputSha256;
+    }
+
+    public String getTaskScope() {
+        return taskScope;
+    }
+
+    public String getLimitationsJson() {
+        return limitationsJson;
+    }
+
+    public String getCapabilityNotice() {
+        return capabilityNotice;
+    }
+
+    public String getReviewStatus() {
+        return reviewStatus;
+    }
+
+    public boolean isAutomaticRejectionEnabled() {
+        return automaticRejectionEnabled;
+    }
+
+    public boolean isConfidenceDisplayEnabled() {
+        return confidenceDisplayEnabled;
+    }
+
+    public boolean isManualReviewSignalEnabled() {
+        return manualReviewSignalEnabled;
     }
 
     public ConversationEntity getConversation() {

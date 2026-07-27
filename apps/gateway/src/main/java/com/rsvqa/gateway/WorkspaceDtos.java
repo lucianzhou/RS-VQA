@@ -2,6 +2,7 @@ package com.rsvqa.gateway;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import jakarta.validation.constraints.NotBlank;
@@ -138,6 +139,16 @@ final class WorkspaceDtos {
             String checkpointSha256,
             String answerVocabularySha256,
             String runtimeArtifactSha256,
+            String inputSha256,
+            String taskScope,
+            List<String> limitations,
+            String capabilityNotice,
+            String reviewStatus,
+            boolean automaticRejectionEnabled,
+            boolean confidenceDisplayEnabled,
+            boolean manualReviewSignalEnabled,
+            List<ModelPredictionResponse.TopKPrediction> topK,
+            Map<String, Double> questionTypeProbabilities,
             String canonicalQuestion,
             String modelInputQuestion,
             String questionNormalizerVersion,
