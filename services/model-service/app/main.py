@@ -38,6 +38,8 @@ MAX_IMAGE_BYTES = 10 * 1024 * 1024
 MAX_BATCH_COMBINATIONS = 256
 MODEL_MODE = os.getenv("RSVQA_MODEL_MODE", "mock").strip().lower()
 RELEASE_MANIFEST_PATH = os.getenv("RSVQA_RELEASE_MANIFEST", "").strip()
+EXPECTED_MODEL_RELEASE_ID = os.getenv("RSVQA_EXPECTED_MODEL_RELEASE_ID", "").strip()
+EXPECTED_MODEL_MANIFEST_SHA256 = os.getenv("RSVQA_EXPECTED_MODEL_MANIFEST_SHA256", "").strip()
 
 app = FastAPI(
     title="RS-VQA Model Service",
@@ -72,6 +74,8 @@ def _verified_release() -> tuple[VerifiedRelease | None, str | None]:
         return None, None
     if not RELEASE_MANIFEST_PATH:
         return None, "RSVQA_RELEASE_MANIFEST 未配置。"
+    if not EXPECTED_MODEL_RELEASE_ID or not EXPECTED_MODEL_MANIFEST_SHA256:
+        return None, "Real Runtime 必须固定预期 release ID 与 manifest SHA-256。"
     try:
         return _load_verified_release(RELEASE_MANIFEST_PATH), None
     except ManifestValidationError as error:
@@ -83,7 +87,11 @@ def _load_verified_release(manifest_path: str) -> VerifiedRelease:
     with _RUNTIME_CACHE_LOCK:
         release = _VERIFIED_RELEASE_CACHE.get(manifest_path)
         if release is None:
-            release = load_and_verify_release(Path(manifest_path))
+            release = load_and_verify_release(
+                Path(manifest_path),
+                expected_release_id=EXPECTED_MODEL_RELEASE_ID,
+                expected_manifest_sha256=EXPECTED_MODEL_MANIFEST_SHA256,
+            )
             _VERIFIED_RELEASE_CACHE[manifest_path] = release
         return release
 

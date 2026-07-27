@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -10,13 +11,36 @@ from release_fixture import write_release
 
 
 def test_accepts_complete_predicted_soft_release(tmp_path: Path) -> None:
-    release = load_and_verify_release(write_release(tmp_path))
+    path = write_release(tmp_path)
+    release = load_and_verify_release(
+        path,
+        expected_release_id="rsvqa-hr-qdrop15-predicted-soft-20260724-abcd1234",
+        expected_manifest_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+    )
     assert release.manifest.task.name == "rsvqa_hr_grouped_answer_closed_set"
     assert release.manifest.task.type_source == "predicted_soft"
     assert release.manifest.task.input_protocol == ("image", "question")
     assert release.checkpoint_path.name == "vilt_classifier_best.pt"
     assert release.runtime_path.suffix == ".whl"
     assert release.preprocessor_path.name == "preprocessor"
+
+
+def test_rejects_deployment_release_id_mismatch(tmp_path: Path) -> None:
+    path = write_release(tmp_path)
+    with pytest.raises(ManifestValidationError, match="部署固定版本"):
+        load_and_verify_release(path, expected_release_id="different-release")
+
+
+def test_rejects_deployment_manifest_hash_mismatch(tmp_path: Path) -> None:
+    path = write_release(tmp_path)
+    with pytest.raises(ManifestValidationError, match="manifest SHA-256"):
+        load_and_verify_release(path, expected_manifest_sha256="0" * 64)
+
+
+def test_rejects_invalid_deployment_manifest_hash(tmp_path: Path) -> None:
+    path = write_release(tmp_path)
+    with pytest.raises(ManifestValidationError, match="格式无效"):
+        load_and_verify_release(path, expected_manifest_sha256="not-a-sha256")
 
 
 def test_accepts_legacy_task_name_during_release_rollover(tmp_path: Path) -> None:

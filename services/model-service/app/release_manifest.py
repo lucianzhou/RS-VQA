@@ -171,12 +171,26 @@ class VerifiedRelease(BaseModel):
     preprocessor_path: Path
 
 
-def load_and_verify_release(manifest_path: Path) -> VerifiedRelease:
+def load_and_verify_release(
+    manifest_path: Path,
+    *,
+    expected_release_id: str | None = None,
+    expected_manifest_sha256: str | None = None,
+) -> VerifiedRelease:
     try:
-        raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest_bytes = manifest_path.read_bytes()
+        raw = json.loads(manifest_bytes.decode("utf-8"))
         manifest = ModelReleaseManifest.model_validate(raw)
-    except (OSError, json.JSONDecodeError, ValueError) as error:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
         raise ManifestValidationError(f"模型发布 manifest 无效：{error}") from error
+
+    if expected_release_id is not None and manifest.model_release_id != expected_release_id:
+        raise ManifestValidationError("模型发布 ID 与部署固定版本不一致。")
+    if expected_manifest_sha256 is not None:
+        if not _is_sha256(expected_manifest_sha256):
+            raise ManifestValidationError("部署配置的 manifest SHA-256 格式无效。")
+        if hashlib.sha256(manifest_bytes).hexdigest() != expected_manifest_sha256:
+            raise ManifestValidationError("模型发布 manifest SHA-256 与部署固定版本不一致。")
 
     root = manifest_path.parent.resolve()
     checkpoint_path = _resolve_and_verify_file(
@@ -269,6 +283,10 @@ def _sha256(path: Path) -> str:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def _is_sha256(value: str) -> bool:
+    return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
 
 
 def _sha256_tree(path: Path) -> str:

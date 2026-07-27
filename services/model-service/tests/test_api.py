@@ -3,6 +3,7 @@ from io import BytesIO
 from fastapi.testclient import TestClient
 from PIL import Image
 
+from app import main
 from app.main import _mock_latency_seconds, app
 
 
@@ -116,6 +117,20 @@ def test_ready_and_current_model_expose_mock_provenance() -> None:
     assert ready.json()["mode"] == "mock"
     assert model.json()["prediction_origin"] == "mock_demo"
     assert model.json()["type_source_mode"] == "predicted_soft"
+
+
+def test_real_ready_fails_closed_without_release_identity_pins(monkeypatch) -> None:
+    monkeypatch.setattr(main, "MODEL_MODE", "real")
+    monkeypatch.setattr(main, "RELEASE_MANIFEST_PATH", "/private/model-release.json")
+    monkeypatch.setattr(main, "EXPECTED_MODEL_RELEASE_ID", "")
+    monkeypatch.setattr(main, "EXPECTED_MODEL_MANIFEST_SHA256", "")
+    client = TestClient(app)
+
+    response = client.get("/ready")
+
+    assert response.status_code == 503
+    assert response.json()["ready"] is False
+    assert "固定预期 release ID 与 manifest SHA-256" in response.json()["detail"]
 
 
 def test_batch_returns_each_image_question_combination() -> None:

@@ -6,6 +6,8 @@ services:
     environment:
       RSVQA_MODEL_MODE: real
       RSVQA_RELEASE_MANIFEST: ${RSVQA_RELEASE_MANIFEST:?Set the immutable model-release.json path inside the mounted release directory}
+      RSVQA_EXPECTED_MODEL_RELEASE_ID: ${RSVQA_EXPECTED_MODEL_RELEASE_ID:-rsvqa-hr-qdrop15-predicted-soft-20260727-9b4ade2}
+      RSVQA_EXPECTED_MODEL_MANIFEST_SHA256: ${RSVQA_EXPECTED_MODEL_MANIFEST_SHA256:-cce9b8bb48d5cf0213ce789290ceea7525ad2c1d96eba66867c733f1bbc78045}
       RSVQA_MODEL_DEVICE: ${RSVQA_MODEL_DEVICE:-cpu}
     healthcheck:
       start_period: 180s
