@@ -116,6 +116,61 @@ describe("feature pages", () => {
     expect(revokeObjectURL).toHaveBeenCalledTimes(40);
   });
 
+  it("shows persisted batch result thumbnails and opens them in the page lightbox", async () => {
+    const job = {
+      id: "job-1",
+      status: "COMPLETED",
+      totalItems: 1,
+      completedItems: 1,
+      failedItems: 0,
+      cancelRequested: false,
+      archived: false,
+      modelReleaseId: "research-release-1",
+      progressPercent: 100,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      items: [{
+        id: "item-1",
+        imageName: "sample.png",
+        question: "图中有多少建筑物？",
+        status: "COMPLETED",
+        answer: "3",
+        predictionOrigin: "research_model",
+        confidence: 0.82,
+        margin: 0.3,
+        predictedQuestionType: "count",
+        requestId: "request-1",
+        modelReleaseId: "research-release-1",
+        latencyMs: 25,
+        errorCode: null,
+        errorMessage: null,
+        attemptCount: 1,
+      }],
+    };
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith("/api/v1/batch-jobs/job-1")) return jsonResponse(job);
+      return jsonResponse([job]);
+    }));
+    const user = userEvent.setup();
+    renderPage(<BatchPage />);
+
+    await user.click(await screen.findByRole("button", { name: "查看最近任务" }));
+    const thumbnail = await screen.findByRole("button", { name: "查看结果原图 sample.png" });
+    expect(thumbnail.querySelector("img")).toHaveAttribute(
+      "src",
+      "/api/v1/batch-jobs/job-1/items/item-1/image",
+    );
+
+    await user.click(thumbnail);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getAllByText("问题：图中有多少建筑物？")).toHaveLength(2);
+    expect(screen.getByRole("img", { name: "批量任务遥感图像 sample.png" })).toHaveAttribute(
+      "src",
+      "/api/v1/batch-jobs/job-1/items/item-1/image",
+    );
+  });
+
   it("renders a traceable deterministic report and its review queue", async () => {
     const facts = {
       scopeType: "PROJECT",

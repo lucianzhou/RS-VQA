@@ -5,6 +5,7 @@ import { AppTopbar, ModelSelector, StatusBadge } from "../components/AppChrome";
 import { ImageLightbox } from "../components/ImageLightbox";
 import { archiveBatchJob, cancelBatchJob, createBatchJob, getBatchJob, listBatchJobs, retryBatchFailures } from "../api";
 import { useWorkspaceStore } from "../store";
+import type { BatchItem } from "../types";
 
 const IMAGES_PER_PAGE = 20;
 const MAX_IMAGES = 200;
@@ -20,6 +21,7 @@ export function BatchPage() {
   const [activeJobId, setActiveJobId] = useState<string>();
   const [imagePage, setImagePage] = useState(1);
   const [previewIndex, setPreviewIndex] = useState<number>();
+  const [resultPreview, setResultPreview] = useState<{ jobId: string; item: BatchItem }>();
   const [selectionNotice, setSelectionNotice] = useState("");
   const activeProjectId = useWorkspaceStore((state) => state.activeProjectId);
   const previews = useMemo(
@@ -187,6 +189,15 @@ export function BatchPage() {
                   {activeJob.items.map((item) => (
                     <article key={item.id}>
                       <span className={`item-state ${item.status.toLowerCase()}`}>{item.status === "RUNNING" ? <LoaderCircle className="spin" size={14} /> : item.status === "COMPLETED" ? <CheckCircle2 size={14} /> : item.status === "FAILED" ? <AlertTriangle size={14} /> : <Layers3 size={14} />}</span>
+                      <button
+                        className="batch-result-thumbnail"
+                        type="button"
+                        aria-label={`查看结果原图 ${item.imageName}`}
+                        onClick={() => setResultPreview({ jobId: activeJob.id, item })}
+                      >
+                        <img src={batchItemImageUrl(activeJob.id, item.id)} alt="" loading="lazy" />
+                        <span><Maximize2 size={13} /></span>
+                      </button>
                       <div>
                         <strong>{item.imageName}</strong>
                         <p>{item.question}</p>
@@ -225,6 +236,14 @@ export function BatchPage() {
         meta={selectedPreview ? `${(selectedPreview.file.size / 1024).toFixed(0)} KiB · 第 ${(previewIndex ?? 0) + 1} / ${files.length} 张` : undefined}
         onOpenChange={(open) => !open && setPreviewIndex(undefined)}
       />
+      <ImageLightbox
+        open={Boolean(resultPreview)}
+        src={resultPreview ? batchItemImageUrl(resultPreview.jobId, resultPreview.item.id) : ""}
+        alt={resultPreview ? `批量任务遥感图像 ${resultPreview.item.imageName}` : "批量任务遥感图像预览"}
+        title={resultPreview?.item.imageName}
+        meta={resultPreview ? `问题：${resultPreview.item.question}` : undefined}
+        onOpenChange={(open) => !open && setResultPreview(undefined)}
+      />
     </main>
   );
 }
@@ -241,4 +260,8 @@ function statusLabel(status: string) {
 
 function fileKey(file: File) {
   return `${file.name}:${file.size}:${file.lastModified}`;
+}
+
+function batchItemImageUrl(jobId: string, itemId: string) {
+  return `/api/v1/batch-jobs/${jobId}/items/${itemId}/image`;
 }

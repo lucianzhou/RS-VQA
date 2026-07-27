@@ -192,6 +192,14 @@ public class BatchService {
     }
 
     @Transactional(readOnly = true)
+    public ImageContent imageContent(UUID jobId, UUID itemId) {
+        ownedJob(jobId);
+        BatchItemEntity item = items.findByIdAndBatchJobId(itemId, jobId)
+                .orElseThrow(() -> new ResourceNotFoundException("批量任务影像不存在。"));
+        return new ImageContent(storage.read(item.getStorageKey()), item.getMimeType(), item.getOriginalName());
+    }
+
+    @Transactional(readOnly = true)
     public byte[] exportCsv(UUID jobId) {
         BatchJobResponse job = toResponse(ownedJob(jobId));
         StringBuilder csv = new StringBuilder("\uFEFFimage,question,status,answer,origin,confidence,latency_ms,error_code,attempt_count\n");
@@ -435,5 +443,8 @@ public class BatchService {
             String contentType,
             String question
     ) {
+    }
+
+    public record ImageContent(byte[] bytes, String mimeType, String name) {
     }
 }

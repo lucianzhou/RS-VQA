@@ -2,9 +2,12 @@ package com.rsvqa.gateway;
 
 import static com.rsvqa.gateway.BatchDtos.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpHeaders;
@@ -42,6 +45,24 @@ public class BatchController {
     @GetMapping("/{jobId}")
     public BatchJobResponse get(@PathVariable UUID jobId) {
         return batches.get(jobId);
+    }
+
+    @GetMapping("/{jobId}/items/{itemId}/image")
+    public ResponseEntity<ByteArrayResource> image(
+            @PathVariable UUID jobId,
+            @PathVariable UUID itemId
+    ) {
+        BatchService.ImageContent image = batches.imageContent(jobId, itemId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(image.mimeType()))
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.inline()
+                                .filename(image.name(), StandardCharsets.UTF_8)
+                                .build()
+                                .toString()
+                )
+                .body(new ByteArrayResource(image.bytes()));
     }
 
     @GetMapping(value = "/{jobId}/export.csv", produces = "text/csv")
