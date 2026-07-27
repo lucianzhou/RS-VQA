@@ -1,11 +1,13 @@
 package com.rsvqa.gateway;
 
+import java.time.Instant;
+import java.util.UUID;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rsvqa.gateway.domain.ModelReleaseEntity;
 import com.rsvqa.gateway.repository.ModelReleaseRepository;
 
 @Service
@@ -23,17 +25,15 @@ public class ModelReleaseRegistry {
     public void record(RuntimeModelInfoResponse model) {
         if (model.modelReleaseId() == null || model.modelReleaseId().isBlank()) return;
         String manifest = json(model.manifest());
-        releases.findByModelReleaseId(model.modelReleaseId())
-                .ifPresentOrElse(
-                        release -> release.refresh(model.mode(), manifest, model.ready()),
-                        () -> releases.save(new ModelReleaseEntity(
-                                model.modelReleaseId(),
-                                "mock".equalsIgnoreCase(model.mode()) ? "MOCK" : "RESEARCH_MODEL",
-                                model.mode(),
-                                manifest,
-                                model.ready()
-                        ))
-                );
+        releases.upsert(
+                UUID.randomUUID(),
+                model.modelReleaseId(),
+                "mock".equalsIgnoreCase(model.mode()) ? "MOCK" : "RESEARCH_MODEL",
+                model.mode(),
+                manifest,
+                model.ready(),
+                Instant.now()
+        );
     }
 
     private String json(Object value) {
