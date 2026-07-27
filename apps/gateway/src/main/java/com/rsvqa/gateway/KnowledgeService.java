@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -87,7 +88,13 @@ public class KnowledgeService {
         try {
             byte[] bytes = file.getBytes();
             String text = decodeUtf8(bytes);
-            return index(currentUser(), name, text, sha256(bytes), lower.endsWith(".md") ? "text/markdown" : "text/plain");
+            return indexOrReuse(
+                    currentUser(),
+                    name,
+                    text,
+                    sha256(bytes),
+                    lower.endsWith(".md") ? "text/markdown" : "text/plain"
+            );
         } catch (IOException error) {
             throw new RequestValidationException("无法读取知识文档。");
         }
@@ -99,9 +106,13 @@ public class KnowledgeService {
             byte[] bytes = new ClassPathResource("knowledge/approved-model-boundaries.md").getInputStream().readAllBytes();
             UserEntity user = currentUser();
             String hash = sha256(bytes);
-            return documents.findByUserIdAndSha256(user.getId(), hash)
-                    .map(this::toResponse)
-                    .orElseGet(() -> index(user, "RS-VQA 已核准模型边界.md", decodeUtf8(bytes), hash, "text/markdown"));
+            return indexOrReuse(
+                    user,
+                    "RS-VQA 已核准模型边界.md",
+                    decodeUtf8(bytes),
+                    hash,
+                    "text/markdown"
+            );
         } catch (IOException error) {
             throw new IllegalStateException("内置知识文档不可读取。", error);
         }
@@ -155,10 +166,38 @@ public class KnowledgeService {
         documents.delete(document);
     }
 
-    private KnowledgeDocumentResponse index(UserEntity user, String title, String text, String hash, String mimeType) {
-        KnowledgeDocumentEntity document = documents.save(new KnowledgeDocumentEntity(
+    private KnowledgeDocumentResponse indexOrReuse(
+            UserEntity user,
+            String title,
+            String text,
+            String hash,
+            String mimeType
+    ) {
+        Optional<KnowledgeDocumentEntity> existing = documents.findByUserIdAndSha256(user.getId(), hash);
+        if (existing.isPresent() && (
+                "READY".equals(existing.get().getStatus()) || "INDEXING".equals(existing.get().getStatus())
+        )) {
+            return toResponse(existing.get());
+        }
+        KnowledgeDocumentEntity document = existing.orElseGet(() -> documents.save(new KnowledgeDocumentEntity(
                 user, title, hash, mimeType, properties.defaultIndexVersion()
-        ));
+        )));
+        if (existing.isPresent()) {
+            document.beginIndexing();
+            chunks.deleteByDocumentId(document.getId());
+        }
+        if ("READY".equals(document.getStatus())) {
+            return toResponse(document);
+        }
+        return index(document, user, title, text);
+    }
+
+    private KnowledgeDocumentResponse index(
+            KnowledgeDocumentEntity document,
+            UserEntity user,
+            String title,
+            String text
+    ) {
         List<String> localChunks = chunk(text, 420, 70);
         try {
             IndexRuntimeResponse response = knowledgeClient.post()

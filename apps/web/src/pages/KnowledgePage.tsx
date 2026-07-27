@@ -23,7 +23,7 @@ export function KnowledgePage() {
         <div className="settings-layout">
         <header className="page-intro">
           <div><StatusBadge>引用优先的检索</StatusBadge><h2>让 Agent 依据已核准资料解释，而不是凭空补全</h2><p>知识检索只解释模型、系统与遥感 VQA 基础资料，不会替代图像分类推理。</p></div>
-          <button className="primary-button" type="button" disabled={seed.isPending} onClick={() => seed.mutate()}><ShieldCheck size={14} />{seed.isPending ? "正在建立索引…" : "导入已核准边界"}</button>
+          <button className="primary-button" type="button" disabled={seed.isPending} onClick={() => seed.mutate()}>{seed.isPending ? <LoaderCircle className="spin" size={14} /> : <ShieldCheck size={14} />}{seed.isPending ? "正在建立索引…" : "导入已核准边界"}</button>
         </header>
         <section className="plain-section">
           <div className="section-heading"><div><span>01</span><h3>索引文档</h3></div><button className="quiet-button" type="button" onClick={() => input.current?.click()}><Upload size={14} />导入 Markdown / TXT</button></div>
@@ -36,7 +36,11 @@ export function KnowledgePage() {
             <div className="knowledge-documents">
               {(documents.data ?? []).map((document) => <article key={document.id}>
                 <span><FileText size={17} /></span>
-                <div><strong>{document.title}</strong><small>{document.indexVersion} · {document.status}{document.errorMessage ? ` · ${document.errorMessage}` : ""}</small></div>
+                <div>
+                  <strong>{document.title}</strong>
+                  <small>{document.indexVersion} · {document.status}</small>
+                  {document.status === "FAILED" && <small className="knowledge-document-error"><AlertTriangle size={12} />上次索引失败。服务恢复后可重新导入并重试。</small>}
+                </div>
                 <button className="icon-button destructive" type="button" aria-label={`删除 ${document.title}`} onClick={() => remove.mutate(document.id)}><Trash2 size={14} /></button>
               </article>)}
               {documents.data?.length === 0 && <p className="empty-copy"><BookOpen size={17} />尚未建立知识索引。启动 RAG Profile 后可先导入内置已核准资料。</p>}

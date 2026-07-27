@@ -486,6 +486,7 @@ button, a { touch-action: manipulation; }
 .knowledge-documents strong, .knowledge-documents small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .knowledge-documents strong { font-size: 10px; }
 .knowledge-documents small { margin-top: 3px; color: var(--muted); font-size: 8px; }
+.knowledge-documents .knowledge-document-error { display: inline-flex; align-items: center; gap: 5px; color: var(--ochre); }
 .empty-copy { display: flex; align-items: center; gap: 7px; margin: 16px 0; color: var(--muted); font-size: 10px; line-height: 1.6; }
 .knowledge-search { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 6px 6px 10px; color: var(--forest); background: #fbfcfb; }
 .knowledge-search:focus-within { border-color: #8ba99a; box-shadow: 0 0 0 3px rgba(36,91,73,.07); }

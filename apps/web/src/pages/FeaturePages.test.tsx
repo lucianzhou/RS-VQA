@@ -71,6 +71,24 @@ describe("feature pages", () => {
     expect(screen.getByRole("button", { name: "检索" })).toBeEnabled();
   });
 
+  it("explains how to recover a failed knowledge index without exposing infrastructure errors", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse([{
+      id: "doc-failed",
+      title: "RS-VQA 已核准模型边界.md",
+      sha256: "b".repeat(64),
+      mimeType: "text/markdown",
+      indexVersion: "rsvqa-knowledge-v1",
+      status: "FAILED",
+      errorMessage: "Failed to resolve knowledge-service",
+      createdAt: new Date().toISOString(),
+    }])));
+    renderPage(<KnowledgePage />);
+
+    expect(await screen.findByText("上次索引失败。服务恢复后可重新导入并重试。")).toBeInTheDocument();
+    expect(screen.queryByText(/Failed to resolve/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "导入已核准边界" })).toBeEnabled();
+  });
+
   it("accepts more than 32 images, paginates by twenty, and releases object URLs", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse([])));
     const createObjectURL = vi.mocked(URL.createObjectURL);

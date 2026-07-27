@@ -76,6 +76,11 @@ public class KnowledgeDocumentEntity extends BaseEntity {
         return errorMessage;
     }
 
+    public void beginIndexing() {
+        status = "INDEXING";
+        errorMessage = null;
+    }
+
     public void ready() {
         status = "READY";
         errorMessage = null;
