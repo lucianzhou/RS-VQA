@@ -390,7 +390,7 @@ function Message({ message, onSelect }: { message: PersistedMessage; onSelect?: 
   const needsReview = answered && metadata.requiresReview;
   const provisional = answered && !isExternal && metadata.scopeVerification === "provisional";
   const answerLabel = needsReview ? "答案形式异常，请复核"
-    : answered ? (isExternal ? `${providerName} 回答` : "模型回答")
+    : answered ? (isExternal ? `${providerName} 回答` : isMock ? "Mock 演示回答" : "RS-VQA 研究模型回答")
     : metadata.needsClarification ? "需要补充说明"
     : "超出能力范围";
   const avatarKind = isExternal ? "EXTERNAL_VLM" : isMock ? "MOCK" : "RESEARCH_MODEL";
@@ -435,10 +435,22 @@ function Message({ message, onSelect }: { message: PersistedMessage; onSelect?: 
               <div><dt>输出来源</dt><dd>{originLabel(invocation.predictionOrigin, providerName)}</dd></div>
               {invocation.providerModel && <div><dt>Provider 模型</dt><dd>{invocation.providerModel}</dd></div>}
               {!isExternal && <div><dt>发布版本</dt><dd>{invocation.modelReleaseId ?? "无"}</dd></div>}
+              {invocation.taskScope && <div><dt>任务范围</dt><dd>{invocation.taskScope}</dd></div>}
               {metadata.modelInputQuestion && <div><dt>模型输入问题</dt><dd>{metadata.modelInputQuestion}</dd></div>}
               {metadata.normalizerVersion && <div><dt>问题规范化版本</dt><dd>{metadata.normalizerVersion}</dd></div>}
               {metadata.matchedIntent && <div><dt>识别题型</dt><dd>{intentLabel(metadata.matchedIntent)}</dd></div>}
-              {invocation.confidence != null && <div><dt>置信度</dt><dd>{(invocation.confidence * 100).toFixed(1)}%</dd></div>}
+              {invocation.confidenceDisplayEnabled !== false && invocation.confidence != null && <div><dt>置信度</dt><dd>{formatProbability(invocation.confidence)}</dd></div>}
+              {invocation.margin != null && <div><dt>预测间隔</dt><dd>{formatProbability(invocation.margin)}</dd></div>}
+              {(invocation.topK?.length ?? 0) > 0 && <div><dt>Top-k 候选</dt><dd>{formatTopK(invocation.topK!)}</dd></div>}
+              {Object.keys(invocation.questionTypeProbabilities ?? {}).length > 0 && (
+                <div><dt>题型概率</dt><dd>{formatTypeProbabilities(invocation.questionTypeProbabilities!)}</dd></div>
+              )}
+              {!isExternal && <div><dt>自动拒答</dt><dd>{invocation.automaticRejectionEnabled ? "已启用" : "未启用；置信度不作为风险保证"}</dd></div>}
+              {invocation.reviewStatus && <div><dt>复核状态</dt><dd>{reviewStatusLabel(invocation.reviewStatus)}</dd></div>}
+              {invocation.inputSha256 && <div><dt>输入 SHA-256</dt><dd>{invocation.inputSha256}</dd></div>}
+              {invocation.checkpointSha256 && <div><dt>Checkpoint</dt><dd>{invocation.checkpointSha256}</dd></div>}
+              {invocation.answerVocabularySha256 && <div><dt>答案词表</dt><dd>{invocation.answerVocabularySha256}</dd></div>}
+              {invocation.runtimeArtifactSha256 && <div><dt>Runtime</dt><dd>{invocation.runtimeArtifactSha256}</dd></div>}
               {invocation.totalTokens != null && <div><dt>Token 用量</dt><dd>{invocation.totalTokens}（输入 {invocation.promptTokens ?? "?"} / 输出 {invocation.completionTokens ?? "?"}）</dd></div>}
               {invocation.latencyMs != null && <div><dt>模型耗时</dt><dd>{invocation.latencyMs} ms</dd></div>}
               <div><dt>请求编号</dt><dd>{invocation.requestId}</dd></div>
@@ -509,8 +521,30 @@ function intentLabel(intent: string) {
   if (intent === "presence") return "存在性";
   if (intent === "count") return "数量";
   if (intent === "area") return "面积";
-  if (intent === "comparison") return "比较";
+  if (intent === "comp" || intent === "comparison") return "比较";
   return intent;
+}
+
+function formatProbability(value: number) {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatTopK(items: Array<{ answer: string; probability: number }>) {
+  return items.map((item) => `${item.answer} ${formatProbability(item.probability)}`).join(" · ");
+}
+
+function formatTypeProbabilities(values: Record<string, number>) {
+  return Object.entries(values)
+    .sort((left, right) => right[1] - left[1])
+    .map(([name, probability]) => `${intentLabel(name)} ${formatProbability(probability)}`)
+    .join(" · ");
+}
+
+function reviewStatusLabel(value: string) {
+  if (value === "model_answer_not_risk_guaranteed") return "模型原始回答；未提供风险保证";
+  if (value === "external_model_answer_requires_domain_verification") return "外部模型回答；需要领域核验";
+  if (value === "mock_answer_not_research_evidence") return "Mock 演示；不是研究证据";
+  return value;
 }
 
 function externalModelName(providerId: string, modelId?: string | null) {

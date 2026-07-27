@@ -187,7 +187,26 @@ export function BatchPage() {
                   {activeJob.items.map((item) => (
                     <article key={item.id}>
                       <span className={`item-state ${item.status.toLowerCase()}`}>{item.status === "RUNNING" ? <LoaderCircle className="spin" size={14} /> : item.status === "COMPLETED" ? <CheckCircle2 size={14} /> : item.status === "FAILED" ? <AlertTriangle size={14} /> : <Layers3 size={14} />}</span>
-                      <div><strong>{item.imageName}</strong><p>{item.question}</p><small>{item.answer ?? item.errorMessage ?? item.status}</small></div>
+                      <div>
+                        <strong>{item.imageName}</strong>
+                        <p>{item.question}</p>
+                        <small>{item.answer ?? item.errorMessage ?? item.status}</small>
+                        {item.status === "COMPLETED" && (
+                          <details className="batch-item-details">
+                            <summary>查看模型详情</summary>
+                            <dl>
+                              {item.modelReleaseId && <div><dt>发布版本</dt><dd>{item.modelReleaseId}</dd></div>}
+                              {item.modelInputQuestion && <div><dt>模型输入</dt><dd>{item.modelInputQuestion}</dd></div>}
+                              {item.margin != null && <div><dt>预测间隔</dt><dd>{(item.margin * 100).toFixed(1)}%</dd></div>}
+                              {(item.topK?.length ?? 0) > 0 && <div><dt>Top-k</dt><dd>{item.topK!.map((candidate) => `${candidate.answer} ${(candidate.probability * 100).toFixed(1)}%`).join(" · ")}</dd></div>}
+                              <div><dt>自动拒答</dt><dd>{item.automaticRejectionEnabled ? "已启用" : "未启用"}</dd></div>
+                              {item.imageSha256 && <div><dt>输入 SHA-256</dt><dd>{item.imageSha256}</dd></div>}
+                              {item.requestId && <div><dt>请求编号</dt><dd>{item.requestId}</dd></div>}
+                            </dl>
+                            {item.matchedIntent === "count" && <p>数量模型对非零和密集目标存在系统性低估风险。</p>}
+                          </details>
+                        )}
+                      </div>
                       {item.confidence != null && <em>{(item.confidence * 100).toFixed(1)}%</em>}
                     </article>
                   ))}

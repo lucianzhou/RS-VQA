@@ -28,7 +28,7 @@ test("persists an image, multi-turn VQA, provenance, and agent tools", async ({ 
   const question = page.getByLabel("向当前影像提问");
   await question.fill("图中有没有道路？");
   await page.getByRole("button", { name: "发送问题" }).click();
-  await expect(page.getByText("模型回答")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/RS-VQA 研究模型回答|Mock 演示回答/)).toBeVisible({ timeout: 30_000 });
 
   await question.fill("图中有多少建筑物？");
   await page.getByRole("button", { name: "发送问题" }).click();

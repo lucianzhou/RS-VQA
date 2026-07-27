@@ -147,6 +147,12 @@ describe("WorkspacePage", () => {
     // The raw closed-set prediction stays the primary value.
     expect(screen.getByText("3", { selector: ".answer-value" })).toBeInTheDocument();
     expect(screen.getByText("3 条道路", { selector: ".answer-display" })).toBeInTheDocument();
+    await userEvent.click(screen.getByText("查看模型与调用信息"));
+    expect(screen.getByText("未启用；置信度不作为风险保证")).toBeInTheDocument();
+    expect(screen.getByText("3 88.0% · 2 7.0%")).toBeInTheDocument();
+    expect(screen.getByText(/数量 96.0%/)).toBeInTheDocument();
+    expect(screen.getByText("模型原始回答；未提供风险保证")).toBeInTheDocument();
+    expect(screen.getByText("a".repeat(64))).toBeInTheDocument();
   });
 
   it("keeps the raw prediction when no localized rendering is available", async () => {
@@ -282,6 +288,22 @@ function withAssistantMessage(options: {
         completionTokens: null,
         totalTokens: null,
         estimatedCostUsd: null,
+        checkpointSha256: "b".repeat(64),
+        answerVocabularySha256: "c".repeat(64),
+        runtimeArtifactSha256: "d".repeat(64),
+        inputSha256: "a".repeat(64),
+        taskScope: "RSVQA-HR grouped 55-answer closed-set classification",
+        limitations: ["Closed-set only."],
+        capabilityNotice: "研究模型输出仅适用于已验证闭集范围。",
+        reviewStatus: "model_answer_not_risk_guaranteed",
+        automaticRejectionEnabled: false,
+        confidenceDisplayEnabled: true,
+        manualReviewSignalEnabled: true,
+        topK: [
+          { answer: "3", probability: 0.88 },
+          { answer: "2", probability: 0.07 },
+        ],
+        questionTypeProbabilities: { count: 0.96, presence: 0.04 },
       },
       createdAt: new Date().toISOString(),
     }],

@@ -193,6 +193,7 @@ export function ReportsPage() {
                   <footer className="report-provenance">
                     <div><strong>模型发布</strong><span>{facts.modelReleaseIds.join(", ") || "无已记录发布"}</span></div>
                     <div><strong>请求编号</strong><span>{detail.data.report.requestId}</span></div>
+                    <p><ShieldCheck size={14} />{facts.reviewPolicy}</p>
                     <p><ShieldCheck size={14} />{facts.calculationBoundary}</p>
                     <div className="report-export-actions">
                       <a className="quiet-button" href={`/api/v1/reports/${detail.data.report.id}/export?format=md`}><Download size={14} />Markdown</a>
