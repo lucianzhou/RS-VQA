@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -97,6 +97,12 @@ class PredictionResponse(BaseModel):
     task_scope: str = TASK_SCOPE
     limitations: list[str] = Field(default_factory=list)
     capability_notice: str
+    review_status: Literal["model_answer_not_risk_guaranteed"] = (
+        "model_answer_not_risk_guaranteed"
+    )
+    automatic_rejection_enabled: Literal[False] = False
+    confidence_display_enabled: Literal[True] = True
+    manual_review_signal_enabled: Literal[True] = True
     input_sha256: str = Field(description="SHA-256 of the in-memory upload.")
     latency_ms: int = Field(ge=0)
     runtime_mode: RuntimeMode

@@ -170,7 +170,7 @@ public class ReportService {
                 .append("| 已回答 | ").append(facts.answeredCount()).append(" |\n")
                 .append("| 超出范围/拒答 | ").append(facts.unsupportedCount()).append(" |\n")
                 .append("| 失败 | ").append(facts.failedCount()).append(" |\n")
-                .append("| 低置信度（<0.65） | ").append(facts.lowConfidenceCount()).append(" |\n")
+                .append("| 明确复核项 | ").append(facts.reviewRecommendedCount()).append(" |\n")
                 .append("| 平均置信度 | ").append(value(facts.averageConfidence())).append(" |\n")
                 .append("| 平均 margin | ").append(value(facts.averageMargin())).append(" |\n\n");
         appendDistribution(body, "问题类型分布", facts.questionTypeDistribution());
@@ -179,13 +179,14 @@ public class ReportService {
         appendDistribution(body, "置信度区间", facts.confidenceDistribution());
         body.append("## 需要人工复核\n\n");
         if (facts.reviewCases().isEmpty()) {
-            body.append("当前持久化记录中没有低置信度、拒答或失败案例。\n\n");
+            body.append("当前持久化记录中没有超范围、调用失败或答案形式异常案例。\n\n");
         } else {
-            body.append("| 图像/会话 | 问题 | 原始答案 | 状态 | 置信度 | 请求编号 |\n")
-                    .append("| --- | --- | --- | --- | ---: | --- |\n");
+            body.append("| 图像/会话 | 问题 | 原始答案 | 状态 | 复核原因 | 置信度 | 请求编号 |\n")
+                    .append("| --- | --- | --- | --- | --- | ---: | --- |\n");
             for (AnalysisCase item : facts.reviewCases()) {
                 body.append("| ").append(cell(item.scopeLabel())).append(" | ").append(cell(item.question()))
                         .append(" | ").append(cell(item.answer())).append(" | ").append(cell(item.status()))
+                        .append(" | ").append(cell(item.reviewReason()))
                         .append(" | ").append(value(item.confidence())).append(" | `")
                         .append(cell(item.requestId())).append("` |\n");
             }
@@ -193,6 +194,8 @@ public class ReportService {
         }
         body.append("## 能力边界\n\n")
                 .append("- 研究模型是 RSVQA-HR grouped-answer 的 55 类闭集分类器，不是开放式通用遥感助手。\n")
+                .append("- 系统不根据固定置信度阈值自动拒答；confidence、margin 和分箱只描述模型输出分布。\n")
+                .append("- Count 对非零和密集目标存在系统性低估风险，数量结论应结合业务要求人工复核。\n")
                 .append("- 本报告中的数量、分布与均值由后端确定性计算；尚未配置的 Agent 摘要不会被伪造。\n")
                 .append("- Mock、研究模型、外部 VLM 与 Agent 输出必须依据 provenance 分开解释。\n\n")
                 .append("---\n").append(facts.calculationBoundary()).append('\n');

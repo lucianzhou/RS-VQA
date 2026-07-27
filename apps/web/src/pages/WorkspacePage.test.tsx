@@ -106,7 +106,7 @@ describe("WorkspacePage", () => {
           modelReleaseId: "release-1",
           providerType: "RESEARCH_MODEL",
           providerModel: null,
-          confidence: 0.65,
+          confidence: 0.64,
           margin: 0.35,
           latencyMs: 700,
           promptTokens: null,

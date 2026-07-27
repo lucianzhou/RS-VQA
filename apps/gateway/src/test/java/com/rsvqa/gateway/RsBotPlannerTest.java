@@ -68,23 +68,26 @@ class RsBotPlannerTest {
     @Test
     void callsToolsInSequenceAndSynthesizesFromTheirOutput() {
         var summary = new RecordingTool("project_summary", "{\"questionCount\":42}");
-        var confidence = new RecordingTool("confidence_distribution", "{\"lowConfidenceCount\":7}");
+        var confidence = new RecordingTool(
+                "confidence_distribution",
+                "{\"automaticRejectionEnabled\":false,\"reviewRecommendedCount\":2}"
+        );
         var draft = new RecordingTool("report_draft_data", "{\"facts\":\"ok\"}");
         model.script(
                 toolCall("project_summary", "{\"projectId\":\"" + PROJECT_ID + "\"}"),
                 toolCall("confidence_distribution", "{\"scopeType\":\"project\"}"),
                 toolCall("report_draft_data", "{\"scopeType\":\"project\"}"),
-                text("项目共 42 个问题，其中 7 个低置信度。"));
+                text("项目共 42 个问题，其中 2 个明确复核项；系统未启用自动拒答。"));
 
         var result = planner().plan(
-                projectRequest("汇总这个项目的 VQA 结果，找出低置信度案例，并生成报告草稿"),
+                projectRequest("汇总这个项目的 VQA 结果，找出明确复核项，并生成报告草稿"),
                 new ToolCallback[] {summary, confidence, draft},
                 () -> false);
 
         assertThat(result.toolCalls()).extracting(RsBotPlanner.ExecutedTool::name)
                 .containsExactly("project_summary", "confidence_distribution", "report_draft_data");
         assertThat(result.toolCalls()).allMatch(call -> "COMPLETED".equals(call.status()));
-        assertThat(result.answer()).isEqualTo("项目共 42 个问题，其中 7 个低置信度。");
+        assertThat(result.answer()).isEqualTo("项目共 42 个问题，其中 2 个明确复核项；系统未启用自动拒答。");
         assertThat(result.stopReason()).isEqualTo("completed");
         assertThat(result.steps()).isEqualTo(4);
         assertThat(result.providerModel()).isEqualTo("gemini-3.6-flash");

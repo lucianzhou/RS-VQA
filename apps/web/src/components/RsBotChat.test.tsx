@@ -9,7 +9,7 @@ function run(overrides: Partial<AgentHistoryRun> = {}): AgentHistoryRun {
     runId: "run-1",
     status: "COMPLETED",
     input: "汇总这个项目的 VQA 结果",
-    answer: "项目共 42 个问题，其中 7 个低置信度。",
+    answer: "项目共 42 个问题，其中 2 个明确复核项。",
     traceId: "trace-1",
     latencyMs: 820,
     providerId: "gemini",
@@ -48,7 +48,7 @@ describe("RsBotChat", () => {
     renderChat({ runs: [run()] });
 
     expect(screen.getByText("汇总这个项目的 VQA 结果")).toBeInTheDocument();
-    expect(screen.getByText("项目共 42 个问题，其中 7 个低置信度。")).toBeInTheDocument();
+    expect(screen.getByText("项目共 42 个问题，其中 2 个明确复核项。")).toBeInTheDocument();
     expect(screen.getByText(/trace-1/)).toBeInTheDocument();
     expect(screen.getByText(/gemini-3.6-flash/)).toBeInTheDocument();
     expect(screen.getByText("3 步")).toBeInTheDocument();

@@ -20,7 +20,8 @@ final class AnalyticsDtos {
             String predictedQuestionType,
             Double confidence,
             Double margin,
-            String requestId
+            String requestId,
+            String reviewReason
     ) {
     }
 
@@ -34,7 +35,10 @@ final class AnalyticsDtos {
             int answeredCount,
             int unsupportedCount,
             int failedCount,
-            int lowConfidenceCount,
+            int reviewRecommendedCount,
+            boolean automaticRejectionEnabled,
+            boolean confidenceDisplayEnabled,
+            boolean manualReviewSignalEnabled,
             Double averageConfidence,
             Double averageMargin,
             Map<String, Long> questionTypeDistribution,
@@ -44,6 +48,7 @@ final class AnalyticsDtos {
             List<String> modelReleaseIds,
             List<AnalysisCase> representativeCases,
             List<AnalysisCase> reviewCases,
+            String reviewPolicy,
             String calculationBoundary
     ) {
     }

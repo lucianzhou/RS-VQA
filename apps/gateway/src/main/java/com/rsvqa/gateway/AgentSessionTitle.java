@@ -21,7 +21,7 @@ final class AgentSessionTitle {
 
     /** Ordered so more specific topics win over generic ones. */
     private static final List<Topic> TOPICS = List.of(
-            new Topic("低置信度分析", "低置信", "置信度", "confidence"),
+            new Topic("置信度分布", "置信度", "confidence"),
             new Topic("失败项排查", "失败", "错误", "报错"),
             new Topic("超范围问题分析", "不支持", "超范围", "拒答", "澄清"),
             new Topic("报告草稿", "报告", "草稿", "report"),

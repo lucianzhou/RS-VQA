@@ -32,6 +32,10 @@ def test_answered_response_is_explicitly_mock() -> None:
     assert body["top_k"]
     assert body["predicted_question_type"] == "presence"
     assert body["runtime_mode"] == "mock"
+    assert body["review_status"] == "model_answer_not_risk_guaranteed"
+    assert body["automatic_rejection_enabled"] is False
+    assert body["confidence_display_enabled"] is True
+    assert body["manual_review_signal_enabled"] is True
 
 
 def test_unsupported_question_is_not_answered() -> None:

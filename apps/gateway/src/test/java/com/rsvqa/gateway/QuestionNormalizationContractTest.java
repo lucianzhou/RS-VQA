@@ -167,7 +167,8 @@ class QuestionNormalizationContractTest {
                 "r", "answered", true, answer, 0.9, 0.5, List.of(),
                 "What is the amount of roads?", questionType, questionType, java.util.Map.of(),
                 "research_vilt_predicted_soft", "release", null, null, null,
-                "rsvqa_hr_grouped_closed_set", List.of(), "notice", 10L, "real",
+                "rsvqa_hr_grouped_closed_set", List.of(), "notice",
+                "model_answer_not_risk_guaranteed", false, true, true, 10L, "real",
                 ApiPredictionResponse.QuestionUnderstanding.notApplicable("有几条路？"),
                 new ApiPredictionResponse.AnswerPresentation(null, null, mismatch)
         );

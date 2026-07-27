@@ -25,7 +25,7 @@ import {
 } from "../api";
 import { AppTopbar, StatusBadge } from "../components/AppChrome";
 import { useWorkspaceStore } from "../store";
-import type { AnalysisStatistics } from "../types";
+import type { AnalysisCase, AnalysisStatistics } from "../types";
 
 export function ReportsPage() {
   const queryClient = useQueryClient();
@@ -164,7 +164,7 @@ export function ReportsPage() {
                     <Metric label="图像" value={facts.imageCount} />
                     <Metric label="问题/调用" value={facts.questionCount} />
                     <Metric label="已回答" value={facts.answeredCount} />
-                    <Metric label="低置信度" value={facts.lowConfidenceCount} tone={facts.lowConfidenceCount ? "warning" : undefined} />
+                    <Metric label="明确复核" value={facts.reviewRecommendedCount} tone={facts.reviewRecommendedCount ? "warning" : undefined} />
                     <Metric label="超范围" value={facts.unsupportedCount} tone={facts.unsupportedCount ? "warning" : undefined} />
                     <Metric label="失败" value={facts.failedCount} tone={facts.failedCount ? "danger" : undefined} />
                   </div>
@@ -177,12 +177,12 @@ export function ReportsPage() {
 
                   <section className="review-section">
                     <div className="section-heading"><div><span>REVIEW</span><h3>需要人工复核</h3></div><small>{facts.reviewCases.length} 项</small></div>
-                    {facts.reviewCases.length === 0 ? <p className="empty-copy"><Check size={14} />当前没有低置信度、拒答或失败案例。</p> : (
+                    {facts.reviewCases.length === 0 ? <p className="empty-copy"><Check size={14} />当前没有超范围、调用失败或答案形式异常案例。</p> : (
                       <div className="review-table">
                         {facts.reviewCases.map((item) => (
                           <article key={item.scopeItemId}>
                             <div><strong>{item.scopeLabel}</strong><p>{item.question}</p></div>
-                            <span>{item.answer ?? item.status}</span>
+                            <span>{item.answer ?? item.status} · {reviewReasonLabel(item.reviewReason)}</span>
                             <em>{item.confidence == null ? "N/A" : `${(item.confidence * 100).toFixed(1)}%`}</em>
                           </article>
                         ))}
@@ -239,4 +239,11 @@ function originLabel(value: string) {
   if (value === "external_vlm_assist") return "外部 VLM";
   if (value === "not_applicable") return "不适用";
   return value;
+}
+
+function reviewReasonLabel(value: AnalysisCase["reviewReason"]) {
+  if (value === "unsupported") return "超出范围";
+  if (value === "failed") return "调用失败";
+  if (value === "answer_shape_mismatch") return "答案形式异常";
+  return "待复核";
 }

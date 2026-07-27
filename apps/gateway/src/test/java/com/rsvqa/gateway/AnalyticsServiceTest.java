@@ -85,7 +85,8 @@ class AnalyticsServiceTest {
         assertThat(result.questionCount()).isEqualTo(3);
         assertThat(result.answeredCount()).isEqualTo(2);
         assertThat(result.unsupportedCount()).isEqualTo(1);
-        assertThat(result.lowConfidenceCount()).isEqualTo(1);
+        assertThat(result.reviewRecommendedCount()).isEqualTo(1);
+        assertThat(result.automaticRejectionEnabled()).isFalse();
         assertThat(result.averageConfidence()).isEqualTo(0.7);
         assertThat(result.questionTypeDistribution())
                 .containsEntry("presence", 1L)
@@ -93,7 +94,7 @@ class AnalyticsServiceTest {
                 .containsEntry("other", 1L);
         assertThat(result.answerDistribution()).containsEntry("yes", 1L).containsEntry("4", 1L);
         assertThat(result.reviewCases()).extracting(AnalyticsDtos.AnalysisCase::requestId)
-                .containsExactly("request-2", "request-3");
+                .containsExactly("request-3");
         assertThat(result.calculationBoundary()).contains("确定性计算");
     }
 

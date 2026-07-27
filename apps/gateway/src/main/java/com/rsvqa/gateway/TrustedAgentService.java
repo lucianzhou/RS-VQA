@@ -527,7 +527,7 @@ public class TrustedAgentService {
             case "project_conversations" -> "已读取项目内当前可访问的会话清单、图像状态和更新时间。";
             case "project_vqa_statistics" -> "已由后端确定性统计项目内的题型、答案、置信度、拒答和失败记录；这些数字不是由 Agent 估算。";
             case "batch_result_statistics" -> "已由后端确定性统计批量任务结果和需人工复核案例；Agent 不会自行计数或改写原始预测。";
-            case "confidence_distribution" -> "已读取后端确定性置信度分箱、均值和低置信度数量；末位浮点值不由 Agent 重算。";
+            case "confidence_distribution" -> "已读取后端确定性置信度分箱和均值。系统不使用全局置信度阈值自动拒答，Agent 也不会把分箱解释为正确率或风险保证。";
             case "unsupported_question_summary" -> "已汇总超范围或拒答数量和可复核样例；这些记录不应被外部模型回答覆盖。";
             case "failed_invocation_summary" -> "已汇总失败调用和错误案例；成功结果保持不变。";
             case "report_draft_data" -> "已读取可用于报告草稿的结构化事实包；保存或导出报告需要独立的受控操作。";

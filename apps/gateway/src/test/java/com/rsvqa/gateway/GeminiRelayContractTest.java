@@ -199,12 +199,12 @@ class GeminiRelayContractTest {
 
     @Test
     void agentRoleParsesStructuredJsonContent() {
-        server.enqueue(chatCompletion("{\\\"lowConfidence\\\": 3}"));
+        server.enqueue(chatCompletion("{\\\"reviewRecommended\\\": 3}"));
         var agent = new GeminiRelayAgentModel(properties("", "gemini-3.6-flash", 0), ObservationRegistry.NOOP);
 
         ChatResponse response = agent.chatModel().call(new Prompt("以 JSON 返回"));
 
-        assertThat(response.getResult().getOutput().getText()).contains("lowConfidence");
+        assertThat(response.getResult().getOutput().getText()).contains("reviewRecommended");
     }
 
     @Test
@@ -237,9 +237,9 @@ class GeminiRelayContractTest {
                 .setResponseCode(200)
                 .setHeader("Content-Type", "text/event-stream")
                 .setBody("""
-                        data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"role":"assistant","content":"低"}}]}
+                        data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"role":"assistant","content":"复"}}]}
 
-                        data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":"置信"}}]}
+                        data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":"核"}}]}
 
                         data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":"案例"},"finish_reason":"stop"}]}
 
@@ -249,13 +249,13 @@ class GeminiRelayContractTest {
         var agent = new GeminiRelayAgentModel(properties("", "gemini-3.6-flash", 0), ObservationRegistry.NOOP);
 
         String assembled = agent.chatModel()
-                .stream(new Prompt("列出低置信度案例"))
+                .stream(new Prompt("列出明确复核案例"))
                 .toStream()
                 .map(chunk -> chunk.getResult() == null || chunk.getResult().getOutput() == null
                         ? "" : String.valueOf(chunk.getResult().getOutput().getText()))
                 .reduce("", String::concat);
 
-        assertThat(assembled).contains("低").contains("置信").contains("案例");
+        assertThat(assembled).contains("复").contains("核").contains("案例");
     }
 
     // --- failure modes -----------------------------------------------------

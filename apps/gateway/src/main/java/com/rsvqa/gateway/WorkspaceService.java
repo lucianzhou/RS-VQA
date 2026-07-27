@@ -325,6 +325,10 @@ public class WorkspaceService {
         Map<String, Object> metadataValues = new LinkedHashMap<>();
         metadataValues.put("capabilityNotice", capabilityNotice);
         metadataValues.put("requiresReview", requiresReview);
+        metadataValues.put("reviewStatus", result.reviewStatus());
+        metadataValues.put("automaticRejectionEnabled", result.automaticRejectionEnabled());
+        metadataValues.put("confidenceDisplayEnabled", result.confidenceDisplayEnabled());
+        metadataValues.put("manualReviewSignalEnabled", result.manualReviewSignalEnabled());
         metadataValues.put("needsClarification", understanding.needsClarification());
         metadataValues.put("clarificationOptions", understanding.clarificationOptions());
         putIfPresent(metadataValues, "canonicalQuestion", understanding.canonicalQuestion());
@@ -467,6 +471,10 @@ public class WorkspaceService {
                         "不保证适用于专业遥感定量解译，重要结论需要人工核验。"
                 ),
                 "外部通用视觉辅助回答；与闭集 RS-VQA 研究模型严格分离。",
+                "external_model_answer_requires_domain_verification",
+                false,
+                false,
+                true,
                 external.latencyMs(),
                 "external_provider",
                 ApiPredictionResponse.QuestionUnderstanding.notApplicable(question),

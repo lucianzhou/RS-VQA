@@ -35,8 +35,6 @@ import com.rsvqa.gateway.repository.UserRepository;
 @Service
 public class AnalyticsService {
 
-    private static final double LOW_CONFIDENCE_THRESHOLD = 0.65;
-
     private final UserRepository users;
     private final ProjectRepository projects;
     private final ConversationRepository conversations;
@@ -84,7 +82,8 @@ public class AnalyticsService {
                         resolvedQuestionType(call.getPredictedQuestionType(), call.getQuestion()),
                         call.getConfidence(),
                         call.getMargin(),
-                        call.getRequestId()
+                        call.getRequestId(),
+                        call.isAnswerShapeMismatch()
                 ))
                 .toList();
         int imageCount = (int) projectConversations.stream()
@@ -118,7 +117,8 @@ public class AnalyticsService {
                         resolvedQuestionType(item.getPredictedQuestionType(), item.getQuestion()),
                         item.getConfidence(),
                         item.getMargin(),
-                        item.getRequestId()
+                        item.getRequestId(),
+                        false
                 ))
                 .toList();
         int imageCount = (int) items.stream().map(BatchItemEntity::getOriginalName).distinct().count();
@@ -143,7 +143,7 @@ public class AnalyticsService {
         int answered = (int) facts.stream().filter(Fact::answered).count();
         int unsupported = (int) facts.stream().filter(Fact::unsupported).count();
         int failed = (int) facts.stream().filter(Fact::failed).count();
-        int lowConfidence = (int) facts.stream().filter(Fact::lowConfidence).count();
+        int reviewRecommended = (int) facts.stream().filter(Fact::reviewRecommended).count();
         List<Double> confidences = facts.stream().map(Fact::confidence).filter(Objects::nonNull).toList();
         List<Double> margins = facts.stream().map(Fact::margin).filter(Objects::nonNull).toList();
 
@@ -153,7 +153,7 @@ public class AnalyticsService {
                 .map(Fact::toCase)
                 .toList();
         List<AnalysisCase> review = facts.stream()
-                .filter(fact -> fact.lowConfidence() || fact.unsupported() || fact.failed())
+                .filter(Fact::reviewRecommended)
                 .limit(20)
                 .map(Fact::toCase)
                 .toList();
@@ -168,7 +168,10 @@ public class AnalyticsService {
                 answered,
                 unsupported,
                 failed,
-                lowConfidence,
+                reviewRecommended,
+                false,
+                true,
+                true,
                 average(confidences),
                 average(margins),
                 distribution(facts, Fact::questionType, false),
@@ -178,22 +181,23 @@ public class AnalyticsService {
                 facts.stream().map(Fact::modelReleaseId).filter(Objects::nonNull).filter(value -> !value.isBlank()).distinct().sorted().toList(),
                 representative,
                 review,
-                "全部计数、比例、均值和分布由 Java 对当前用户可访问的持久化记录确定性计算；低置信度阈值固定为 0.65。"
+                "系统不启用全局置信度自动拒答；仅超范围、调用失败和答案形式异常会进入明确复核清单。",
+                "全部计数、比例、均值和分布由 Java 对当前用户可访问的持久化记录确定性计算；置信度和 margin 仅用于展示模型分布，不代表正确率或风险保证。"
         );
     }
 
     private static Map<String, Long> confidenceDistribution(List<Fact> facts) {
         Map<String, Long> bins = new LinkedHashMap<>();
-        bins.put("[0,0.5)", 0L);
-        bins.put("[0.5,0.65)", 0L);
-        bins.put("[0.65,0.8)", 0L);
-        bins.put("[0.8,1.0]", 0L);
+        bins.put("[0,0.25)", 0L);
+        bins.put("[0.25,0.5)", 0L);
+        bins.put("[0.5,0.75)", 0L);
+        bins.put("[0.75,1.0]", 0L);
         for (Fact fact : facts) {
             if (fact.confidence() == null) continue;
-            String key = fact.confidence() < 0.5 ? "[0,0.5)"
-                    : fact.confidence() < 0.65 ? "[0.5,0.65)"
-                    : fact.confidence() < 0.8 ? "[0.65,0.8)"
-                    : "[0.8,1.0]";
+            String key = fact.confidence() < 0.25 ? "[0,0.25)"
+                    : fact.confidence() < 0.5 ? "[0.25,0.5)"
+                    : fact.confidence() < 0.75 ? "[0.5,0.75)"
+                    : "[0.75,1.0]";
             bins.computeIfPresent(key, (ignored, count) -> count + 1);
         }
         return bins;
@@ -250,7 +254,8 @@ public class AnalyticsService {
             String questionType,
             Double confidence,
             Double margin,
-            String requestId
+            String requestId,
+            boolean answerShapeMismatch
     ) {
         boolean answered() {
             return "answered".equalsIgnoreCase(status) || "COMPLETED".equalsIgnoreCase(status);
@@ -264,13 +269,20 @@ public class AnalyticsService {
             return "FAILED".equalsIgnoreCase(status) || "error".equalsIgnoreCase(status);
         }
 
-        boolean lowConfidence() {
-            return answered() && confidence != null && confidence < LOW_CONFIDENCE_THRESHOLD;
+        boolean reviewRecommended() {
+            return unsupported() || failed() || (answered() && answerShapeMismatch);
+        }
+
+        String reviewReason() {
+            if (unsupported()) return "unsupported";
+            if (failed()) return "failed";
+            if (answered() && answerShapeMismatch) return "answer_shape_mismatch";
+            return null;
         }
 
         AnalysisCase toCase() {
             return new AnalysisCase(id, label, question, answer, status, predictionOrigin, modelReleaseId,
-                    questionType, confidence, margin, requestId);
+                    questionType, confidence, margin, requestId, reviewReason());
         }
     }
 }

@@ -42,6 +42,10 @@ public record ModelPredictionResponse(
         @JsonProperty("task_scope") String taskScope,
         List<String> limitations,
         @JsonProperty("capability_notice") String capabilityNotice,
+        @JsonProperty("review_status") String reviewStatus,
+        @JsonProperty("automatic_rejection_enabled") Boolean automaticRejectionEnabled,
+        @JsonProperty("confidence_display_enabled") Boolean confidenceDisplayEnabled,
+        @JsonProperty("manual_review_signal_enabled") Boolean manualReviewSignalEnabled,
         @JsonProperty("input_sha256") String inputSha256,
         @JsonProperty("latency_ms") Long latencyMs,
         @JsonProperty("runtime_mode") String runtimeMode

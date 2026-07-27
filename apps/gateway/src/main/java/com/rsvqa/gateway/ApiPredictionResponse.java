@@ -26,6 +26,10 @@ public record ApiPredictionResponse(
         String taskScope,
         List<String> limitations,
         String capabilityNotice,
+        String reviewStatus,
+        boolean automaticRejectionEnabled,
+        boolean confidenceDisplayEnabled,
+        boolean manualReviewSignalEnabled,
         Long latencyMs,
         String runtimeMode,
         QuestionUnderstanding understanding,
@@ -117,6 +121,14 @@ public record ApiPredictionResponse(
                 response.taskScope(),
                 response.limitations(),
                 response.capabilityNotice(),
+                response.reviewStatus() == null
+                        ? "model_answer_not_risk_guaranteed"
+                        : response.reviewStatus(),
+                Boolean.TRUE.equals(response.automaticRejectionEnabled()),
+                response.confidenceDisplayEnabled() == null
+                        || Boolean.TRUE.equals(response.confidenceDisplayEnabled()),
+                response.manualReviewSignalEnabled() == null
+                        || Boolean.TRUE.equals(response.manualReviewSignalEnabled()),
                 response.latencyMs(),
                 response.runtimeMode(),
                 QuestionUnderstanding.from(response),
@@ -159,6 +171,10 @@ public record ApiPredictionResponse(
                 "rsvqa_hr_grouped_closed_set",
                 List.of(),
                 capabilityNotice,
+                "mock_answer_not_research_evidence",
+                false,
+                true,
+                true,
                 null,
                 "mock",
                 QuestionUnderstanding.notApplicable(null),

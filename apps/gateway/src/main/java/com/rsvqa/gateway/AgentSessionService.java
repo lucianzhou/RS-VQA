@@ -203,7 +203,7 @@ public class AgentSessionService {
         if (session.getProject() != null) {
             return List.of(
                     "汇总这个项目的 VQA 结果和置信度分布",
-                    "列出需要人工复核的低置信度案例",
+                    "列出超范围、失败或答案形式异常的复核案例",
                     "生成这个项目的报告事实包",
                     "检索论文模型的能力边界"
             );

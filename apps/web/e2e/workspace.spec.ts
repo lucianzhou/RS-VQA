@@ -28,7 +28,7 @@ test("persists an image, multi-turn VQA, provenance, and agent tools", async ({ 
   const question = page.getByLabel("向当前影像提问");
   await question.fill("图中有没有道路？");
   await page.getByRole("button", { name: "发送问题" }).click();
-  await expect(page.getByText(/模型回答|低置信度，请复核/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("模型回答")).toBeVisible({ timeout: 30_000 });
 
   await question.fill("图中有多少建筑物？");
   await page.getByRole("button", { name: "发送问题" }).click();
@@ -44,7 +44,7 @@ test("persists an image, multi-turn VQA, provenance, and agent tools", async ({ 
 
   await page.getByLabel("向当前影像提问").fill("图中有多少道路？");
   await page.getByRole("button", { name: "发送问题" }).click();
-  await expect(page.getByText("低置信度，请复核")).toBeVisible();
+  await expect(page.getByText(/数量模型对非零和密集目标存在系统性低估风险/)).toBeVisible();
 
   await page.getByLabel("向当前影像提问").fill("请判断这里是否有火灾风险");
   await page.getByRole("button", { name: "发送问题" }).click();

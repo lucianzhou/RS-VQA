@@ -385,13 +385,11 @@ function Message({ message, onSelect }: { message: PersistedMessage; onSelect?: 
   const isMock = message.sourceType === "MOCK";
   const isExternal = message.sourceType === "EXTERNAL_VLM";
   const answered = invocation?.status === "answered";
-  const lowConfidence = answered && invocation?.confidence != null && invocation.confidence < 0.65;
   const metadata = messageMetadata(message.metadataJson);
   const providerName = externalModelName(metadata.providerId, invocation?.providerModel);
   const needsReview = answered && metadata.requiresReview;
   const provisional = answered && !isExternal && metadata.scopeVerification === "provisional";
   const answerLabel = needsReview ? "答案形式异常，请复核"
-    : lowConfidence ? "低置信度，请复核"
     : answered ? (isExternal ? `${providerName} 回答` : "模型回答")
     : metadata.needsClarification ? "需要补充说明"
     : "超出能力范围";
@@ -403,8 +401,8 @@ function Message({ message, onSelect }: { message: PersistedMessage; onSelect?: 
         : <span className="avatar-icon warning" style={{ width: 28, height: 28 }}><AlertTriangle size={15} /></span>}
       <div className="answer-body">
         <div className="answer-heading">
-          <span className={`result-state ${answered && !lowConfidence && !needsReview ? "success" : "warning"}`}>
-            {answered && !lowConfidence && !needsReview ? <Check size={14} /> : <Info size={14} />}
+          <span className={`result-state ${answered && !needsReview ? "success" : "warning"}`}>
+            {answered && !needsReview ? <Check size={14} /> : <Info size={14} />}
             {answerLabel}
           </span>
           {isMock && <span className="mock-flag">MOCK</span>}
@@ -417,7 +415,9 @@ function Message({ message, onSelect }: { message: PersistedMessage; onSelect?: 
         {answered && metadata.displayAnswer && metadata.displayAnswer !== message.content && (
           <p className="answer-display">{metadata.displayAnswer}</p>
         )}
-        {lowConfidence && <p className="capability-notice">模型置信度低于 65% 展示阈值。答案保持原样，但不建议直接作为确定结论。</p>}
+        {answered && !isExternal && metadata.matchedIntent === "count" && (
+          <p className="capability-notice">数量模型对非零和密集目标存在系统性低估风险；当前答案保持为研究模型原始输出。</p>
+        )}
         {provisional && <p className="capability-notice">该地物与题型组合仍在核验中，结果仅供参考。</p>}
         {!answered && <p className="capability-notice">{message.content}</p>}
         {metadata.clarificationOptions.length > 0 && (

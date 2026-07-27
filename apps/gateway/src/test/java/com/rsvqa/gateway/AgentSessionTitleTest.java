@@ -8,8 +8,8 @@ class AgentSessionTitleTest {
 
     @Test
     void derivesATopicFromTheOpeningQuestion() {
-        assertThat(AgentSessionTitle.derive("城市土地利用", "列出需要人工复核的低置信度案例"))
-                .isEqualTo("城市土地利用 · 低置信度分析");
+        assertThat(AgentSessionTitle.derive("城市土地利用", "查看置信度分布"))
+                .isEqualTo("城市土地利用 · 置信度分布");
         assertThat(AgentSessionTitle.derive("城市土地利用", "汇总这个批量任务的答案分布"))
                 .isEqualTo("城市土地利用 · 批量任务分析");
         assertThat(AgentSessionTitle.derive("城市土地利用", "生成这个项目的报告草稿"))
@@ -33,7 +33,7 @@ class AgentSessionTitleTest {
 
     @Test
     void truncatesLongContextAndQuestion() {
-        String title = AgentSessionTitle.derive("非常非常非常非常非常非常非常长的项目名称", "低置信度");
+        String title = AgentSessionTitle.derive("非常非常非常非常非常非常非常长的项目名称", "置信度");
 
         assertThat(title).contains("…");
         assertThat(title.length()).isLessThan(45);
@@ -48,7 +48,7 @@ class AgentSessionTitleTest {
         assertThat(AgentSessionTitle.isPlaceholder("  ")).isTrue();
 
         assertThat(AgentSessionTitle.isPlaceholder("我自己命名的会话")).isFalse();
-        assertThat(AgentSessionTitle.isPlaceholder("城市土地利用 · 低置信度分析")).isFalse();
+        assertThat(AgentSessionTitle.isPlaceholder("城市土地利用 · 置信度分布")).isFalse();
     }
 
     @Test

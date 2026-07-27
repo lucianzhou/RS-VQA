@@ -109,7 +109,10 @@ describe("feature pages", () => {
       answeredCount: 3,
       unsupportedCount: 1,
       failedCount: 0,
-      lowConfidenceCount: 1,
+      reviewRecommendedCount: 1,
+      automaticRejectionEnabled: false,
+      confidenceDisplayEnabled: true,
+      manualReviewSignalEnabled: true,
       averageConfidence: 0.82,
       averageMargin: 0.4,
       questionTypeDistribution: { presence: 3, count: 1 },
@@ -130,7 +133,9 @@ describe("feature pages", () => {
         confidence: 0.42,
         margin: 0.08,
         requestId: "request-1",
+        reviewReason: "answer_shape_mismatch",
       }],
+      reviewPolicy: "系统不启用全局置信度自动拒答。",
       calculationBoundary: "统计仅来自已持久化的模型调用。",
     };
     const report = {

@@ -44,6 +44,10 @@ export interface PredictionResponse {
   answerVocabularySha256?: string | null;
   runtimeArtifactSha256?: string | null;
   capabilityNotice: string;
+  reviewStatus: string;
+  automaticRejectionEnabled: boolean;
+  confidenceDisplayEnabled: boolean;
+  manualReviewSignalEnabled: boolean;
   confidence?: number | null;
   margin?: number | null;
   latencyMs?: number | null;
@@ -347,6 +351,7 @@ export interface AnalysisCase {
   confidence: number | null;
   margin: number | null;
   requestId: string | null;
+  reviewReason: "unsupported" | "failed" | "answer_shape_mismatch" | null;
 }
 
 export interface AnalysisStatistics {
@@ -359,7 +364,10 @@ export interface AnalysisStatistics {
   answeredCount: number;
   unsupportedCount: number;
   failedCount: number;
-  lowConfidenceCount: number;
+  reviewRecommendedCount: number;
+  automaticRejectionEnabled: boolean;
+  confidenceDisplayEnabled: boolean;
+  manualReviewSignalEnabled: boolean;
   averageConfidence: number | null;
   averageMargin: number | null;
   questionTypeDistribution: Record<string, number>;
@@ -369,6 +377,7 @@ export interface AnalysisStatistics {
   modelReleaseIds: string[];
   representativeCases: AnalysisCase[];
   reviewCases: AnalysisCase[];
+  reviewPolicy: string;
   calculationBoundary: string;
 }
 

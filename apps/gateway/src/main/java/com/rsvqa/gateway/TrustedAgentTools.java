@@ -144,7 +144,7 @@ public class TrustedAgentTools {
         return json(analytics.batch(UUID.fromString(batchJobId)));
     }
 
-    @Tool(name = "confidence_distribution", description = "确定性返回项目或批量任务的置信度分箱、均值和低置信度数量。只读。")
+    @Tool(name = "confidence_distribution", description = "确定性返回项目或批量任务的置信度分箱和均值。置信度仅描述模型输出分布，不映射为自动风险结论。只读。")
     public String confidenceDistribution(
             @ToolParam(description = "范围类型：project 或 batch", required = true) String scopeType,
             @ToolParam(description = "项目或批任务 UUID", required = true) String scopeId
@@ -154,7 +154,8 @@ public class TrustedAgentTools {
                 "scopeType", statistics.scopeType(),
                 "scopeId", statistics.scopeId(),
                 "averageConfidence", statistics.averageConfidence() == null ? "none" : statistics.averageConfidence(),
-                "lowConfidenceCount", statistics.lowConfidenceCount(),
+                "automaticRejectionEnabled", statistics.automaticRejectionEnabled(),
+                "reviewRecommendedCount", statistics.reviewRecommendedCount(),
                 "distribution", statistics.confidenceDistribution()
         ));
     }
