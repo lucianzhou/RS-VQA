@@ -110,12 +110,23 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
       if (!projectId) projectId = (await createProject("城市土地利用")).id;
       return createConversation(projectId);
     },
+    onMutate: () => {
+      const previous = { activeProjectId, activeConversationId };
+      clearActiveConversation();
+      navigate("/workspace");
+      return previous;
+    },
     onSuccess: async (conversation) => {
       setExpandedProjects((current) => new Set(current).add(conversation.projectId));
-      await refreshProjects();
       queryClient.setQueryData(["conversation", conversation.id], conversation);
       setActiveConversation(conversation.projectId, conversation.id);
       navigate("/workspace");
+      await refreshProjects();
+    },
+    onError: (_error, _variables, previous) => {
+      if (previous?.activeProjectId && previous.activeConversationId) {
+        setActiveConversation(previous.activeProjectId, previous.activeConversationId);
+      }
     },
   });
 
@@ -129,10 +140,10 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
       setProjectName("");
       setProjectComposerOpen(false);
       setExpandedProjects((current) => new Set(current).add(project.id));
-      await refreshProjects();
       queryClient.setQueryData(["conversation", conversation.id], conversation);
       setActiveConversation(project.id, conversation.id);
       navigate("/workspace");
+      await refreshProjects();
     },
   });
 
@@ -191,10 +202,10 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
   }, [expandedProjects]);
 
   useEffect(() => {
-    if (activeConversationId || projects.length === 0) return;
+    if (createMutation.isPending || activeConversationId || projects.length === 0) return;
     const first = projects.flatMap((project) => project.conversations.map((conversation) => ({ project, conversation })))[0];
     if (first) setActiveConversation(first.project.id, first.conversation.id);
-  }, [activeConversationId, projects, setActiveConversation]);
+  }, [activeConversationId, createMutation.isPending, projects, setActiveConversation]);
 
   useEffect(() => {
     if (!activeConversationId || projects.length === 0) return;
@@ -314,10 +325,10 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
                   <ProjectMenu project={project} onCreate={async () => {
                     const conversation = await createConversation(project.id);
                     setExpandedProjects((current) => new Set(current).add(project.id));
-                    setActiveConversation(project.id, conversation.id);
-                    await refreshProjects();
                     queryClient.setQueryData(["conversation", conversation.id], conversation);
+                    setActiveConversation(project.id, conversation.id);
                     navigate("/workspace");
+                    await refreshProjects();
                   }} onAction={openAction} />
                 </div>
                 <div className={`project-conversations ${expanded ? "is-expanded" : ""}`} inert={!expanded ? true : undefined}>

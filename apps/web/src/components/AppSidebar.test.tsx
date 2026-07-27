@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BrowserRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -140,6 +140,41 @@ describe("AppSidebar", () => {
 
     expect(useWorkspaceStore.getState().activeConversationId).toBe("conversation-new");
     expect(useWorkspaceStore.getState().activeProjectId).toBe("project-forest");
+  });
+
+  it("enters a neutral state until a newly created conversation becomes active", async () => {
+    let finishCreate: ((value: Response) => void) | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/api/v1/projects/project-forest/conversations") && init?.method === "POST") {
+        return new Promise<Response>((resolve) => {
+          finishCreate = resolve;
+        });
+      }
+      return jsonResponse(projects);
+    }));
+    const interaction = userEvent.setup();
+    renderWithClient(<AppSidebar user={user} />);
+    await screen.findByText("森林调查");
+
+    await interaction.click(screen.getByRole("button", { name: "新建分析" }));
+    expect(useWorkspaceStore.getState().activeConversationId).toBeNull();
+
+    await act(async () => {
+      finishCreate?.(jsonResponse({
+        id: "conversation-new",
+        projectId: "project-forest",
+        title: "新分析",
+        image: null,
+        messages: [],
+        createdAt: "2026-07-27T00:00:00Z",
+        updatedAt: "2026-07-27T00:00:00Z",
+      }));
+    });
+
+    await vi.waitFor(() => {
+      expect(useWorkspaceStore.getState().activeConversationId).toBe("conversation-new");
+    });
   });
 });
 
