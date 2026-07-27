@@ -201,10 +201,12 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
     const active = projects.some((project) => project.id === activeProjectId
       && project.conversations.some((conversation) => conversation.id === activeConversationId));
     if (active) return;
+    const activeConversationState = queryClient.getQueryState(["conversation", activeConversationId]);
+    if (activeConversationState && activeConversationState.status !== "error") return;
     const first = projects.flatMap((project) => project.conversations.map((conversation) => ({ project, conversation })))[0];
     if (first) setActiveConversation(first.project.id, first.conversation.id);
     else clearActiveConversation();
-  }, [activeConversationId, activeProjectId, clearActiveConversation, projects, setActiveConversation]);
+  }, [activeConversationId, activeProjectId, clearActiveConversation, projects, queryClient, setActiveConversation]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

@@ -35,9 +35,9 @@ const projects: Project[] = [
   },
 ];
 
-function renderWithClient(node: React.ReactNode) {
+function renderWithClient(node: React.ReactNode, client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   return render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider client={client}>
       <BrowserRouter>{node}</BrowserRouter>
     </QueryClientProvider>,
   );
@@ -119,6 +119,27 @@ describe("AppSidebar", () => {
     await interaction.click(screen.getByRole("button", { name: "新建项目" }));
     await interaction.keyboard("{Escape}");
     expect(screen.queryByRole("textbox", { name: "项目名称" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a cached active conversation when the project list is temporarily stale", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(["conversation", "conversation-new"], {
+      id: "conversation-new",
+      projectId: "project-forest",
+      title: "新分析",
+      image: null,
+      messages: [],
+    });
+    useWorkspaceStore.setState({
+      activeProjectId: "project-forest",
+      activeConversationId: "conversation-new",
+    });
+
+    renderWithClient(<AppSidebar user={user} />, client);
+    await screen.findByText("森林调查");
+
+    expect(useWorkspaceStore.getState().activeConversationId).toBe("conversation-new");
+    expect(useWorkspaceStore.getState().activeProjectId).toBe("project-forest");
   });
 });
 
