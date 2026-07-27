@@ -2,7 +2,7 @@
 
 RS-VQA 是论文《跨模态特征融合机制及微调策略研究与应用》的独立应用工程。它把遥感视觉问答研究封装为可演示、可追踪、可部署的应用，但不训练模型，也不导入 `rs-vqa-fusion` 的训练脚本。
 
-当前稳定基线为 **v0.8.x**，**v0.9.0 正在进行产品对齐验收**。前端使用 React + TypeScript
+当前稳定基线为 **v0.9.0**，产品对齐评测与真实发布验收已经完成。前端使用 React + TypeScript
 和 Mineral Forest 视觉体系；业务后端使用 Java 21 / Spring Boot / Spring AI；
 模型运行时和知识检索分别由 FastAPI 服务提供。
 
@@ -32,9 +32,9 @@ RS-VQA 是论文《跨模态特征融合机制及微调策略研究与应用》�
 
 soft-vs-none 配对置信区间包含 0，因此不能宣称 predicted-soft 带来显著提升；系统也不声称 SOTA。它不是开放式 VQA、通用视觉助手、目标检测、变化检测、零样本识别或风险自动判定系统。
 
-v0.9 目标 release 是
-`rsvqa-hr-qdrop15-predicted-soft-20260727-9b4ade2`；研究侧已冻结，工程侧只有在本地完成
-manifest 与全部制品哈希、golden replay 和真实 runtime 验收后才会标记交付。当前保留已验证的
+v0.9 当前 release 是
+`rsvqa-hr-qdrop15-predicted-soft-20260727-9b4ade2`；研究侧已冻结，工程侧已完成
+manifest 与全部制品哈希、golden replay、产品对齐评测和真实 CPU runtime 验收。当前仍保留已验证的
 `rsvqa-hr-qdrop15-predicted-soft-20260724-8510bc9` 作为显式回退。默认 Compose 仍运行
 `mock_demo`，便于低资源开发；Mock 只验证工程闭环，绝不是论文模型输出。真实模型使用
 `compose.real.yaml` 覆盖启动，并在 `/models/current` 与每次结果中显示 release、来源和哈希。
@@ -188,9 +188,16 @@ cd ../../services/model-service
 # RAG 检索基准（知识服务容器健康后）
 docker exec rs-vqa-knowledge-service-1 \
   python scripts/evaluate_retrieval.py --base-url http://127.0.0.1:8010
+
+# 产品对齐评测发布的只读校验与聚合验收
+services/model-service/.venv/bin/python scripts/product_aligned_acceptance.py \
+  --evaluation-release evaluation-releases/rsvqa-hr-product-aligned-eval-20260727-1796e90 \
+  --model-manifest model-releases/rsvqa-hr-qdrop15-predicted-soft-20260727-9b4ade2/model-release.json \
+  --collection validate
 ```
 
-v0.3.0 的实际验收结果和截图路径见 [版本技术方案与功能介绍](docs/versions/v0.3.0-technical-design-and-features.md)。
+v0.9.0 的完整发布身份、聚合指标、测试数量和已知边界见
+[产品对齐评测与可信研究模型体验](docs/versions/v0.9.0-product-aligned-evaluation-and-trusted-model.md)。
 
 ## 本地测试遥感影像
 
