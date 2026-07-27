@@ -209,6 +209,37 @@ python3 scripts/download_usgs_test_imagery.py
 
 这些图片只用于上传、预处理、接口、批任务和 UI 验证，不是 RSVQA-HR 带标注测试集，不能用来报告 OA/AA 或比较模型能力。
 
+## 答辩冻结评测集
+
+自研模型能力不能用无标注 USGS 图片或与通用 VLM 的自由回答做主观比较。v0.9.1 使用受控
+RSVQA-HR `provider-dev` 构建本地答辩集：512 张唯一图像、512 条真实问题，Presence、
+Count、Area、Comparison 各 128 条。生成目录 `data/defense-benchmark-v1/` 被 Git 忽略。
+
+构建：
+
+```bash
+services/model-service/.venv/bin/python scripts/build_defense_benchmark.py \
+  --evaluation-release evaluation-releases/rsvqa-hr-product-aligned-eval-20260727-1796e90 \
+  --model-manifest model-releases/rsvqa-hr-qdrop15-predicted-soft-20260727-9b4ade2/model-release.json
+```
+
+盲测时先使用 `questions.csv`，预测结束后再打开 `answer-key.csv`。完整自动测评复用 Real
+Runtime Docker 镜像，不在宿主机重复安装 PyTorch：
+
+```bash
+docker run --rm --cpus=2 --memory=6g \
+  -v "$PWD/data/defense-benchmark-v1:/benchmark:ro" \
+  -v "$PWD/model-releases:/opt/rsvqa/model-releases:ro" \
+  -v "$PWD/scripts/evaluate_defense_benchmark.py:/tmp/evaluate.py:ro" \
+  rs-vqa-model-service:latest \
+  python /tmp/evaluate.py \
+  --benchmark /benchmark \
+  --model-manifest /opt/rsvqa/model-releases/rsvqa-hr-qdrop15-predicted-soft-20260727-9b4ade2/model-release.json
+```
+
+完整设计、固定哈希、OA/AA、题型指标和 Count 0/非零能力差异见
+[v0.9.1 答辩冻结评测集](docs/versions/v0.9.1-defense-benchmark.md)。
+
 ## 仓库与安全边界
 
 - 研究仓库负责训练、实验和不可变模型发布；应用仓库只消费发布物。
