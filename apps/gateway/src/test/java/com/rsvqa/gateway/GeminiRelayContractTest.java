@@ -295,6 +295,29 @@ class GeminiRelayContractTest {
     }
 
     @Test
+    void forbiddenModelIsNotRetriedAndNeverLeaksTheRelayBody() {
+        server.enqueue(jsonResponse(403,
+                "{\"error\":{\"message\":\"forbidden " + SECRET_KEY + "\"}}"));
+        var provider = vision("relay-vision-model", 3);
+
+        assertThatThrownBy(() -> provider.invoke(imageRequest()))
+                .isInstanceOf(ProviderNotConfiguredException.class)
+                .hasMessageNotContaining(SECRET_KEY);
+        assertThat(server.getRequestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void requestTimeoutStatusIsRetriedAsTransient() {
+        server.enqueue(jsonResponse(408, "{\"error\":{\"message\":\"upstream timeout\"}}"));
+        server.enqueue(chatCompletion("重试成功。"));
+
+        var result = vision("relay-vision-model", 1).invoke(imageRequest());
+
+        assertThat(result.content()).isEqualTo("重试成功。");
+        assertThat(server.getRequestCount()).isEqualTo(2);
+    }
+
+    @Test
     void unknownModelIsReportedAsAContractFailureRatherThanRetried() {
         server.enqueue(jsonResponse(404, "{\"error\":{\"message\":\"model not found\"}}"));
         var provider = vision("relay-vision-model", 3);

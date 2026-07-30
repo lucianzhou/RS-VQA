@@ -145,6 +145,12 @@ RSVQA_GEMINI_VISION_MODEL=gemini-3.6-flash
 即使服务端已配置，用户仍须在“模型与设置”中显式允许向 Gemini 或 Qwen3-VL 发送图像。
 Gemini 与 Qwen3-VL 的回答会记录具体 Provider 和模型名，不会覆盖或伪装成论文研究模型结果。
 
+外部模型调用默认经过 Redis 原子准入控制：分别限制每个用户、Provider 和工作负载的分钟请求数、
+并发数、单次输入规模及每日 token 预算。连续瞬时失败会开启 30 秒熔断，之后只放行一次半开探测；
+401/403/404 等配置或权限错误不会被当作瞬时故障反复重试。价格必须以
+`RSVQA_PROVIDER_PRICING_VERSION` 和对应输入/输出 token 单价一起配置；缺少任一项时成本状态为
+`UNKNOWN`，数据库和界面不会把未知成本记录为 0。完整变量见 `.env.example`。
+
 ## 本地开发
 
 基础设施：

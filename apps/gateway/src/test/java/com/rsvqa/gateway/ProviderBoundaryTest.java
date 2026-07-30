@@ -33,7 +33,11 @@ class ProviderBoundaryTest {
         ));
 
         var registry = mock(ModelReleaseRegistry.class);
-        var descriptors = new ProviderController(List.of(new UnconfiguredExternalVisionProvider()), vqa, registry).list();
+        var reliability = mock(ProviderReliabilityService.class);
+        when(reliability.decorate(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        var descriptors = new ProviderController(
+                List.of(new UnconfiguredExternalVisionProvider()), vqa, registry, reliability).list();
 
         assertThat(descriptors).extracting(AiProvider.ProviderDescriptor::kind)
                 .containsExactly("RESEARCH_MODEL", "EXTERNAL_VLM");

@@ -53,6 +53,7 @@ public class TrustedAgentService {
     private final TrustedAgentTools tools;
     private final AgentToolRegistry toolRegistry;
     private final RsBotPlanner planner;
+    private final ProviderReliabilityService providerReliability;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactions;
     private final Timer runTimer;
@@ -67,6 +68,7 @@ public class TrustedAgentService {
             TrustedAgentTools tools,
             AgentToolRegistry toolRegistry,
             RsBotPlanner planner,
+            ProviderReliabilityService providerReliability,
             ObjectMapper objectMapper,
             PlatformTransactionManager transactionManager,
             MeterRegistry registry
@@ -79,6 +81,7 @@ public class TrustedAgentService {
         this.tools = tools;
         this.toolRegistry = toolRegistry;
         this.planner = planner;
+        this.providerReliability = providerReliability;
         this.objectMapper = objectMapper;
         this.transactions = new TransactionTemplate(transactionManager);
         this.runTimer = Timer.builder("rsvqa.agent.run")
@@ -105,7 +108,14 @@ public class TrustedAgentService {
 
         if (planner.available()
                 && (startedRun.request().toolName() == null || startedRun.request().toolName().isBlank())) {
-            return runPlanned(startedRun.request(), startedRun.runId(), started, metricSample, cancelled);
+            return runPlanned(
+                    startedRun.userId(),
+                    startedRun.request(),
+                    startedRun.runId(),
+                    started,
+                    metricSample,
+                    cancelled
+            );
         }
         return runRuleBased(startedRun.request(), startedRun.runId(), started, metricSample);
     }
@@ -126,7 +136,7 @@ public class TrustedAgentService {
                 user, session, project, conversation, batchJob, resolvedRequest.message().trim(), TraceId.current()
         ));
         titleFromFirstQuestion(session, resolvedRequest.message());
-        return new StartedRun(run.getId(), resolvedRequest);
+        return new StartedRun(user.getId(), run.getId(), resolvedRequest);
     }
 
     /**
@@ -134,6 +144,7 @@ public class TrustedAgentService {
      * it may, and the tool outputs remain the only source of facts.
      */
     private AgentResponse runPlanned(
+            UUID userId,
             AgentRequest request,
             UUID runId,
             long started,
@@ -141,16 +152,20 @@ public class TrustedAgentService {
             BooleanSupplier cancelled
     ) {
         try {
-            RsBotPlanner.PlanResult plan = planner.plan(
-                    request,
-                    toolRegistry.callbacks(),
-                    cancelled,
-                    tool -> transaction(() -> {
-                        recordPlannedTool(runId, tool);
-                        return null;
-                    })
+            ProviderReliabilityService.AgentExecution execution = providerReliability.executeAgent(
+                    userId,
+                    planner.providerModel(),
+                    () -> planner.plan(
+                            request,
+                            toolRegistry.callbacks(),
+                            cancelled,
+                            tool -> transaction(() -> {
+                                recordPlannedTool(runId, tool);
+                                return null;
+                            })
+                    )
             );
-            return transaction(() -> completePlannedRun(runId, plan, elapsedMillis(started)));
+            return transaction(() -> completePlannedRun(runId, execution, elapsedMillis(started)));
         } catch (RuntimeException error) {
             runErrors.increment();
             long latency = elapsedMillis(started);
@@ -213,15 +228,17 @@ public class TrustedAgentService {
 
     private AgentResponse completePlannedRun(
             UUID runId,
-            RsBotPlanner.PlanResult plan,
+            ProviderReliabilityService.AgentExecution execution,
             long latency
     ) {
+        RsBotPlanner.PlanResult plan = execution.plan();
         AgentRunEntity run = requireRun(runId);
         run.complete(plan.answer(), latency);
         run.recordProvenance(
                 GeminiRelayVisionProvider.PROVIDER_ID, plan.providerModel(), PROVIDER_STATE_LLM,
                 RsBotProperties.PROMPT_VERSION, plan.stopReason(), plan.steps(),
                 plan.promptTokens(), plan.completionTokens(), plan.totalTokens());
+        run.recordEstimatedCost(execution.estimate().costUsd());
         List<ToolCallResponse> calls = toolInvocations
                 .findByAgentRunIdOrderByCreatedAtAsc(runId)
                 .stream()
@@ -332,7 +349,7 @@ public class TrustedAgentService {
         return transactions.execute(ignored -> work.get());
     }
 
-    private record StartedRun(UUID runId, AgentRequest request) {
+    private record StartedRun(UUID userId, UUID runId, AgentRequest request) {
     }
 
     private Object execute(String toolName, AgentRequest request) {

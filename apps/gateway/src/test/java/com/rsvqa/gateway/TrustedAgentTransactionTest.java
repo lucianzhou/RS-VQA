@@ -7,6 +7,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,12 +64,21 @@ class TrustedAgentTransactionTest {
     @MockBean
     RsBotPlanner planner;
 
+    @MockBean
+    ProviderReliabilityService providerReliability;
+
     @BeforeEach
     void authenticate() {
         users.save(new UserEntity("transaction-review", "Transaction Review", "USER", false));
         SecurityContextHolder.getContext().setAuthentication(
                 UsernamePasswordAuthenticationToken.authenticated(
                         "transaction-review", "n/a", java.util.List.of()));
+        when(planner.providerModel()).thenReturn("gemini-3.6-flash");
+        doAnswer(invocation -> {
+            @SuppressWarnings("unchecked")
+            Supplier<RsBotPlanner.PlanResult> call = invocation.getArgument(2);
+            return call.get();
+        }).when(providerReliability).executeAgent(any(), any(), any());
     }
 
     @AfterEach

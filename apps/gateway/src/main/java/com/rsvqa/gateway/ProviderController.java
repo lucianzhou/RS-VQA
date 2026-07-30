@@ -16,11 +16,18 @@ public class ProviderController {
     private final List<AiProvider> providers;
     private final VqaService vqa;
     private final ModelReleaseRegistry registry;
+    private final ProviderReliabilityService reliability;
 
-    public ProviderController(List<AiProvider> providers, VqaService vqa, ModelReleaseRegistry registry) {
+    public ProviderController(
+            List<AiProvider> providers,
+            VqaService vqa,
+            ModelReleaseRegistry registry,
+            ProviderReliabilityService reliability
+    ) {
         this.providers = providers;
         this.vqa = vqa;
         this.registry = registry;
+        this.reliability = reliability;
     }
 
     @GetMapping
@@ -44,7 +51,7 @@ public class ProviderController {
         );
         return java.util.stream.Stream.concat(
                 java.util.stream.Stream.of(research),
-                providers.stream().map(AiProvider::descriptor)
+                providers.stream().map(AiProvider::descriptor).map(reliability::decorate)
         ).toList();
     }
 }

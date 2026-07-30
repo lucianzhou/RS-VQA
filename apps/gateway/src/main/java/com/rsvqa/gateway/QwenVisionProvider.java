@@ -6,7 +6,10 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.ai.retry.NonTransientAiException;
+import org.springframework.ai.retry.TransientAiException;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
 
 import io.micrometer.observation.ObservationRegistry;
 
@@ -76,10 +79,24 @@ public class QwenVisionProvider implements AiProvider {
                     "Qwen3-VL 尚未配置。请设置 RSVQA_QWEN_ENABLED=true 并提供有效的 DASHSCOPE_API_KEY。"
             );
         }
-        ProviderResult result = OpenAiCompatibleEndpoint.callVision(
-                chatModel, request, SYSTEM_BOUNDARY, "qwen", properties.model(), "Qwen3-VL");
-        log.info("provider=qwen model={} requestId={} latencyMs={} totalTokens={}",
-                properties.model(), result.requestId(), result.latencyMs(), result.totalTokens());
-        return result;
+        try {
+            ProviderResult result = OpenAiCompatibleEndpoint.callVision(
+                    chatModel, request, SYSTEM_BOUNDARY, "qwen", properties.model(), "Qwen3-VL");
+            log.info("provider=qwen model={} requestId={} latencyMs={} totalTokens={}",
+                    properties.model(), result.requestId(), result.latencyMs(), result.totalTokens());
+            return result;
+        } catch (NonTransientAiException error) {
+            throw new ProviderNotConfiguredException(
+                    "Qwen3-VL 未通过当前服务端配置校验，请检查模型权限与模型 ID。");
+        } catch (TransientAiException | ResourceAccessException error) {
+            throw new ModelServiceException("Qwen3-VL 暂时不可用，请稍后重试。", error);
+        } catch (ModelServiceException | RequestValidationException error) {
+            throw error;
+        } catch (RuntimeException error) {
+            if (OpenAiCompatibleEndpoint.transportFailure(error)) {
+                throw new ModelServiceException("Qwen3-VL 响应超时或连接中断，请稍后重试。", error);
+            }
+            throw new ModelServiceException("Qwen3-VL 返回了无法解析的响应。", error);
+        }
     }
 }

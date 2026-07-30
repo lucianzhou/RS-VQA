@@ -92,6 +92,32 @@ public class ApiExceptionHandler {
                 .body(ApiError.of("PROVIDER_NOT_CONFIGURED", error.getMessage(), false));
     }
 
+    @ExceptionHandler(ProviderAdmissionException.class)
+    ResponseEntity<ApiError> providerAdmissionRejected(ProviderAdmissionException error) {
+        ApiError body = new ApiError(
+                "PROVIDER_" + error.reason(),
+                error.getMessage(),
+                TraceId.current(),
+                java.time.Instant.now(),
+                Map.of("retryAfterSeconds", error.retryAfterSeconds()),
+                true
+        );
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(body);
+    }
+
+    @ExceptionHandler(ProviderCircuitOpenException.class)
+    ResponseEntity<ApiError> providerCircuitOpen(ProviderCircuitOpenException error) {
+        ApiError body = new ApiError(
+                "PROVIDER_CIRCUIT_OPEN",
+                error.getMessage(),
+                TraceId.current(),
+                java.time.Instant.now(),
+                Map.of("retryAfterSeconds", error.retryAfterSeconds()),
+                true
+        );
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
+    }
+
     @ExceptionHandler(McpClientBoundaryException.class)
     ResponseEntity<ApiError> mcpToolFailure(McpClientBoundaryException error) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)

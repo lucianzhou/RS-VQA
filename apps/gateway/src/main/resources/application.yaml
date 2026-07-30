@@ -105,6 +105,32 @@ rsvqa:
     max-total-tokens: ${RSVQA_RS_BOT_MAX_TOTAL_TOKENS:40000}
     timeout-seconds: ${RSVQA_RS_BOT_TIMEOUT_SECONDS:120}
     max-tool-output-chars: ${RSVQA_RS_BOT_MAX_TOOL_OUTPUT_CHARS:24000}
+  provider-policy:
+    enabled: ${RSVQA_PROVIDER_POLICY_ENABLED:true}
+    vision:
+      requests-per-minute: ${RSVQA_PROVIDER_VISION_REQUESTS_PER_MINUTE:12}
+      max-concurrent: ${RSVQA_PROVIDER_VISION_MAX_CONCURRENT:2}
+      max-items-per-request: ${RSVQA_PROVIDER_VISION_MAX_ITEMS_PER_REQUEST:1}
+      daily-token-budget: ${RSVQA_PROVIDER_VISION_DAILY_TOKEN_BUDGET:100000}
+      token-reservation: ${RSVQA_PROVIDER_VISION_TOKEN_RESERVATION:8192}
+    agent:
+      requests-per-minute: ${RSVQA_PROVIDER_AGENT_REQUESTS_PER_MINUTE:20}
+      max-concurrent: ${RSVQA_PROVIDER_AGENT_MAX_CONCURRENT:1}
+      max-items-per-request: 1
+      daily-token-budget: ${RSVQA_PROVIDER_AGENT_DAILY_TOKEN_BUDGET:200000}
+      token-reservation: ${RSVQA_PROVIDER_AGENT_TOKEN_RESERVATION:40000}
+    circuit:
+      failure-threshold: ${RSVQA_PROVIDER_CIRCUIT_FAILURE_THRESHOLD:3}
+      open-duration: ${RSVQA_PROVIDER_CIRCUIT_OPEN_DURATION:PT30S}
+    pricing:
+      version: ${RSVQA_PROVIDER_PRICING_VERSION:unconfigured}
+      models:
+        "gemini/gemini-3.6-flash":
+          input-usd-per-million: ${RSVQA_GEMINI_INPUT_USD_PER_MILLION:}
+          output-usd-per-million: ${RSVQA_GEMINI_OUTPUT_USD_PER_MILLION:}
+        "qwen/qwen3-vl-32b-instruct":
+          input-usd-per-million: ${RSVQA_QWEN_INPUT_USD_PER_MILLION:}
+          output-usd-per-million: ${RSVQA_QWEN_OUTPUT_USD_PER_MILLION:}
   model-service:
     base-url: ${RSVQA_MODEL_SERVICE_URL:http://localhost:8000}
     timeout-seconds: 15

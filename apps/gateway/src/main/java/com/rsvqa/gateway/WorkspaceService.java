@@ -42,6 +42,7 @@ public class WorkspaceService {
     private final FileStorageService storage;
     private final VqaService vqaService;
     private final List<AiProvider> aiProviders;
+    private final ProviderReliabilityService providerReliability;
     private final UserSettingRepository userSettings;
     private final ObjectMapper objectMapper;
 
@@ -55,6 +56,7 @@ public class WorkspaceService {
             FileStorageService storage,
             VqaService vqaService,
             List<AiProvider> aiProviders,
+            ProviderReliabilityService providerReliability,
             UserSettingRepository userSettings,
             ObjectMapper objectMapper
     ) {
@@ -67,6 +69,7 @@ public class WorkspaceService {
         this.storage = storage;
         this.vqaService = vqaService;
         this.aiProviders = aiProviders;
+        this.providerReliability = providerReliability;
         this.userSettings = userSettings;
         this.objectMapper = objectMapper;
     }
@@ -463,9 +466,17 @@ public class WorkspaceService {
             );
         }
 
-        AiProvider.ProviderResult external = provider.invoke(new AiProvider.ProviderRequest(
-                storage.read(image.getStorageKey()), image.getMimeType(), question, conversation.getId().toString()
-        ));
+        AiProvider.ProviderResult external = providerReliability.executeVision(
+                user.getId(),
+                provider,
+                new AiProvider.ProviderRequest(
+                        storage.read(image.getStorageKey()),
+                        image.getMimeType(),
+                        question,
+                        conversation.getId().toString()
+                ),
+                1
+        );
         ModelInvocationEntity invocation = invocations.save(new ModelInvocationEntity(
                 conversation,
                 null,

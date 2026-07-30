@@ -152,6 +152,10 @@ public class AgentRunEntity extends BaseEntity {
         this.totalTokens = totalTokens;
     }
 
+    public void recordEstimatedCost(BigDecimal estimatedCostUsd) {
+        this.estimatedCostUsd = estimatedCostUsd;
+    }
+
     public String getProviderState() {
         return providerState;
     }

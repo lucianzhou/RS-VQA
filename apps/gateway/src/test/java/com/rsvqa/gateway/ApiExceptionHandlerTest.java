@@ -31,4 +31,25 @@ class ApiExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().code()).isEqualTo("NOT_FOUND");
     }
+
+    @Test
+    void providerBudgetRejectionIs429WithRetryMetadata() {
+        var response = handler.providerAdmissionRejected(new ProviderAdmissionException(
+                "TOKEN_BUDGET", "今日预算已用尽。", 3600));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().code()).isEqualTo("PROVIDER_TOKEN_BUDGET");
+        assertThat(response.getBody().details()).containsEntry("retryAfterSeconds", 3600L);
+    }
+
+    @Test
+    void openProviderCircuitIs503AndRetryable() {
+        var response = handler.providerCircuitOpen(new ProviderCircuitOpenException(30));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().code()).isEqualTo("PROVIDER_CIRCUIT_OPEN");
+        assertThat(response.getBody().retryable()).isTrue();
+    }
 }

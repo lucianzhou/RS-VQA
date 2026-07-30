@@ -70,6 +70,10 @@ public class RsBotPlanner {
         return agentModel.available();
     }
 
+    public String providerModel() {
+        return agentModel.modelId();
+    }
+
     /** One tool call as it actually happened, including refusals. */
     public record ExecutedTool(
             String name,
