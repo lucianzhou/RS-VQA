@@ -148,6 +148,10 @@ describe("feature pages", () => {
     expect(screen.getByText("已选择 40 / 200 张")).toBeInTheDocument();
     expect(screen.getByText("第 1 / 2 页 · 每页最多 20 张")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^查看大图/ })).toHaveLength(20);
+    const firstThumbnail = screen.getAllByRole("button", { name: /^查看大图/ })[0];
+    firstThumbnail.focus();
+    expect(firstThumbnail).toHaveFocus();
+    expect(firstThumbnail.querySelector(":scope > span")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "下一页" }));
     expect(screen.getAllByRole("button", { name: /^查看大图/ })).toHaveLength(20);
 
@@ -200,6 +204,9 @@ describe("feature pages", () => {
       "src",
       "/api/v1/batch-jobs/job-1/items/item-1/image",
     );
+    thumbnail.focus();
+    expect(thumbnail).toHaveFocus();
+    expect(thumbnail.querySelector(":scope > span")).toBeInTheDocument();
 
     await user.click(thumbnail);
     expect(await screen.findByRole("dialog")).toBeInTheDocument();

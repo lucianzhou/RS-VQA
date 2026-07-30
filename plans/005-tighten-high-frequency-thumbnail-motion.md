@@ -1,6 +1,6 @@
 # 005 — Tighten high-frequency thumbnail motion
 
-- **Status**: TODO
+- **Status**: DONE (`feature/trusted-application-p1`)
 - **Commit**: 8af68bb
 - **Severity**: MEDIUM
 - **Category**: Frequency, duration and accessibility
