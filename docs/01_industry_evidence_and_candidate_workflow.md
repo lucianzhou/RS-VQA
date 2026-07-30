@@ -1,232 +1,276 @@
-# RS-VQA 行业证据与候选用户工作流调研
+# RS-VQA 行业证据、目标用户与真实工作流
 
-> 状态：调研草案 0.1
+> 状态：正式评估版 1.0
 >
-> 日期：2026-07-20
+> 更新日期：2026-07-30
 >
-> 位置：独立 RS-VQA 应用目录
-> 约束：本文件不冻结技术选型、不构成模型发布、不创建系统脚手架，也不改变 rs-vqa-fusion 中的研究结论。
+> 适用范围：独立工程仓库 `RS-VQA`
+>
+> 论文题目固定为《跨模态特征融合机制及微调策略研究与应用》
 
-## 1. 本调研要回答的问题
+## 1. 结论
 
-没有先验访谈对象时，不能仅凭“遥感很有用”来定义产品。这里先用可核验的论文、综述、行业规范和公开业务案例回答四个问题：
+当前最诚实、证据最充分的产品定位是：
 
-1. 遥感业务中的真实痛点是否包括把海量影像转成可用、可复核的信息？
-2. 现有 RSVQA-HR 模型真正能回答什么，不能回答什么？
-3. 哪类工作流既有现实需求，又不需要把当前模型夸大成通用遥感助手？
-4. 工程系统应如何把研究模型、人工复核、Agent 解释和可追溯报告组合起来？
+> 面向遥感/GIS 教学、科研复核和受控影像初筛的多模型遥感问答与批量复核工作台。
 
-本调研将结论按证据等级表达：
+它把论文研究得到的 RSVQA-HR 闭集模型发布为一个可复现、可比较、可审计的专业模型入口，
+同时提供显式区分的外部视觉模型和 RS-Bot 工具编排。现阶段不能把系统描述成法定测绘、
+灾害应急判定、精准农业决策或任意遥感图像上的通用智能助手。
 
-| 等级 | 含义 | 可用于的表述 |
+当前最有把握的三类用户按优先级排序如下：
+
+1. **遥感/GIS 教师与学生**：需要通过图像、问题、模型输出和边界案例理解遥感 VQA、跨模态融合、
+   参数高效微调及模型泛化问题。
+2. **遥感、计算机视觉和多模态研究人员**：需要固定发布、固定问题协议、批量推理、来源隔离和
+   可复现实验结果，以复核模型行为或比较不同 Provider。
+3. **具有固定检查清单的影像分析人员**：在影像来源、分辨率、对象词汇和问题类型均受控时，
+   可把系统用于批量初筛和人工复核前的信息整理。该用户群和效率收益仍需真实用户研究验证。
+
+系统当前已证明的是“受控 RSVQA-HR 分布上的闭集问答效果”和“完整工程链路可用”，尚未证明
+真实机构在其自有影像上的业务收益。工程演示与业务有效性必须分开陈述。
+
+## 2. 证据分级
+
+本文件不把所有引用视为同等强度。每项结论使用以下四级证据：
+
+| 等级 | 定义 | 允许的表述 |
 | --- | --- | --- |
-| A：直接证据 | 原始数据集论文、当前模型审计、用户访谈研究或正式评测直接支持 | 可以陈述已观察到的事实 |
-| B：权威间接证据 | 官方业务规范、数据治理规范、成熟业务流程 | 可以作为工程要求和设计依据 |
-| C：综述或产业证据 | 领域综述、行业展望、二手案例 | 可以说明行业背景和研究趋势，不能代替本模型验证 |
-| D：待验证假设 | 尚未以本系统或目标用户验证的推断 | 必须明确标为后续验证，不可写成既成应用效果 |
+| D1：直接证据 | 当前模型冻结评测、工程运行验收、RSVQA 原始论文或面向真实用户的原始研究 | 可以陈述已观察到的事实，但仅限其样本与条件 |
+| D2：权威间接证据 | CEOS、Copernicus、NIST 等正式规范和成熟工作流程 | 可以转化为工程要求，不能替代本系统的用户验证 |
+| D3：研究趋势 | 同行评议综述、公开基准或相关系统研究 | 可以说明领域问题和可行方向，不能证明本产品已有效 |
+| H：待验证假设 | 从前述证据推导、但尚未由目标用户或真实业务数据验证 | 必须标注为假设，并设置验证任务 |
 
-## 2. 先给出的结论
+## 3. 直接证据
 
-目前最有证据支撑、且与模型能力匹配的首版候选定位是：
+### 3.1 RSVQA 任务本身
 
-> 面向来源、空间分辨率、地物类别和问题模板均受控的高分 RGB 静态遥感影像，提供模板化的地物语义盘点、低置信度提示、人工复核和可追溯分析报告。
+Lobry 等提出的 RSVQA 将遥感影像与自然语言问题结合，但其问题和答案主要由
+OpenStreetMap 信息及固定模板自动构造。原论文同时指出语言偏差、计数困难和跨地域/跨数据集泛化
+问题。这意味着“自然语言界面”并不自动等于“开放世界理解”，更不等于专业制图或精确测量。
 
-更通俗地说，用户不是把任意卫星图扔给“万能 AI”提问；而是在一批格式相近的影像上，按照固定清单快速得到一致的初筛记录，例如：
+当前研究模型进一步固定为：
 
-- 是否存在道路、建筑、水体、停车场等已支持地物；
-- 某类地物的数量标签；
-- 某类地物覆盖面积的闭集标签；
-- 两类地物数量关系的比较标签。
+- RSVQA-HR grouped-answer + ViLT closed-set classifier；
+- 55 个冻结答案类别；
+- Area、Comparison、Count、Presence 四类问题；
+- 正式推理仅输入图像和问题文本，采用 `qdrop15 + predicted-soft`；
+- oracle 仅用于机制上界，routed 仅是多 checkpoint 后处理，均不是部署模型。
 
-该候选工作流应称为“影像块级语义盘点与人工复核前筛”，而不是“自动国土调查”“法定面积测量”“目标检测”或“开放式遥感问答”。
+### 3.2 当前模型真实效果
 
-### 2.1 首版范围更正：主路径优先
+论文已核准的正式指标为：
 
-本文件此前描述的“置信度/拒答、Agent、人工确认、报告”是一个可扩展的完整工作流，不应挤占首版演示重点。根据当前产品讨论，首版主路径应先收敛为：
+| 集合 | OA | AA |
+| --- | ---: | ---: |
+| RSVQA-HR full test | `0.8401412` | `0.8390032` |
+| RSVQA-HR full test_phili | `0.8031558` | `0.7975786` |
 
-> 上传影像 -> 输入问题 -> 识别是否属于当前模型支持范围 -> predicted-soft 推理 -> 以答案为中心展示结果。
+工程侧 512 条冻结答辩集采用四题型各 128 条的平衡设计：
 
-用户界面不必强制使用下拉模板。推荐保留自然的文字输入框，并由系统在后台把可识别的中文/英文问法映射为冻结的 canonical question；例如“图中有没有道路？”可映射到 “Is there a road?”。若问题无法映射到当前对象词汇和四类问题，系统只说明“当前研究模型未验证支持该问题”，不把任意问题送入 ViLT 后伪装成可靠回答。
+| 指标 | 结果 |
+| --- | ---: |
+| OA / AA | `0.8515625 / 0.8515625` |
+| Presence | `119/128 = 92.97%` |
+| Count | `89/128 = 69.53%` |
+| Area | `120/128 = 93.75%` |
+| Comparison | `108/128 = 84.38%` |
+| top-5 | `499/512 = 97.46%` |
+| Count=0 | `81/81 = 100%` |
+| Count 非零 | `8/47 = 17.02%` |
 
-首版的答案页面可仅保留简洁的“研究模型答案 + 当前模型适用范围”提示。数值置信度、拒答策略、Agent 对话、人工确认、历史记录和报告导出均改为后续增强项，按实际展示需要再加入。
+3072 条 sealed diagnostic 进一步显示：
 
-## 3. 当前研究模型决定的硬边界
+- Count 0：`94.21%`；
+- Count 1–2：`50.39%`；
+- Count 3–5：`12.28%`；
+- Count 6–10：`11.90%`；
+- Count >10：`1.89%`；
+- Count mean signed error：`-1.5638`，存在明显低估；
+- frequent answer：`84.24%`，medium：`2.33%`，rare/unseen：`0%`；
+- balanced test 与 Philadelphia accuracy 相差 `4.39 pp`。
 
-### 3.1 已核准的研究模型事实
+工程 runtime 与冻结预测在 golden、provider 和 diagnostic 共 `3592/3592` 条完全一致。因此，
+非零计数、长尾答案和地域迁移问题不是模型文件下载、词表映射或工程预处理错误，而是当前研究模型
+本身的已知能力边界。
 
-- 主任务是 RSVQA-HR grouped answer + ViLT closed-set classifier。
-- 正式部署候选是 qdrop15 + predicted-soft；正式推理只输入图像和问题文本，不读取人工 question_type_id。
-- corrected test OA/AA 为 0.8401412 / 0.8390032；corrected test_phili OA/AA 为 0.8031558 / 0.7975786。
-- oracle type-spatial 仅是机制消融上界；routed 是多 checkpoint 后处理，均不能作为正式部署模型。
-- 该模型不是开放式视觉问答、零样本识别、任意目标检测、像素级制图或通用视觉助手。
+### 3.3 面向真实用户的信息产品需求
 
-这些事实来自 rs-vqa-fusion 的模型发布契约、predicted-soft 审计和最终实验表，而非本调研重新训练得到。
+Cerbaro 等对巴西土地利用/覆盖管理利益相关方进行 96 次访谈，发现障碍不仅在于是否有遥感数据，
+还包括把数据转化为可使用信息所需的技能、基础设施、协作和组织流程。该研究直接支持
+“用户需要 ready-to-use 信息产品”的行业问题，但没有直接验证 RSVQA 或本系统。
 
-### 3.2 数据集与问题形式的直接证据
+Prakash 等关于城市可持续发展的研究同样表明，可行动性依赖空间边界、时间、数据来源、组织能力
+和治理语境。单张 RGB 影像上的一句答案不能替代这些条件。
 
-Lobry 等的 RSVQA 原始论文说明，高、低分辨率 RSVQA 数据由图像、问题、答案三元组构成，题目和答案信息由 OpenStreetMap 查询自动生成。论文同时明确指出：在某个特定数据集训练的 VQA 模型跨数据集泛化有限；要覆盖更真实的问题范围，数据构造方式或人工标注仍需增强。
+## 4. 权威间接证据
 
-本地研究配置进一步确认，当前 HR 问题围绕 area、count、presence、comparison 四类模板；训练问题词汇包含 building、road、water area、residential area、park、industrial area、parking、farmland、construction area 等有限地物概念。
+### 4.1 质量、版本与限制说明
 
-因此，第一版可以提供自由文字输入，但必须先经过受控解析；不能把任意自由输入本身当作已验证能力。
+Copernicus Emergency Management Service 的产品流程包括地图、数据、报告、质量控制、命名、
+纠错版本和已知限制。CEOS Analysis Ready Data 强调元数据、互操作性、质量和减少用户额外处理负担。
 
-### 3.3 对界面和交互的直接影响
+这些规范不能证明 RS-VQA 已达到专业遥感产品标准，但能支持以下工程要求：
 
-1. 当前训练问题为英文。首版若面向中文用户，应采用“中文选项说明 -> 确定性映射到版本化英文模板”的方式，而不是把任意中文句子交给模型或 LLM 自由翻译后冒充已验证输入。
-2. 面积答案必须标为“模型闭集面积标签”或“面积区间标签”，不能标为测绘面积、产权面积或法定调查结果。
-3. 数量回答也只能在冻结答案词表内解释；不得为词表外数字伪造精确概率。
-4. 低置信度、输入质量不合格或问题超出模板时，应明确拒答并引导人工复核。
-5. 每一个结果必须保留模型发布版本、checkpoint/词表哈希、输入文件哈希、模板版本、置信度和能力边界。
+- 输入文件哈希、来源和基础元数据；
+- 模型 release、checkpoint、词表和预处理版本；
+- 原始模型输出与 Agent/外部模型输出分离；
+- 错误、限制和修订状态可回查；
+- 结果可导出，但报告不得掩盖模型适用边界。
 
-## 4. 行业与文献证据矩阵
+### 4.2 风险管理
 
-| 证据 | 等级 | 可确认的事实 | 对 RS-VQA 的有效启示 | 不能据此声称的内容 |
-| --- | --- | --- | --- | --- |
-| Lobry et al., 2020，RSVQA | A | 遥感 VQA 可将图像、自然语言问题和结构化答案结合；HR 数据集依赖 OSM 自动生成的题目和答案 | 使用有限对象词表和模板化问题；将图像问答作为信息获取接口 | 当前模型支持任意真实遥感问题或跨地域无条件泛化 |
-| 当前 qdrop15 + predicted-soft 审计 | A | 正式协议只需图像和问题；已核准 HR/跨域指标及闭集边界 | 系统必须只调用 predicted-soft 发布物并返回版本、置信度和 top-k | oracle 或 routed 是可部署模型；模型已达到 SOTA |
-| Cerbaro et al., 2020，96 次利益相关方访谈 | A | 巴西土地利用/覆盖管理中，原始 EO 数据转为可用信息、人员技能、基础设施、协作等是主要阻碍 | 非专家友好、可直接使用、可复核的信息产品有现实需求 | 该访谈直接验证了 RSVQA 或本系统 |
-| Prakash et al., 2020，城市 EO 综述 | C | 城市规划和土地管理需要及时、空间细粒度的信息；传统生产成本、专业能力不足和既有流程惯性妨碍使用 | 首版应降低“从影像到结构化记录”的使用门槛，而不是要求用户理解训练脚本 | 城市部门会直接使用当前模型结果作正式决策 |
-| 付琨等，2023，遥感跨模态智能解译综述 | C | 大规模遥感解译仍广泛依赖人工目视和半自动判读；人工可靠但时效差、数据利用率低 | 研究的图文融合可以服务于受控问题下的快速结构化盘点 | 单时相 RGB 闭集模型已解决复杂多模态业务 |
-| 孟瑜等，2024，知识与数据驱动解译综述 | C | 业务中存在“结果大致正确但不满足规范”的最后一公里问题；知识约束、解释和人工复核重要 | Agent 可负责规范检索、边界说明、复核任务和报告，而非替模型自由作答 | Agent 生成的解释就是模型可解释性 |
-| 张帅豪、潘志刚，2025，遥感大模型综述 | C | 自然图像与遥感图像存在显著差异；下游适配和微调仍必要；全量微调的资源代价高 | 论文的跨模态融合与参数高效微调有清晰的技术背景 | PEFT 自动意味着部署端小、便宜或泛化更强 |
-| 上官博屹等，2025，航天遥感大模型产业化综述 | C | 数据爆炸和处理能力不足是产业痛点；自然资源等场景需要自动化信息产品；可靠性、数据、人才、算力仍是产业化障碍 | 选择“辅助分析 + 审核”而非全自动决策，并保留模型和数据治理元数据 | 本系统已可替代专业自然资源监测系统 |
-| Zhang and Wang, 2024，VLEO-Bench | A | GPT-4V 在场景理解/描述表现较好，但在遥感目标定位、计数和变化检测存在明显限制 | 外部通用 VLM 可以是单独标注的开放式辅助通道，不能假定其在所有遥感细粒度任务上更好 | 本研究模型必然优于 GPT 或其他通用 VLM |
-| Weng et al., 2025，遥感 VLM 综述 | C | 现实需求常模糊、多步骤、多源；当前 RS-VLM 与专家要求仍有距离，可靠性和专家解释仍是难点 | Agent 的价值应来自受控工具编排、知识检索和工作流引导 | 用自由生成文本即可满足专家级解释和可靠性 |
-| Copernicus EMS Rapid Mapping 官方手册 | B | 专业遥感产品交付地图、数据和报告；严格命名、质量控制、纠错版本和局限说明是常规要求 | 应用应有报告、文件治理、质量状态、版本号和审计轨迹 | 本系统等同于 Copernicus 应急制图产品 |
-| CEOS Analysis Ready Data 官方框架 | B | 用户常受数据预处理、专业能力和基础设施限制；可分析就绪数据强调最小额外负担、互操作性和元数据 | 输入治理、元数据、可重复预处理和互操作记录是系统需求 | 未经验证的用户上传图像天然可直接分析 |
-| Gevaert, 2022，EO 可解释 AI 综述 | C | 可解释性须面对社会、监管和具体用户需求；解释文本不能脱离证据和验证 | 区分模型分数、已知限制、证据检索结果和 Agent 文本 | Agent 的流畅陈述天然构成可信解释 |
+NIST AI RMF 强调治理、测量、管理和持续监测。映射到本系统，可信性不应只体现为页面上的
+“可信”标签，而应体现为：
 
-## 5. 真实业务方向与当前模型的适配判断
+- 明确适用范围；
+- 多模型来源隔离；
+- 工具白名单、预算和人工确认；
+- 输入、调用、结果和版本留痕；
+- 对数据泄露、跨租户检索、提示注入和外部 Provider 故障设置测试；
+- 不能用置信度替代真实错误率或业务风险保证。
 
-下表不是按市场热度排序，而是按“能否诚实地由当前 RSVQA-HR 支撑”排序。
+## 5. 研究趋势
 
-| 业务方向 | 现实需求证据 | 与当前模型的匹配 | 首版处理 |
+### 5.1 通用视觉语言模型不是无条件替代
+
+VLEO-Bench 的结果显示，通用 VLM 可擅长高层场景描述，但在遥感目标定位、计数和变化检测上仍不稳定。
+Weng 等及 Liu 等的近期综述也指出，现实遥感问题常包含模糊表达、多步骤推理、多时相、多传感器和
+专家知识，当前 RS-VLM 与真实专业要求仍有距离。
+
+因此，Gemini 或 Qwen3-VL 可用于开放描述和探索性问答，但不能因为回答更流畅就视为具备更高的
+遥感事实正确率。相反，研究模型的价值也不能通过回避同协议比较来证明。
+
+### 5.2 专业模型作为 Agent 工具
+
+Change-Agent 展示了“语言模型规划器 + 专业遥感模型工具”的可行结构。该方向支持 RS-Bot 负责
+选择工具、汇总项目、检索规范和生成报告，而把视觉事实交给明确标识的模型或确定性统计。
+
+但相关论文中的定性案例不能直接证明本系统的 RS-Bot 已达到业务级准确性。RS-Bot 仍需建立
+工具选择正确率、事实忠实度、引用充分性、拒绝提示注入和多轮任务完成率评测。
+
+### 5.3 模型适配而非无限增大
+
+RSAdapter 等研究说明遥感领域适配和参数高效微调仍具有研究价值；计数专门方法也持续出现。
+这支持对当前非零/密集 Count 和目标域迁移开展受控研究，但不支持未经预注册地重新开启已失败实验族，
+也不支持仅凭“更复杂”假定模型会更好。
+
+## 6. 真实工作流判断
+
+### 6.1 当前已具备的核心工作流
+
+```text
+上传遥感图像
+  -> 自然中文/英文提问
+  -> 受控问题规范化
+  -> 选择研究模型、Gemini 或 Qwen3-VL
+  -> 显式来源的回答
+  -> 同图多轮问答
+  -> 可选批量任务、RS-Bot、知识检索、历史和报告
+```
+
+其中研究模型只接受可确定映射到冻结对象词汇与四类问题的问法。用户不必操作固定下拉模板，
+但后台 canonical normalizer 必须 fail closed；无法映射时不能把自由生成答案伪装成论文模型输出。
+
+### 6.2 最适合当前模型的任务
+
+| 任务 | 当前适配度 | 依据 | 产品处理 |
 | --- | --- | --- | --- |
-| 高分城市/土地利用影像的模板化语义盘点 | 城市土地管理需要细粒度及时信息；人工/半自动判读存在效率瓶颈 | 条件匹配：地物词汇和问题类型与 RSVQA-HR 接近，但必须限制影像和题目 | 作为候选核心工作流 |
-| 研究/教学中的遥感图文问答演示与模型复现实验 | RSVQA 原始任务直接支持；版本追溯可展示工程化贡献 | 高匹配，但实际业务价值较弱 | 作为演示场景和验收基线 |
-| 正式国土调查、地籍、法定面积核算 | 真实业务重要，但通常要求坐标、图斑、标准分类、时相和人工举证 | 不匹配：当前模型不输出几何图斑，面积也不是测绘量 | 明确排除 |
-| 灾害损毁评估、洪涝、变化检测 | 真实需求强，但需双时相/多源数据和灾害标注 | 不匹配 | 明确排除 |
-| 精准农业、病虫害、作物长势 | 真实需求强，但需要光谱、时序、农学知识和专用标注 | 不匹配 | 明确排除 |
-| 任意图像自由问答、地点推理、风险判断 | 通用 VLM 更适合探索性对话，但遥感细粒度可靠性仍受限 | 与当前闭集模型不匹配 | 后续可做外部 VLM 辅助通道，首版不作为研究模型能力 |
+| 教学中演示遥感 VQA、跨模态融合和模型边界 | 高 | RSVQA 任务、冻结评测和工程复现直接支持 | 当前主场景 |
+| 研究人员复核固定 release、比较 Provider 行为 | 高 | 版本、哈希、来源和批量接口已实现 | 当前主场景 |
+| 受控影像上的 Presence/Area/Comparison 初筛 | 中 | 内部分布指标较好，但外部有效性未验证 | 明确“初筛/需复核” |
+| 非零或密集目标计数 | 低 | 冻结答辩集和 diagnostic 直接显示严重低估 | 显著风险提示，不作为可靠主张 |
+| 新城市、新传感器或任意网络图片 | 未知 | Philadelphia 已有域差，未做 provider-owned gold | 先建目标域 dev/sealed test |
+| 法定测绘、灾害判定、变化监测、农业决策 | 不适配 | 缺几何、时相、多源和专业标注 | 明确排除 |
 
-## 6. 主路径与完整扩展工作流
+### 6.3 小模型的实际价值应如何表达
 
-### 6.1 首版主路径（优先实现）
+研究模型的价值不是“比 Gemini 更聪明”，而是：
 
-1. 用户上传一张图像。
-2. 用户在输入框中直接提出问题；界面给出少量示例，但不强制用户从下拉框选择。
-3. 问题适配层识别其是否可映射为已验证的对象词汇和问题类型，并转换为冻结的英文 canonical question。
-4. 对可支持的问题，predicted-soft 模型输出闭集答案；页面以答案为核心展示。
-5. 对不支持的问题，页面明确说明当前研究模型的边界，而不是输出貌似正确的自由文本。
+- **固定任务协议**：输出属于冻结 55 类，可进行 exact-match 评测和批量比较；
+- **结果可复现**：release、checkpoint、词表、预处理和代码提交均可追踪；
+- **可本地部署**：不必把影像发送给第三方 Provider；
+- **行为一致**：同一发布在同一输入上可重复，适合教学、研究复核和固定清单；
+- **成本可控的潜力**：约 465 MiB checkpoint 可在自有 CPU/GPU worker 部署，但仍需正式延迟、
+  吞吐和能耗基准后才能声称更便宜或更快；
+- **暴露失败边界**：可通过真实 gold 定量说明哪里有效、哪里无效，而不是依赖语言流畅度。
 
-这一条链路就是论文演示最重要的“输入图片、提出问题、得到研究模型回答”。它足以直接展示图文跨模态输入、融合模型推理和微调后模型的应用结果。
+这些价值成立的前提是任务确实需要标准化输出、隐私、本地化或批量一致性。若用户只想自由描述一张
+影像，通用 VLM 可能更符合需求。
 
-### 6.2 可选的完整扩展工作流（非首版前置条件）
+## 7. 多模型与 RS-Bot 的职责
 
-#### 用户目标
+| 组件 | 适合承担 | 必须禁止 |
+| --- | --- | --- |
+| 研究 ViLT predicted-soft | 四类闭集问题、固定词表、可复现批量评测 | 任意开放问答、目标框、精确测绘、SOTA 宣称 |
+| Gemini / Qwen3-VL | 开放描述、探索性问题、生成式辅助 | 覆盖研究模型原始答案；冒充论文模型结果 |
+| RS-Bot | 项目/批任务统计、模型边界查询、低置信结果定位、知识检索、报告事实包、受控写操作提案 | 自行编造统计；把检索文本当系统指令；未经确认执行写操作 |
 
-用户拿到一批格式相近的高分 RGB 遥感影像，不需要直接读代码或理解模型结构；他希望按固定检查清单得到格式一致的“可先看什么、哪些结果需复核、这条结果来自哪个模型版本”的记录。
+RS-Bot 的实际含金量来自完成跨页面、跨数据源的任务，而不是在页面上再提供一个聊天框。优先任务应是：
 
-#### 标准过程
+1. 汇总一个项目或批任务的模型来源、成功率、失败项和低置信项；
+2. 查询当前模型发布、能力边界和已核准指标；
+3. 找出需要人工复核的样本并生成可点击的清单；
+4. 基于确定性事实包生成报告草稿，所有数字来自工具；
+5. 对归档、导出、重新提交等写操作先提出方案，再由用户确认。
 
-1. 上传或选择一张受控来源的影像，并填写最低限度元数据：来源、采集日期（若有）、空间分辨率（若有）和用途说明。
-2. 系统先做输入治理：文件类型、大小、图像可读性、RGB 通道、发布契约兼容性和哈希登记；失败即提示，不把未知输入静默送入模型。
-3. 用户从中文版“已验证问题模板”中选择地物和问题类型。系统保存用户可读中文，同时向研究模型发送冻结的英文 canonical question。
-4. 模型服务调用唯一合法的 predicted-soft release，返回闭集答案、top-k、置信度、margin、预测题型及版本元数据。
-5. 规则层依据置信度、问题模板和输入质量标记“可参考”“建议复核”或“拒答/超出范围”；规则本身必须可配置、可审计。
-6. 单 Agent 仅调用白名单工具：读取本次模型结果、查询能力边界/知识库、生成受限解释、创建复核任务、生成报告。它不得把自由生成的内容写成研究模型结论。
-7. 人工审核结果，并可标注“接受、驳回、待补充信息”。系统把审核人与时间、原因和原始模型输出一起留痕。
-8. 导出结构化分析报告：输入摘要、问题模板、预测、置信度、复核状态、模型 release ID、输入哈希、已知限制和 Agent 工具调用摘要。
+## 8. 待验证产品假设
 
-#### 一个可展示但不夸张的例子
+以下内容有合理依据，但不能写成“已经证明”：
 
-用户选择“道路存在性”并上传一张符合输入协议的影像。界面显示：
+| 假设 | 最小验证方法 | 通过标准 |
+| --- | --- | --- |
+| 教师和学生能用系统理解模型边界 | 5–8 名学生完成指定实验并做前后测 | 任务完成率 >= 85%，关键边界理解正确率 >= 80% |
+| 研究人员认为发布追踪和 Provider 对比有价值 | 3–5 名相关研究者执行复核任务 | 无帮助完成率下降；SUS >= 70；能正确定位模型来源 |
+| 固定清单可减少人工整理时间 | 具备 GIS 经验的审阅者做人工基线与系统辅助对照 | 中位完成时间下降 >= 20%，错误率不显著上升 |
+| RS-Bot 能提高复杂任务完成率 | 预注册 30–50 个工具任务，与纯 UI 操作对比 | 成功率 >= 85%，数字忠实度 100%，越权执行 0 |
+| 外部 Provider 与研究模型可形成互补 | 同一带 gold 的目标域集合上做分任务比较 | 分别报告，不用主观案例替代定量结果 |
 
-- 研究模型输出：是否存在道路的闭集答案；
-- 证据状态：模型版本、输入哈希、预测置信度、是否建议人工复核；
-- 能力说明：结果仅适用于 RSVQA-HR 相近影像与词汇，不输出道路边界，不等同于道路测绘；
-- Agent 辅助：解释该模板的适用范围、列出下一步可选模板、将本次记录加入报告；
-- 人工操作：确认、驳回或标为需要高分辨率/多时相资料。
+无法接触行业专家时，可先做教学/科研用户研究，并把“分析人员工作流”保留为待验证方向。论文中应
+诚实说明样本构成和外部有效性，而不是用文献引用代替本系统用户实验。
 
-这比“AI 说图里有道路”更贴近真实工作：结果可被再次定位、复核、纠正和比较。
+## 9. 论文可用表述
 
-## 7. 研究模型与外部通用 VLM 的关系
+推荐：
 
-两个模型入口可以共存，但必须服务不同问题，且不能相互掩盖。
+> 本研究面向受控遥感视觉问答任务，将跨模态融合与参数高效微调模型封装为版本固定、来源可区分、
+> 支持单图与批量复核的分析工作台。系统同时引入受约束的 Agent 工具编排与外部视觉模型辅助，
+> 以展示专业小模型在可复现、本地部署、固定任务协议和隐私控制方面的工程价值。实验表明，模型在
+> RSVQA-HR 闭集任务上具有较好整体性能，但非零密集计数、长尾答案和跨地域迁移仍是显著限制。
 
-| 路径 | 用户适合问什么 | 输出标签 | 不能做什么 |
-| --- | --- | --- | --- |
-| 本研究 ViLT predicted-soft | 已验证对象词汇和模板内的存在、数量、面积标签、比较 | prediction_origin = research_vilt_predicted_soft | 不回答任意自由问题；不输出目标框或地图；不伪造精确测量 |
-| 未来外部通用 VLM 辅助 | 开放式图像描述、探索性解释、如何组织后续调查问题 | prediction_origin = external_vlm_assist | 不能覆盖、改写或混入研究模型答案；不能被用于证明论文模型精度 |
+禁止：
 
-这不是为避免比较而人为分工。Zhang 和 Wang 的实测表明，通用 VLM 在 EO 图像描述和场景理解可有优势，但其空间定位、计数和变化任务并不稳定。反过来，本研究也没有对 GPT、DeepSeek 或其他外部模型做同协议对比，因而不能声称研究模型更好。
+- “适用于任意遥感影像的通用问答系统”；
+- “达到或超过 SOTA”；
+- “置信度高即答案可靠”；
+- “可替代遥感专家、法定测绘或应急判定”；
+- “外部模型回答更流畅，所以更准确”；
+- “512 条答辩集 OA 是所有真实场景准确率”。
 
-本研究模型的可陈述实际价值是：在一个明确限定的、重复出现的问题清单上，提供固定输出空间、版本固定、结果可批量比较、可部署审计和人工复核入口。它是一个受控工作流中的辅助组件，不是“比所有大模型更聪明”的通用替代品。
+## 10. 参考资料
 
-## 8. 对论文主线的支撑方式
+1. Lobry, S. et al. *RSVQA: Visual Question Answering for Remote Sensing Data*. IEEE TGRS, 2020. DOI: [10.1109/TGRS.2020.2988782](https://doi.org/10.1109/TGRS.2020.2988782)
+2. Weng, X., Pang, C., Xia, G.-S. *Vision-Language Modeling Meets Remote Sensing: Models, Datasets and Perspectives*. IEEE GRSM, 2025. DOI: [10.1109/MGRS.2025.3572702](https://doi.org/10.1109/MGRS.2025.3572702)
+3. Liu et al. *Remote Sensing Spatiotemporal Vision-Language Models: A Comprehensive Survey*. IEEE GRSM, 2025. DOI: [10.1109/MGRS.2025.3598283](https://doi.org/10.1109/MGRS.2025.3598283)
+4. Zhang, C., Wang, S. *Good at Captioning, Bad at Counting: Benchmarking GPT-4V on Earth Observation Data*. CVPRW, 2024. [arXiv:2401.17600](https://arxiv.org/abs/2401.17600)
+5. Liu et al. *Change-Agent: Toward Interactive Comprehensive Remote Sensing Change Interpretation and Analysis*. IEEE TGRS, 2024. DOI: [10.1109/TGRS.2024.3425815](https://doi.org/10.1109/TGRS.2024.3425815)
+6. Cerbaro, M. et al. *Information from Earth Observation for the Management of Sustainable Land Use and Land Cover in Brazil: An Analysis of User Needs*. Sustainability, 2020. DOI: [10.3390/su12020489](https://doi.org/10.3390/su12020489)
+7. Prakash, M. et al. *Open Earth Observations for Sustainable Urban Development*. Remote Sensing, 2020. DOI: [10.3390/rs12101646](https://doi.org/10.3390/rs12101646)
+8. Gevaert, C. M. *Explainable AI for Earth Observation: A Review Including Societal and Regulatory Perspectives*. IJAEOG, 2022. DOI: [10.1016/j.jag.2022.102869](https://doi.org/10.1016/j.jag.2022.102869)
+9. *RSAdapter: Adapting Multimodal Models for Remote Sensing Visual Question Answering*. IEEE TGRS, 2024. DOI: [10.1109/TGRS.2024.3413174](https://doi.org/10.1109/TGRS.2024.3413174)
+10. *Improving Counting Accuracy of Post-Disaster Visual Question Answering for Remote Sensing*. TechRxiv preprint, 2024. DOI: [10.36227/techrxiv.173121334.46844366/v1](https://doi.org/10.36227/techrxiv.173121334.46844366/v1)
+11. Sudmanns, M. et al. *Big Earth Data: Disruptive changes in Earth observation data management and analysis?* Big Earth Data, 2019. DOI: [10.1080/17538947.2019.1585976](https://doi.org/10.1080/17538947.2019.1585976)
+12. [CEOS Analysis Ready Data](https://ceos.org/ard/)
+13. [Copernicus EMS Rapid Mapping: Product overview](https://mapping.emergency.copernicus.eu/about/rapid-mapping-manual/product-overview/what-is-delivered-in-a-product/)
+14. [Copernicus EMS Rapid Mapping: Quality control](https://mapping.emergency.copernicus.eu/about/rapid-mapping-manual/quality-control/)
+15. [NIST AI Risk Management Framework 1.0](https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-1.pdf)
+16. [SpatioTemporal Asset Catalog specification](https://stacspec.org/en/)
 
-论文题目固定为“跨模态特征融合机制及微调策略研究与应用”。工程系统不应另起炉灶，而应把研究贡献转化为可验证的应用闭环：
+## 11. 仓库内权威事实源
 
-| 论文主线 | 工程中可展示的对应物 |
-| --- | --- |
-| 跨模态特征融合机制 | 图像和问题文本共同进入冻结的 RSVQA-HR 推理；报告显示问题模板、预测题型和正式 predicted-soft 协议 |
-| 参数高效微调策略 | release manifest 固定研究提交、checkpoint、答案词表、预处理和评估证据；系统不混用训练中间产物 |
-| 应用价值 | 受控模板下的快速盘点、低置信度提示、人工复核和报告留痕 |
-| 软件工程贡献 | 跨仓库发布契约、可验证模型消费、审计链、工具白名单、失败可解释和可部署架构 |
-
-正确的论文表述应是“探索如何将经过评估的跨模态融合与参数高效微调模型，工程化为可演示、可追溯、可审查的遥感影像问答辅助工具”，而不是“构建了可替代专业人员的通用遥感大模型系统”。
-
-## 9. 仍然必须验证的事项
-
-以下问题尚无足够直接证据，不能因文献背景充分就跳过：
-
-1. 目标用户是否接受上述模板、对象词表和报告格式？
-2. 用户自己的高分 RGB 影像在分辨率、视角、地区和标注语义上是否接近 RSVQA-HR？
-3. 在真实工作时间约束下，什么置信度阈值和拒答策略对人工复核最有帮助？
-4. 经过中文界面映射后的 canonical 英文问题能否保持与研究评估协议一致？
-5. 用户是否需要账户、团队协作、管理员审计、知识库和报告导出，分别应处于 MVP 还是增强项？
-
-后续可用小规模、低风险的任务评估补足这部分证据：让若干非遥感背景用户和至少一名具有遥感/GIS经验的审阅者，在公开、非敏感影像上完成固定任务；记录完成时间、理解错误、接受/驳回理由、复核一致性和对报告的可用性。该评估是产品适用性验证，不等同于重新训练模型。
-
-## 10. 本阶段建议的冻结前决策
-
-本调研支持以下“候选决定”，但尚未得到用户最终确认：
-
-1. 首版核心场景采用“受控高分 RGB 静态影像上的问题输入与闭集回答”，后续再扩展为模板化盘点与可追溯报告；不用“通用城市土地利用分析”这种过宽表述。
-2. 首版界面允许用户自由输入中文或英文问题，但只有可确定映射到已验证 canonical question 的问法才进入 ViLT；不支持的问题必须透明提示。
-3. Agent 对话、知识检索、人工复核、历史记录和报告均为后续可选增强项；首版主路径不以它们为前置条件。
-4. 外部通用 VLM 作为后续可插拔、显式区分的辅助能力；暂不决定具体供应商或模型。
-5. 正式应用模型只能消费 rs-vqa-fusion 的不可变发布物和 model-release manifest，遵守 1.0 发布契约。
-
-在用户确认这些方向前，不启动 RS-VQA 的代码工程、数据库、向量库、容器编排或模型服务开发。
-
-## 11. 可引用资料
-
-### 论文与综述
-
-1. Lobry, S., Marcos, D., Murray, J., and Tuia, D. RSVQA: Visual Question Answering for Remote Sensing Data. IEEE TGRS, 2020. DOI: https://doi.org/10.1109/TGRS.2020.2988782
-2. Zhang, C., and Wang, S. Good at Captioning, Bad at Counting: Benchmarking GPT-4V on Earth Observation Data. CVPR Workshops, 2024. https://arxiv.org/abs/2401.17600
-3. Weng, X., Pang, C., and Xia, G.-S. Vision-Language Modeling Meets Remote Sensing: Models, Datasets and Perspectives. IEEE GRSM, 2025. DOI: https://doi.org/10.1109/MGRS.2025.3572702
-4. Cerbaro, M., Morse, S., Murphy, R., Lynch, J., and Griffiths, G. Information from Earth Observation for the Management of Sustainable Land Use and Land Cover in Brazil: An Analysis of User Needs. Sustainability, 2020. DOI: https://doi.org/10.3390/su12020489
-5. Prakash, M. et al. Open Earth Observations for Sustainable Urban Development. Remote Sensing, 2020. DOI: https://doi.org/10.3390/rs12101646
-6. Gevaert, C. M. Explainable AI for Earth Observation: A Review Including Societal and Regulatory Perspectives. International Journal of Applied Earth Observation and Geoinformation, 2022. DOI: https://doi.org/10.1016/j.jag.2022.102869
-7. 付琨等. 遥感跨模态智能解译：模型、数据与应用. 中国科学：信息科学, 2023. DOI: https://doi.org/10.1360/SSI-2023-0055
-8. 孟瑜等. 知识与数据驱动的遥感图像智能解译：进展与展望. 遥感学报, 2024. DOI: https://doi.org/10.11834/jrs.20243547
-9. 张帅豪、潘志刚. 遥感大模型：综述与未来设想. 遥感技术与应用, 2025. DOI: https://doi.org/10.11873/j.issn.1004-0323.2025.1.0001
-10. 上官博屹等. 航天遥感大模型发展综述与产业化应用展望. 上海航天（中英文）, 2025. DOI: https://doi.org/10.19328/j.cnki.2096-8655.2025.02.002
-
-### 官方业务与治理资料
-
-11. Copernicus EMS Rapid Mapping, What is delivered in a product? https://mapping.emergency.copernicus.eu/about/rapid-mapping-manual/product-overview/what-is-delivered-in-a-product/
-12. Copernicus EMS Rapid Mapping, Quality Control. https://mapping.emergency.copernicus.eu/about/rapid-mapping-manual/quality-control/
-13. Copernicus EMS, Limitations when using Earth Observation data. https://mapping.emergency.copernicus.eu/about/limitations-when-using-earth-observation-data/
-14. CEOS Analysis Ready Data. https://ceos.org/ard/
-15. NIST AI Risk Management Framework 1.0. https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-1.pdf
-16. SpatioTemporal Asset Catalog specification. https://stacspec.org/en/
-
-### 研究仓库中的可追溯依据
-
-17. rs-vqa-fusion/docs/24_model_release_contract.md
-18. rs-vqa-fusion/docs/16_predicted_soft_case_audit.md
-19. rs-vqa-fusion/thesis/final_experiment_tables.md
-20. rs-vqa-fusion/configs/semantic/rsvqa_hr_train_question_semantic_vocabulary.json
+- `docs/architecture/product-aligned-evaluation.md`
+- `docs/versions/v0.9.0-product-aligned-evaluation-and-trusted-model.md`
+- `docs/versions/v0.9.1-defense-benchmark.md`
+- `rs-vqa-fusion/docs/ENGINEERING_EVALUATION_HANDOFF.md`
+- `rs-vqa-fusion/docs/30_product_aligned_training_decision.md`
+- `rs-vqa-fusion/thesis/final_experiment_tables.md`

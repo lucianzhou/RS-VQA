@@ -16,4 +16,4 @@
 
 版本完成时，将状态改为“已完成”，写入实际验证结果；不要把计划中的能力写成已经交付的能力。
 
-当前版本：[`v0.9.1-defense-benchmark.md`](v0.9.1-defense-benchmark.md)。
+当前版本：[`v0.9.3-comprehensive-assessment.md`](v0.9.3-comprehensive-assessment.md)。
