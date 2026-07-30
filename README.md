@@ -69,6 +69,27 @@ docker-compose --profile rag down
 
 不要在需要保留演示数据时追加 `-v`。
 
+## 重建答辩演示环境
+
+`data/defense-benchmark-v1` 已存在、使用 Demo profile 且当前模型服务为已核准 Real Runtime
+时，可用一条命令把
+`local-demo` 恢复为确定性的答辩工作区：
+
+```bash
+cd /Users/popwind/Documents/Master/graduation/rs-vqa
+./scripts/reset_demo_environment.sh
+```
+
+这是显式破坏性操作：它会删除并重建 `local-demo` 的项目、会话、上传副本、模型调用、
+批量任务、报告、RS-Bot 会话和相关审计记录。脚本必须通过已认证 Demo Session、CSRF
+以及确认短语 `RESET_LOCAL_DEMO` 才能执行。
+
+重置不会删除真实用户及其数据、模型发布、公共或私有知识文档、模型文件以及
+`data/defense-benchmark-v1`。冻结数据以只读卷挂载；24 项展示清单固定为四类问题各 6 条，
+批量结果和预建单图/多轮回答均通过正常研究模型运行时异步生成，不写入展示用伪造预测。
+接口返回 `INITIALIZING_RUNTIME_OUTPUTS` 后，可在批量任务页观察处理进度。
+Mock、未就绪、非 `predicted_soft` 或 release ID 不一致时，重置会在删除任何数据前失败关闭。
+
 ## Mock 与 Real 模式
 
 Mock 是默认、安全且无需 checkpoint 的完整演示模式：

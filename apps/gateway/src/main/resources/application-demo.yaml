@@ -9,6 +9,9 @@ server:
 rsvqa:
   demo-auth:
     enabled: ${RSVQA_DEMO_AUTH:true}
+  demo-environment:
+    enabled: ${RSVQA_DEMO_ENVIRONMENT_ENABLED:true}
+    source-root: ${RSVQA_DEMO_DATA_ROOT:../../data/defense-benchmark-v1}
 
 management:
   endpoints:

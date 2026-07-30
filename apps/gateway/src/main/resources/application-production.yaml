@@ -9,6 +9,8 @@ server:
 rsvqa:
   demo-auth:
     enabled: false
+  demo-environment:
+    enabled: false
 
 springdoc:
   api-docs:

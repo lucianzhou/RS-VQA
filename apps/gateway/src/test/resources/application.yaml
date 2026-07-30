@@ -22,3 +22,5 @@ rsvqa:
     root: ${java.io.tmpdir}/rsvqa-tests
   demo-auth:
     enabled: true
+  demo-environment:
+    enabled: false

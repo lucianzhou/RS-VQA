@@ -21,6 +21,7 @@ class ProductionProfileConfigurationTest {
         assertThat(source.getProperty("server.servlet.session.cookie.http-only")).isEqualTo(true);
         assertThat(source.getProperty("server.servlet.session.cookie.same-site")).isEqualTo("lax");
         assertThat(source.getProperty("rsvqa.demo-auth.enabled")).isEqualTo(false);
+        assertThat(source.getProperty("rsvqa.demo-environment.enabled")).isEqualTo(false);
         assertThat(source.getProperty("springdoc.api-docs.enabled")).isEqualTo(false);
         assertThat(source.getProperty("springdoc.swagger-ui.enabled")).isEqualTo(false);
         assertThat(source.getProperty("management.endpoints.web.exposure.include")).isEqualTo("health");

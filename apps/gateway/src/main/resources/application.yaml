@@ -117,6 +117,10 @@ rsvqa:
     default-index-version: ${RSVQA_KNOWLEDGE_INDEX_VERSION:rsvqa-knowledge-v2}
   demo-auth:
     enabled: ${RSVQA_DEMO_AUTH:false}
+  demo-environment:
+    enabled: ${RSVQA_DEMO_ENVIRONMENT_ENABLED:false}
+    source-root: ${RSVQA_DEMO_DATA_ROOT:}
+    model-release-id: ${RSVQA_DEMO_MODEL_RELEASE_ID:rsvqa-hr-qdrop15-predicted-soft-20260727-9b4ade2}
   mcp:
     enabled: ${RSVQA_MCP_ENABLED:false}
     bearer-token: ${RSVQA_MCP_BEARER_TOKEN:}

@@ -45,6 +45,24 @@ public class FileStorageService {
         return storeInNamespace(userId + "/batch/" + batchId, upload);
     }
 
+    StoredImage storeDemoConversation(
+            UUID userId,
+            UUID conversationId,
+            Path source,
+            String originalName
+    ) {
+        return storeDemoSource(userId + "/" + conversationId, source, originalName);
+    }
+
+    StoredImage storeDemoBatch(
+            UUID userId,
+            UUID batchId,
+            Path source,
+            String originalName
+    ) {
+        return storeDemoSource(userId + "/batch/" + batchId, source, originalName);
+    }
+
     public StoredImage copyBatch(UUID userId, UUID batchId, StoredImage source) {
         byte[] bytes = read(source.storageKey());
         if (bytes.length != source.sizeBytes() || !sha256(bytes).equalsIgnoreCase(source.sha256())) {
@@ -83,30 +101,63 @@ public class FileStorageService {
         }
         try {
             byte[] bytes = upload.getBytes();
-            ImageDimensions dimensions = dimensions(bytes, contentType);
-            String storageKey = namespace + "/" + UUID.randomUUID() + EXTENSIONS.get(contentType);
-            Path target = resolve(storageKey);
-            Files.createDirectories(target.getParent());
-            Path temporary = Files.createTempFile(target.getParent(), ".upload-", ".tmp");
-            try {
-                Files.write(temporary, bytes);
-                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE);
-            } finally {
-                Files.deleteIfExists(temporary);
-            }
             String original = upload.getOriginalFilename() == null ? "image" : safeDisplayName(upload.getOriginalFilename());
-            return new StoredImage(
-                    storageKey,
-                    original,
-                    sha256(bytes),
-                    contentType,
-                    bytes.length,
-                    dimensions.width(),
-                    dimensions.height()
-            );
+            return storeBytesInNamespace(namespace, bytes, contentType, original);
         } catch (IOException error) {
             throw new RequestValidationException("图像文件无法安全保存。");
         }
+    }
+
+    private StoredImage storeDemoSource(String namespace, Path source, String originalName) {
+        try {
+            byte[] bytes = Files.readAllBytes(source);
+            if (bytes.length == 0 || bytes.length > modelProperties.maxFileBytes()) {
+                throw new RequestValidationException("答辩演示图像为空或超过 10 MiB。");
+            }
+            String lower = source.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
+            String contentType = lower.endsWith(".png") ? "image/png"
+                    : lower.endsWith(".jpg") || lower.endsWith(".jpeg") ? "image/jpeg"
+                    : lower.endsWith(".webp") ? "image/webp" : null;
+            if (contentType == null) {
+                throw new RequestValidationException("答辩演示图像格式不受支持。");
+            }
+            return storeBytesInNamespace(
+                    namespace,
+                    bytes,
+                    contentType,
+                    safeDisplayName(originalName)
+            );
+        } catch (IOException error) {
+            throw new RequestValidationException("答辩演示图像无法复制到受控上传空间。");
+        }
+    }
+
+    private StoredImage storeBytesInNamespace(
+            String namespace,
+            byte[] bytes,
+            String contentType,
+            String originalName
+    ) throws IOException {
+        ImageDimensions dimensions = dimensions(bytes, contentType);
+        String storageKey = namespace + "/" + UUID.randomUUID() + EXTENSIONS.get(contentType);
+        Path target = resolve(storageKey);
+        Files.createDirectories(target.getParent());
+        Path temporary = Files.createTempFile(target.getParent(), ".upload-", ".tmp");
+        try {
+            Files.write(temporary, bytes);
+            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE);
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
+        return new StoredImage(
+                storageKey,
+                originalName,
+                sha256(bytes),
+                contentType,
+                bytes.length,
+                dimensions.width(),
+                dimensions.height()
+        );
     }
 
     public byte[] read(String storageKey) {
@@ -122,6 +173,23 @@ public class FileStorageService {
             Files.deleteIfExists(resolve(storageKey));
         } catch (IOException ignored) {
             // Database state remains authoritative; lifecycle cleanup can retry this file.
+        }
+    }
+
+    void deleteOwned(UUID userId, String storageKey) {
+        String namespace = userId + "/";
+        if (storageKey == null || !storageKey.startsWith(namespace)) {
+            throw new RequestValidationException("拒绝删除不属于演示用户命名空间的文件。");
+        }
+        Path ownerRoot = root.resolve(userId.toString()).normalize();
+        Path target = resolve(storageKey);
+        if (!target.startsWith(ownerRoot)) {
+            throw new RequestValidationException("拒绝删除不属于演示用户命名空间的文件。");
+        }
+        try {
+            Files.deleteIfExists(target);
+        } catch (IOException ignored) {
+            // A later reset can retry an obsolete demo upload.
         }
     }
 

@@ -254,9 +254,45 @@ public class WorkspaceService {
     @Transactional
     public QuestionResponse ask(UUID conversationId, QuestionRequest request) {
         ConversationEntity conversation = ownedConversation(conversationId);
+        if (request.providerId() != null && !request.providerId().isBlank()
+                && !"research-rsvqa".equals(request.providerId())) {
+            ImageAssetEntity image = images.findByConversationId(conversationId)
+                    .orElseThrow(() -> new RequestValidationException("请先为当前会话上传图像。"));
+            String question = request.question().trim();
+            MessageEntity userMessage = messages.save(new MessageEntity(
+                    conversation,
+                    null,
+                    "user",
+                    "USER",
+                    question,
+                    null
+            ));
+            return askExternal(conversation, image, userMessage, question, request.providerId().trim());
+        }
+        return askResearch(conversation, request.question(), request.modelReleaseId());
+    }
+
+    @Transactional
+    public QuestionResponse askResearchForUser(
+            UUID userId,
+            UUID conversationId,
+            String question,
+            String modelReleaseId
+    ) {
+        ConversationEntity conversation = conversations.findByIdAndProjectUserId(conversationId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("演示会话不存在或已被重置。"));
+        return askResearch(conversation, question, modelReleaseId);
+    }
+
+    private QuestionResponse askResearch(
+            ConversationEntity conversation,
+            String rawQuestion,
+            String modelReleaseId
+    ) {
+        UUID conversationId = conversation.getId();
         ImageAssetEntity image = images.findByConversationId(conversationId)
                 .orElseThrow(() -> new RequestValidationException("请先为当前会话上传图像。"));
-        String question = request.question().trim();
+        String question = rawQuestion.trim();
         MessageEntity userMessage = messages.save(new MessageEntity(
                 conversation,
                 null,
@@ -266,14 +302,9 @@ public class WorkspaceService {
                 null
         ));
 
-        if (request.providerId() != null && !request.providerId().isBlank()
-                && !"research-rsvqa".equals(request.providerId())) {
-            return askExternal(conversation, image, userMessage, question, request.providerId().trim());
-        }
-
         ApiPredictionResponse result = vqaService.answer(
                 storage.read(image.getStorageKey()), image.getOriginalName(), image.getMimeType(),
-                question, request.modelReleaseId()
+                question, modelReleaseId
         );
         verifyInputDigest(image.getSha256(), result.inputSha256());
         ModelInvocationEntity invocation = new ModelInvocationEntity(
