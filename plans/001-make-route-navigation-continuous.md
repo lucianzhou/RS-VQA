@@ -1,6 +1,6 @@
 # 001 — Make route navigation continuous
 
-- **Status**: TODO
+- **Status**: DONE (`feature/trusted-application-p1`)
 - **Commit**: 8af68bb
 - **Severity**: HIGH
 - **Category**: Purpose, performance, cohesion

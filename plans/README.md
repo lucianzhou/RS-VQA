@@ -7,7 +7,7 @@
 
 | 编号 | 计划 | 严重度 | 状态 |
 | ---: | --- | --- | --- |
-| 001 | [让路由导航连续](./001-make-route-navigation-continuous.md) | HIGH | TODO |
+| 001 | [让路由导航连续](./001-make-route-navigation-continuous.md) | HIGH | DONE |
 | 002 | [移除 Agent 操作面板的布局动画](./002-remove-layout-animation-from-agent-actions.md) | HIGH | TODO |
 | 003 | [让 Popover 与 Toast 可中断](./003-make-popovers-and-toasts-interruptible.md) | MEDIUM | TODO |
 | 004 | [用阶段过渡解释异步进度](./004-explain-async-progress-with-stage-transitions.md) | MEDIUM | TODO |
