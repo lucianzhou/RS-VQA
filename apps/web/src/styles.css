@@ -543,8 +543,32 @@ button, a { touch-action: manipulation; }
   color: var(--ink);
   background: rgba(255,255,255,.98);
   box-shadow: 0 18px 48px rgba(27,42,33,.14), 0 2px 8px rgba(27,42,33,.06);
+}
+.context-menu {
   transform-origin: var(--radix-dropdown-menu-content-transform-origin);
-  animation: popover-in var(--motion-popover) var(--ease-out);
+}
+.model-popover {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  visibility: visible;
+  transition:
+    opacity var(--motion-popover) var(--ease-out),
+    transform var(--motion-popover) var(--ease-out),
+    visibility 0s;
+}
+.model-popover[data-state="closed"] {
+  opacity: 0;
+  transform: scale(.98) translateY(-2px);
+  visibility: hidden;
+  pointer-events: none;
+  transition-duration: 120ms, 120ms, 0s;
+  transition-delay: 0s, 0s, 120ms;
+}
+.model-popover[data-state="open"] {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  visibility: visible;
+  transition-delay: 0s;
 }
 .context-menu [role="menuitem"] { display: flex; min-height: 34px; align-items: center; gap: 8px; border-radius: 7px; padding: 0 9px; font-size: 10px; outline: 0; user-select: none; }
 .context-menu [role="menuitem"][data-highlighted] { color: var(--forest-pressed); background: var(--selection); }
@@ -624,7 +648,7 @@ button, a { touch-action: manipulation; }
 .lightbox-close:hover { background: rgba(52,67,57,.84); }
 .lightbox-close:active { transform: scale(.92); }
 
-.undo-toast { position: fixed; z-index: 120; right: 22px; bottom: 22px; display: flex; min-width: 260px; align-items: center; gap: 10px; border: 1px solid rgba(29,36,32,.1); border-radius: 11px; padding: 10px 10px 10px 13px; color: #f8fbf9; background: #26342d; box-shadow: 0 18px 50px rgba(20,30,24,.22); animation: toast-in 240ms var(--ease-out); }
+.undo-toast { position: fixed; z-index: 120; right: 22px; bottom: 22px; display: flex; min-width: 260px; align-items: center; gap: 10px; border: 1px solid rgba(29,36,32,.1); border-radius: 11px; padding: 10px 10px 10px 13px; color: #f8fbf9; background: #26342d; box-shadow: 0 18px 50px rgba(20,30,24,.22); }
 .undo-toast span { min-width: 0; flex: 1; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .undo-toast button { border: 0; border-radius: 6px; padding: 5px 7px; color: #d9eee3; background: transparent; font-size: 9px; font-weight: 700; }
 .undo-toast button:hover { background: rgba(255,255,255,.1); }
@@ -717,10 +741,8 @@ button, a { touch-action: manipulation; }
 .signed-out > p:not(.eyebrow) { max-width: 480px; margin: 13px 0 24px; color: var(--muted); font-size: 11px; line-height: 1.75; text-wrap: pretty; }
 .signed-out .primary-button { width: auto; gap: 8px; }
 
-@keyframes popover-in { from { opacity: 0; transform: scale(.96) translateY(-3px); } }
 @keyframes dialog-in { from { opacity: 0; transform: translate(-50%,-48%) scale(.97); } }
 @keyframes fade-in { from { opacity: 0; } }
-@keyframes toast-in { from { opacity: 0; transform: translateY(12px) scale(.98); } }
 @keyframes route-pulse { to { opacity: .35; transform: scale(.72); } }
 @keyframes distribution-grow { from { transform: scaleX(0); } }
 
@@ -805,7 +827,15 @@ button, a { touch-action: manipulation; }
   }
   html:focus-within { scroll-behavior: auto; }
   .sidebar, .project-toggle > svg:first-child, .skip-link { transition-property: opacity, color, background-color; }
-  .context-menu, .model-popover, .action-dialog, .dialog-overlay, .undo-toast { animation: fade-in 100ms ease-out; }
+  .model-popover {
+    transform: none;
+    transition-duration: 100ms, 1ms, 0s;
+  }
+  .model-popover[data-state="closed"] {
+    transform: none;
+    transition-delay: 0s, 0s, 100ms;
+  }
+  .action-dialog, .dialog-overlay { animation: fade-in 100ms ease-out; }
   .batch-thumbnail, .batch-thumbnail img, .batch-result-thumbnail, .batch-result-thumbnail img, .thumbnail-remove, .lightbox-close { transition-duration: 1ms; }
   .distribution-row > i b { animation: none; }
 }

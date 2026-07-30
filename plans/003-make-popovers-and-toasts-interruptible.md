@@ -1,6 +1,6 @@
 # 003 — Make popovers and toasts interruptible
 
-- **Status**: TODO
+- **Status**: DONE (`feature/trusted-application-p1`)
 - **Commit**: 8af68bb
 - **Severity**: MEDIUM
 - **Category**: Interruptibility and physicality

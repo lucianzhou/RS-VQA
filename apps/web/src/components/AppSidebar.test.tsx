@@ -100,6 +100,37 @@ describe("AppSidebar", () => {
     expect(screen.getByRole("menuitem", { name: /模型与 Provider/ })).toBeInTheDocument();
   });
 
+  it("closes an archive toast without invoking its still-available undo action", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (path.endsWith("/api/v1/auth/csrf")) {
+        return jsonResponse({ token: "test-csrf-token", headerName: "X-XSRF-TOKEN", parameterName: "_csrf" });
+      }
+      if (path.endsWith("/api/v1/projects/project-forest") && init?.method === "DELETE") {
+        return new Response(null, { status: 204 });
+      }
+      return jsonResponse(projects);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const interaction = userEvent.setup();
+    renderWithClient(<AppSidebar user={user} />);
+    await screen.findByText("森林调查");
+
+    await interaction.click(screen.getByRole("button", { name: "森林调查项目菜单" }));
+    await interaction.click(await screen.findByRole("menuitem", { name: "归档项目" }));
+    await interaction.click(await screen.findByRole("button", { name: "归档" }));
+
+    const toast = await screen.findByRole("status");
+    expect(toast).toHaveTextContent("“森林调查”已归档");
+    expect(screen.getByRole("button", { name: "撤销" })).toBeEnabled();
+    await interaction.click(screen.getByRole("button", { name: "关闭提示" }));
+    await vi.waitFor(() => expect(screen.queryByText("“森林调查”已归档")).not.toBeInTheDocument());
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("/restore"),
+      expect.anything(),
+    );
+  });
+
   it("collapses an empty project composer when clicking outside", async () => {
     const interaction = userEvent.setup();
     renderWithClient(<AppSidebar user={user} />);
@@ -222,6 +253,37 @@ describe("ModelSelector", () => {
     expect(within(listbox).getByRole("option", { name: /Gemini/ })).toHaveAttribute("aria-disabled", "true");
     expect(within(listbox).queryByText("Gemini 通用视觉助手")).toBeNull();
     expect(within(listbox).queryByText("外部通用视觉模型")).toBeNull();
+  });
+
+  it("supports an immediate close and reopen without losing the model options", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse([
+      {
+        providerId: "research-rsvqa",
+        modelId: "release-1",
+        displayName: "RS-VQA",
+        kind: "RESEARCH_MODEL",
+        configurationState: "CONFIGURED",
+        capabilities: ["vision"],
+        vision: true,
+        streaming: false,
+        toolCalling: false,
+        structuredOutput: true,
+        timeout: "30s",
+        maxRetries: 0,
+        costMetadata: {},
+      },
+    ])));
+    const interaction = userEvent.setup();
+    renderWithClient(<ModelSelector />);
+    const trigger = await screen.findByRole("button", { name: /选择分析模式/ });
+
+    await interaction.click(trigger);
+    expect(await screen.findByRole("listbox", { name: "分析模式" })).toBeVisible();
+    await interaction.click(trigger);
+    await interaction.click(trigger);
+
+    expect(await screen.findByRole("listbox", { name: "分析模式" })).toBeVisible();
+    expect(screen.getByRole("option", { name: /RS-VQA/ })).toBeEnabled();
   });
 });
 

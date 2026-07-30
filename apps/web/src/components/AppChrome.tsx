@@ -78,8 +78,8 @@ export function ModelSelector() {
           <ChevronDown className={open ? "is-open" : ""} size={14} />
         </button>
       </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content className="model-popover" sideOffset={8} align="end" collisionPadding={12} onOpenAutoFocus={(event) => {
+      <Popover.Portal forceMount>
+        <Popover.Content forceMount aria-hidden={!open} className="model-popover" sideOffset={8} align="end" collisionPadding={12} onOpenAutoFocus={(event) => {
           event.preventDefault();
           window.requestAnimationFrame(() => listRef.current?.querySelector<HTMLButtonElement>("[role=option]:not([aria-disabled=true])")?.focus());
         }}>

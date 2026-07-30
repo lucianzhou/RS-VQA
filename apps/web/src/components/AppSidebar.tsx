@@ -26,6 +26,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
@@ -58,6 +59,7 @@ interface UndoToast {
 }
 
 export function AppSidebar({ user }: { user: CurrentUser }) {
+  const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const projectsQuery = useQuery({ queryKey: ["projects"], queryFn: listProjects });
@@ -75,6 +77,7 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
   const projectCreateAreaRef = useRef<HTMLDivElement>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [projectComposerOpen, setProjectComposerOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [action, setAction] = useState<Action>(null);
   const [actionValue, setActionValue] = useState("");
@@ -367,7 +370,7 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
 
         <div className="sidebar-footer">
           <NavItem to="/settings" icon={<Settings size={16} />} label="模型与设置" />
-          <DropdownMenu.Root>
+          <DropdownMenu.Root open={profileMenuOpen} onOpenChange={setProfileMenuOpen}>
             <DropdownMenu.Trigger asChild>
               <button className="profile-row" type="button" aria-label="打开账户菜单">
                 <CircleUserRound size={28} strokeWidth={1.5} />
@@ -375,15 +378,27 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
                 <ChevronRight size={15} />
               </button>
             </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content className="context-menu profile-menu" side="right" align="end" sideOffset={10}>
-                <div className="profile-menu-heading"><UserRound size={20} /><div><strong>{user.displayName}</strong><small>{user.username}</small></div></div>
-                <DropdownMenu.Separator />
-                <DropdownMenu.Item onSelect={() => navigate("/settings")}><SlidersHorizontal size={15} />个人与工作区设置</DropdownMenu.Item>
-                <DropdownMenu.Item onSelect={() => navigate("/settings")}><Settings size={15} />模型与 Provider</DropdownMenu.Item>
-                <DropdownMenu.Separator />
-                <DropdownMenu.Item className="danger-item" disabled={logoutMutation.isPending} onSelect={() => logoutMutation.mutate()}><LogOut size={15} />退出登录</DropdownMenu.Item>
-              </DropdownMenu.Content>
+            <DropdownMenu.Portal forceMount>
+              <AnimatePresence>
+                {profileMenuOpen && (
+                  <DropdownMenu.Content forceMount asChild side="right" align="end" sideOffset={10}>
+                    <motion.div
+                      key="profile-menu"
+                      className="context-menu profile-menu"
+                      initial={{ opacity: 0, transform: reduceMotion ? "none" : "scale(.96) translateY(-3px)" }}
+                      animate={{ opacity: 1, transform: "scale(1) translateY(0)", transition: menuEnterTransition(reduceMotion) }}
+                      exit={{ opacity: 0, transform: reduceMotion ? "none" : "scale(.98) translateY(-2px)", transition: menuExitTransition(reduceMotion) }}
+                    >
+                      <div className="profile-menu-heading"><UserRound size={20} /><div><strong>{user.displayName}</strong><small>{user.username}</small></div></div>
+                      <DropdownMenu.Separator />
+                      <DropdownMenu.Item onSelect={() => navigate("/settings")}><SlidersHorizontal size={15} />个人与工作区设置</DropdownMenu.Item>
+                      <DropdownMenu.Item onSelect={() => navigate("/settings")}><Settings size={15} />模型与 Provider</DropdownMenu.Item>
+                      <DropdownMenu.Separator />
+                      <DropdownMenu.Item className="danger-item" disabled={logoutMutation.isPending} onSelect={() => logoutMutation.mutate()}><LogOut size={15} />退出登录</DropdownMenu.Item>
+                    </motion.div>
+                  </DropdownMenu.Content>
+                )}
+              </AnimatePresence>
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
         </div>
@@ -399,47 +414,93 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
         onSubmit={() => action && actionMutation.mutate(action)}
       />
 
-      {toast && (
-        <div className="undo-toast" role="status" aria-live="polite">
-          <span>{toast.message}</span>
-          <button type="button" onClick={() => {
-            toast.undo();
-            setToast(null);
-          }}>撤销</button>
-          <button type="button" aria-label="关闭提示" onClick={() => setToast(null)}><X size={14} /></button>
-        </div>
-      )}
+      <AnimatePresence initial={false}>
+        {toast && (
+          <motion.div
+            key="undo-toast"
+            className="undo-toast"
+            role="status"
+            aria-live="polite"
+            initial={{ opacity: 0, transform: reduceMotion ? "none" : "translateY(10px) scale(.98)" }}
+            animate={{
+              opacity: 1,
+              transform: "translateY(0) scale(1)",
+              transition: { duration: reduceMotion ? 0.1 : 0.2, ease: [0.23, 1, 0.32, 1] },
+            }}
+            exit={{
+              opacity: 0,
+              transform: reduceMotion ? "none" : "translateY(6px) scale(.99)",
+              transition: { duration: reduceMotion ? 0.1 : 0.14, ease: [0.23, 1, 0.32, 1] },
+            }}
+          >
+            <span>{toast.message}</span>
+            <button type="button" onClick={() => {
+              toast.undo();
+              setToast(null);
+            }}>撤销</button>
+            <button type="button" aria-label="关闭提示" onClick={() => setToast(null)}><X size={14} /></button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
 
 function ProjectMenu({ project, onCreate, onAction }: { project: Project; onCreate: () => void; onAction: (action: Exclude<Action, null>) => void }) {
+  const [open, setOpen] = useState(false);
+  const reduceMotion = useReducedMotion();
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root open={open} onOpenChange={setOpen}>
       <DropdownMenu.Trigger asChild><button className="icon-button row-menu-trigger" type="button" aria-label={`${project.name}项目菜单`}><MoreHorizontal size={15} /></button></DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content className="context-menu" align="start" sideOffset={4}>
-          <DropdownMenu.Item onSelect={onCreate}><Plus size={14} />新建对话</DropdownMenu.Item>
-          <DropdownMenu.Item onSelect={() => onAction({ kind: "rename-project", id: project.id, value: project.name })}><Pencil size={14} />重命名</DropdownMenu.Item>
-          <DropdownMenu.Separator />
-          <DropdownMenu.Item className="danger-item" onSelect={() => onAction({ kind: "archive-project", id: project.id, value: project.name })}><Archive size={14} />归档项目</DropdownMenu.Item>
-        </DropdownMenu.Content>
+      <DropdownMenu.Portal forceMount>
+        <AnimatePresence>
+          {open && (
+            <DropdownMenu.Content forceMount asChild align="start" sideOffset={4}>
+              <motion.div
+                key={`project-menu-${project.id}`}
+                className="context-menu"
+                initial={{ opacity: 0, transform: reduceMotion ? "none" : "scale(.96) translateY(-3px)" }}
+                animate={{ opacity: 1, transform: "scale(1) translateY(0)", transition: menuEnterTransition(reduceMotion) }}
+                exit={{ opacity: 0, transform: reduceMotion ? "none" : "scale(.98) translateY(-2px)", transition: menuExitTransition(reduceMotion) }}
+              >
+                <DropdownMenu.Item onSelect={onCreate}><Plus size={14} />新建对话</DropdownMenu.Item>
+                <DropdownMenu.Item onSelect={() => onAction({ kind: "rename-project", id: project.id, value: project.name })}><Pencil size={14} />重命名</DropdownMenu.Item>
+                <DropdownMenu.Separator />
+                <DropdownMenu.Item className="danger-item" onSelect={() => onAction({ kind: "archive-project", id: project.id, value: project.name })}><Archive size={14} />归档项目</DropdownMenu.Item>
+              </motion.div>
+            </DropdownMenu.Content>
+          )}
+        </AnimatePresence>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
   );
 }
 
 function ConversationMenu({ id, title, projectId, onAction }: { id: string; title: string; projectId: string; onAction: (action: Exclude<Action, null>) => void }) {
+  const [open, setOpen] = useState(false);
+  const reduceMotion = useReducedMotion();
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root open={open} onOpenChange={setOpen}>
       <DropdownMenu.Trigger asChild><button className="icon-button row-menu-trigger" type="button" aria-label={`${title}对话菜单`}><MoreHorizontal size={14} /></button></DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content className="context-menu" align="start" sideOffset={4}>
-          <DropdownMenu.Item onSelect={() => onAction({ kind: "rename-conversation", id, value: title })}><Pencil size={14} />重命名</DropdownMenu.Item>
-          <DropdownMenu.Item onSelect={() => onAction({ kind: "move-conversation", id, value: title, projectId })}><Folder size={14} />移动到项目</DropdownMenu.Item>
-          <DropdownMenu.Separator />
-          <DropdownMenu.Item className="danger-item" onSelect={() => onAction({ kind: "archive-conversation", id, value: title })}><Archive size={14} />归档对话</DropdownMenu.Item>
-        </DropdownMenu.Content>
+      <DropdownMenu.Portal forceMount>
+        <AnimatePresence>
+          {open && (
+            <DropdownMenu.Content forceMount asChild align="start" sideOffset={4}>
+              <motion.div
+                key={`conversation-menu-${id}`}
+                className="context-menu"
+                initial={{ opacity: 0, transform: reduceMotion ? "none" : "scale(.96) translateY(-3px)" }}
+                animate={{ opacity: 1, transform: "scale(1) translateY(0)", transition: menuEnterTransition(reduceMotion) }}
+                exit={{ opacity: 0, transform: reduceMotion ? "none" : "scale(.98) translateY(-2px)", transition: menuExitTransition(reduceMotion) }}
+              >
+                <DropdownMenu.Item onSelect={() => onAction({ kind: "rename-conversation", id, value: title })}><Pencil size={14} />重命名</DropdownMenu.Item>
+                <DropdownMenu.Item onSelect={() => onAction({ kind: "move-conversation", id, value: title, projectId })}><Folder size={14} />移动到项目</DropdownMenu.Item>
+                <DropdownMenu.Separator />
+                <DropdownMenu.Item className="danger-item" onSelect={() => onAction({ kind: "archive-conversation", id, value: title })}><Archive size={14} />归档对话</DropdownMenu.Item>
+              </motion.div>
+            </DropdownMenu.Content>
+          )}
+        </AnimatePresence>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
   );
@@ -512,4 +573,12 @@ function Highlight({ text, query }: { text: string; query: string }) {
 function NavItem({ to, icon, label }: { to: string; icon: ReactNode; label: string }) {
   const setSidebarOpen = useWorkspaceStore((state) => state.setSidebarOpen);
   return <NavLink className={({ isActive }) => `nav-link ${isActive ? "is-active" : ""}`} to={to} onClick={() => setSidebarOpen(false)}>{icon}<span>{label}</span></NavLink>;
+}
+
+function menuEnterTransition(reduceMotion: boolean | null) {
+  return { duration: reduceMotion ? 0.1 : 0.18, ease: [0.23, 1, 0.32, 1] as const };
+}
+
+function menuExitTransition(reduceMotion: boolean | null) {
+  return { duration: reduceMotion ? 0.1 : 0.12, ease: [0.23, 1, 0.32, 1] as const };
 }
