@@ -59,7 +59,7 @@ services:
       RSVQA_REDIS_HOST: redis
       RSVQA_MODEL_SERVICE_URL: http://model-service:8000
       RSVQA_KNOWLEDGE_SERVICE_URL: ${RSVQA_KNOWLEDGE_SERVICE_URL:-http://knowledge-service:8010}
-      RSVQA_KNOWLEDGE_INDEX_VERSION: ${RSVQA_KNOWLEDGE_INDEX_VERSION:-rsvqa-knowledge-v1}
+      RSVQA_KNOWLEDGE_INDEX_VERSION: ${RSVQA_KNOWLEDGE_INDEX_VERSION:-rsvqa-knowledge-v2}
       RSVQA_STORAGE_ROOT: /opt/rsvqa/uploads
       RSVQA_DEMO_AUTH: ${RSVQA_DEMO_AUTH:-true}
       RSVQA_MCP_CLIENT_ENABLED: ${RSVQA_MCP_CLIENT_ENABLED:-false}
@@ -180,7 +180,7 @@ services:
     environment:
       RSVQA_BGE_MODEL: ${RSVQA_BGE_MODEL:-BAAI/bge-small-zh-v1.5}
       RSVQA_MILVUS_URI: http://milvus:19530
-      RSVQA_MILVUS_COLLECTION: ${RSVQA_MILVUS_COLLECTION:-rsvqa_knowledge_v1}
+      RSVQA_MILVUS_COLLECTION: ${RSVQA_MILVUS_COLLECTION:-rsvqa_knowledge_v2}
     depends_on:
       milvus:
         condition: service_healthy

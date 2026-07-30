@@ -7,6 +7,7 @@ import argparse
 import json
 from pathlib import Path
 import urllib.request
+from uuid import UUID
 
 
 def evaluate(cases: list[dict], results: list[list[dict]]) -> dict[str, float | int]:
@@ -28,10 +29,23 @@ def evaluate(cases: list[dict], results: list[list[dict]]) -> dict[str, float | 
     }
 
 
-def request_search(base_url: str, query: str, top_k: int) -> list[dict]:
+def request_search(
+    base_url: str,
+    query: str,
+    top_k: int,
+    owner_id: str,
+    index_version: str,
+) -> list[dict]:
     request = urllib.request.Request(
         f"{base_url.rstrip('/')}/v1/search",
-        data=json.dumps({"query": query, "top_k": top_k, "threshold": 0.0}).encode(),
+        data=json.dumps({
+            "query": query,
+            "top_k": top_k,
+            "threshold": 0.0,
+            "owner_id": owner_id,
+            "index_version": index_version,
+            "include_public": True,
+        }).encode(),
         headers={"Content-Type": "application/json"},
         method="POST",
     )
@@ -48,9 +62,14 @@ def main() -> None:
         default=Path(__file__).parents[1] / "eval" / "retrieval-cases.json",
     )
     parser.add_argument("--top-k", type=int, default=5)
+    parser.add_argument("--owner-id", required=True, type=lambda value: str(UUID(value)))
+    parser.add_argument("--index-version", default="rsvqa-knowledge-v2")
     args = parser.parse_args()
     cases = json.loads(args.cases.read_text(encoding="utf-8"))
-    results = [request_search(args.base_url, case["query"], args.top_k) for case in cases]
+    results = [
+        request_search(args.base_url, case["query"], args.top_k, args.owner_id, args.index_version)
+        for case in cases
+    ]
     print(json.dumps(evaluate(cases, results), ensure_ascii=False, indent=2))
 
 

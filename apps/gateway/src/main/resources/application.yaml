@@ -106,7 +106,7 @@ rsvqa:
   knowledge-service:
     base-url: ${RSVQA_KNOWLEDGE_SERVICE_URL:http://localhost:8010}
     timeout-seconds: 90
-    default-index-version: ${RSVQA_KNOWLEDGE_INDEX_VERSION:rsvqa-knowledge-v1}
+    default-index-version: ${RSVQA_KNOWLEDGE_INDEX_VERSION:rsvqa-knowledge-v2}
   demo-auth:
     enabled: ${RSVQA_DEMO_AUTH:true}
 

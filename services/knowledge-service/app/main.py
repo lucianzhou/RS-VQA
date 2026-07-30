@@ -4,33 +4,42 @@ from functools import lru_cache
 import os
 from threading import Lock
 from time import perf_counter
-from typing import Any
-from uuid import uuid4
+from typing import Any, Literal
+from uuid import UUID, uuid4
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import FastAPI, HTTPException, Query
+from pydantic import BaseModel, ConfigDict, Field
 
 from .chunking import chunk_text
 
 
 MODEL_NAME = os.getenv("RSVQA_BGE_MODEL", "BAAI/bge-small-zh-v1.5")
 MILVUS_URI = os.getenv("RSVQA_MILVUS_URI", "http://localhost:19530")
-COLLECTION = os.getenv("RSVQA_MILVUS_COLLECTION", "rsvqa_knowledge_v1")
+COLLECTION = os.getenv("RSVQA_MILVUS_COLLECTION", "rsvqa_knowledge_v2")
+
+KnowledgeScope = Literal["PRIVATE", "PUBLIC"]
 
 
 class IndexRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     document_id: str = Field(min_length=1, max_length=100, pattern=r"^[A-Za-z0-9:_-]+$")
     title: str = Field(min_length=1, max_length=255)
     text: str = Field(min_length=1, max_length=1_000_000)
     index_version: str = Field(min_length=1, max_length=80, pattern=r"^[A-Za-z0-9._-]+$")
-    metadata: dict[str, str] = Field(default_factory=dict)
+    owner_id: UUID
+    scope: KnowledgeScope
 
 
 class SearchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     query: str = Field(min_length=1, max_length=500)
     top_k: int = Field(default=5, ge=1, le=20)
     threshold: float = Field(default=0.35, ge=0.0, le=1.0)
-    index_version: str | None = Field(default=None, pattern=r"^[A-Za-z0-9._-]+$")
+    owner_id: UUID
+    index_version: str = Field(pattern=r"^[A-Za-z0-9._-]+$")
+    include_public: bool = True
 
 
 class Citation(BaseModel):
@@ -44,7 +53,7 @@ class Citation(BaseModel):
 
 app = FastAPI(
     title="RS-VQA Knowledge Service",
-    version="0.3.0",
+    version="0.4.0",
     description="BGE embedding and Milvus retrieval with citation-bearing outputs.",
 )
 
@@ -80,7 +89,7 @@ def ensure_collection() -> None:
     model = embedding_model()
     get_dimension = getattr(model, "get_embedding_dimension", model.get_sentence_embedding_dimension)
     dimension = int(get_dimension())
-    schema = client.create_schema(auto_id=False, enable_dynamic_field=True)
+    schema = client.create_schema(auto_id=False, enable_dynamic_field=False)
     schema.add_field("id", DataType.VARCHAR, is_primary=True, max_length=200)
     schema.add_field("vector", DataType.FLOAT_VECTOR, dim=dimension)
     schema.add_field("document_id", DataType.VARCHAR, max_length=100)
@@ -88,6 +97,8 @@ def ensure_collection() -> None:
     schema.add_field("chunk_index", DataType.INT64)
     schema.add_field("content", DataType.VARCHAR, max_length=65_535)
     schema.add_field("index_version", DataType.VARCHAR, max_length=80)
+    schema.add_field("owner_id", DataType.VARCHAR, max_length=36)
+    schema.add_field("scope", DataType.VARCHAR, max_length=10)
     index_params = client.prepare_index_params()
     index_params.add_index(
         field_name="vector",
@@ -129,8 +140,13 @@ def index_document(request: IndexRequest) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="文档清洗后没有可索引内容。")
     ensure_collection()
     client = milvus_client()
+    owner_id = str(request.owner_id)
+    document_filter = (
+        f'document_id == "{request.document_id}" and owner_id == "{owner_id}" '
+        f'and scope == "{request.scope}" and index_version == "{request.index_version}"'
+    )
     try:
-        client.delete(collection_name=COLLECTION, filter=f'document_id == "{request.document_id}"')
+        client.delete(collection_name=COLLECTION, filter=document_filter)
     except Exception:
         pass
     vectors = embedding_model().encode(
@@ -146,7 +162,8 @@ def index_document(request: IndexRequest) -> dict[str, Any]:
             "chunk_index": index,
             "content": chunk,
             "index_version": request.index_version,
-            **{f"meta_{key}": value for key, value in request.metadata.items()},
+            "owner_id": owner_id,
+            "scope": request.scope,
         }
         for index, (chunk, vector) in enumerate(zip(chunks, vectors, strict=True))
     ]
@@ -161,11 +178,22 @@ def index_document(request: IndexRequest) -> dict[str, Any]:
 
 
 @app.delete("/v1/documents/{document_id}")
-def delete_document(document_id: str) -> dict[str, Any]:
+def delete_document(
+    document_id: str,
+    owner_id: UUID = Query(),
+    scope: KnowledgeScope = Query(),
+    index_version: str = Query(pattern=r"^[A-Za-z0-9._-]+$"),
+) -> dict[str, Any]:
     ensure_collection()
     if not document_id.replace("-", "").replace("_", "").replace(":", "").isalnum():
         raise HTTPException(status_code=400, detail="文档标识格式无效。")
-    milvus_client().delete(collection_name=COLLECTION, filter=f'document_id == "{document_id}"')
+    if scope == "PUBLIC":
+        raise HTTPException(status_code=403, detail="公共知识只能由受控 seed 流程管理。")
+    filter_expression = (
+        f'document_id == "{document_id}" and owner_id == "{owner_id}" '
+        f'and scope == "{scope}" and index_version == "{index_version}"'
+    )
+    milvus_client().delete(collection_name=COLLECTION, filter=filter_expression)
     return {"document_id": document_id, "deleted": True}
 
 
@@ -177,7 +205,14 @@ def search(request: SearchRequest) -> dict[str, Any]:
         [f"为这个句子生成表示以用于检索相关文章：{request.query}"],
         normalize_embeddings=True,
     )[0]
-    filter_expression = f'index_version == "{request.index_version}"' if request.index_version else ""
+    owner_id = str(request.owner_id)
+    private_filter = f'(scope == "PRIVATE" and owner_id == "{owner_id}")'
+    visibility_filter = (
+        f"({private_filter} or scope == \"PUBLIC\")"
+        if request.include_public
+        else private_filter
+    )
+    filter_expression = f'index_version == "{request.index_version}" and {visibility_filter}'
     results = milvus_client().search(
         collection_name=COLLECTION,
         data=[vector.tolist()],

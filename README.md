@@ -187,7 +187,10 @@ cd ../../services/model-service
 
 # RAG 检索基准（知识服务容器健康后）
 docker exec rs-vqa-knowledge-service-1 \
-  python scripts/evaluate_retrieval.py --base-url http://127.0.0.1:8010
+  python scripts/evaluate_retrieval.py \
+  --base-url http://127.0.0.1:8010 \
+  --owner-id <authenticated-user-uuid> \
+  --index-version rsvqa-knowledge-v2
 
 # 产品对齐评测发布的只读校验与聚合验收
 services/model-service/.venv/bin/python scripts/product_aligned_acceptance.py \

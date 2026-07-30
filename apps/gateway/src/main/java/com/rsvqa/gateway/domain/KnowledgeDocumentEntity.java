@@ -30,6 +30,9 @@ public class KnowledgeDocumentEntity extends BaseEntity {
     @Column(name = "index_version", length = 80)
     private String indexVersion;
 
+    @Column(nullable = false, length = 10)
+    private String scope;
+
     @Column(nullable = false, length = 40)
     private String status;
 
@@ -39,12 +42,20 @@ public class KnowledgeDocumentEntity extends BaseEntity {
     protected KnowledgeDocumentEntity() {
     }
 
-    public KnowledgeDocumentEntity(UserEntity user, String title, String sha256, String mimeType, String indexVersion) {
+    public KnowledgeDocumentEntity(
+            UserEntity user,
+            String title,
+            String sha256,
+            String mimeType,
+            String indexVersion,
+            String scope
+    ) {
         this.user = user;
         this.title = title;
         this.sha256 = sha256;
         this.mimeType = mimeType;
         this.indexVersion = indexVersion;
+        this.scope = scope;
         this.status = "INDEXING";
     }
 
@@ -70,6 +81,10 @@ public class KnowledgeDocumentEntity extends BaseEntity {
 
     public String getStatus() {
         return status;
+    }
+
+    public String getScope() {
+        return scope;
     }
 
     public String getErrorMessage() {

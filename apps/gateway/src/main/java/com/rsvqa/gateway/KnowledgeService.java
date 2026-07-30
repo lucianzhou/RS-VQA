@@ -13,7 +13,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,6 +39,9 @@ import io.micrometer.core.instrument.Timer;
 public class KnowledgeService {
 
     private static final long MAX_DOCUMENT_BYTES = 2 * 1024 * 1024;
+    private static final String PRIVATE_SCOPE = "PRIVATE";
+    private static final String PUBLIC_SCOPE = "PUBLIC";
+    private static final String APPROVED_BOUNDARIES_RUNTIME_ID = "builtin:approved-model-boundaries";
     private final UserRepository users;
     private final KnowledgeDocumentRepository documents;
     private final KnowledgeChunkRepository chunks;
@@ -72,7 +74,10 @@ public class KnowledgeService {
 
     @Transactional(readOnly = true)
     public List<KnowledgeDocumentResponse> list() {
-        return documents.findByUserIdOrderByCreatedAtDesc(currentUser().getId()).stream().map(this::toResponse).toList();
+        return documents.findByScopeOrUserIdOrderByCreatedAtDesc(PUBLIC_SCOPE, currentUser().getId())
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     @Transactional
@@ -93,7 +98,9 @@ public class KnowledgeService {
                     name,
                     text,
                     sha256(bytes),
-                    lower.endsWith(".md") ? "text/markdown" : "text/plain"
+                    lower.endsWith(".md") ? "text/markdown" : "text/plain",
+                    PRIVATE_SCOPE,
+                    null
             );
         } catch (IOException error) {
             throw new RequestValidationException("无法读取知识文档。");
@@ -111,7 +118,9 @@ public class KnowledgeService {
                     "RS-VQA 已核准模型边界.md",
                     decodeUtf8(bytes),
                     hash,
-                    "text/markdown"
+                    "text/markdown",
+                    PUBLIC_SCOPE,
+                    APPROVED_BOUNDARIES_RUNTIME_ID
             );
         } catch (IOException error) {
             throw new IllegalStateException("内置知识文档不可读取。", error);
@@ -120,12 +129,15 @@ public class KnowledgeService {
 
     @Transactional(readOnly = true)
     public KnowledgeSearchResponse search(SearchKnowledgeRequest request) {
+        UserEntity user = currentUser();
         Timer.Sample sample = Timer.start();
         SearchRuntimeRequest runtimeRequest = new SearchRuntimeRequest(
                 request.query().trim(),
                 request.topK() == null ? 5 : request.topK(),
                 request.threshold() == null ? 0.35 : request.threshold(),
-                properties.defaultIndexVersion()
+                properties.defaultIndexVersion(),
+                user.getId().toString(),
+                true
         );
         try {
             KnowledgeSearchResponse response = knowledgeClient.post()
@@ -153,9 +165,17 @@ public class KnowledgeService {
     public void delete(UUID documentId) {
         KnowledgeDocumentEntity document = documents.findByIdAndUserId(documentId, currentUser().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("知识文档不存在。"));
+        if (PUBLIC_SCOPE.equals(document.getScope())) {
+            throw new RequestValidationException("公共知识只能由受控 seed 流程管理。");
+        }
         try {
             knowledgeClient.delete()
-                    .uri("/v1/documents/{id}", documentId)
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/v1/documents/{id}")
+                            .queryParam("owner_id", document.getUser().getId())
+                            .queryParam("scope", document.getScope())
+                            .queryParam("index_version", document.getIndexVersion())
+                            .build(documentId))
                     .retrieve()
                     .toBodilessEntity()
                     .block(Duration.ofSeconds(properties.timeoutSeconds()));
@@ -171,16 +191,22 @@ public class KnowledgeService {
             String title,
             String text,
             String hash,
-            String mimeType
+            String mimeType,
+            String scope,
+            String runtimeDocumentId
     ) {
-        Optional<KnowledgeDocumentEntity> existing = documents.findByUserIdAndSha256(user.getId(), hash);
+        Optional<KnowledgeDocumentEntity> existing = PUBLIC_SCOPE.equals(scope)
+                ? documents.findByScopeAndSha256AndIndexVersion(scope, hash, properties.defaultIndexVersion())
+                : documents.findByUserIdAndSha256AndIndexVersionAndScope(
+                        user.getId(), hash, properties.defaultIndexVersion(), scope
+                );
         if (existing.isPresent() && (
                 "READY".equals(existing.get().getStatus()) || "INDEXING".equals(existing.get().getStatus())
         )) {
             return toResponse(existing.get());
         }
         KnowledgeDocumentEntity document = existing.orElseGet(() -> documents.save(new KnowledgeDocumentEntity(
-                user, title, hash, mimeType, properties.defaultIndexVersion()
+                user, title, hash, mimeType, properties.defaultIndexVersion(), scope
         )));
         if (existing.isPresent()) {
             document.beginIndexing();
@@ -189,25 +215,31 @@ public class KnowledgeService {
         if ("READY".equals(document.getStatus())) {
             return toResponse(document);
         }
-        return index(document, user, title, text);
+        return index(
+                document,
+                title,
+                text,
+                runtimeDocumentId == null ? document.getId().toString() : runtimeDocumentId
+        );
     }
 
     private KnowledgeDocumentResponse index(
             KnowledgeDocumentEntity document,
-            UserEntity user,
             String title,
-            String text
+            String text,
+            String runtimeDocumentId
     ) {
         List<String> localChunks = chunk(text, 420, 70);
         try {
             IndexRuntimeResponse response = knowledgeClient.post()
                     .uri("/v1/documents")
                     .bodyValue(new IndexRuntimeRequest(
-                            document.getId().toString(),
+                            runtimeDocumentId,
                             title,
                             text,
                             properties.defaultIndexVersion(),
-                            Map.of("owner", user.getId().toString(), "source", "user_or_approved_builtin")
+                            document.getUser().getId().toString(),
+                            document.getScope()
                     ))
                     .retrieve()
                     .bodyToMono(IndexRuntimeResponse.class)

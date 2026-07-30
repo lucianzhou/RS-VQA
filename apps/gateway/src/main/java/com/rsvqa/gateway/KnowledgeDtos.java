@@ -2,7 +2,6 @@ package com.rsvqa.gateway;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
@@ -71,7 +70,8 @@ final class KnowledgeDtos {
             String title,
             String text,
             @JsonProperty("index_version") String indexVersion,
-            Map<String, String> metadata
+            @JsonProperty("owner_id") String ownerId,
+            String scope
     ) {
     }
 
@@ -79,7 +79,9 @@ final class KnowledgeDtos {
             String query,
             @JsonProperty("top_k") int topK,
             double threshold,
-            @JsonProperty("index_version") String indexVersion
+            @JsonProperty("index_version") String indexVersion,
+            @JsonProperty("owner_id") String ownerId,
+            @JsonProperty("include_public") boolean includePublic
     ) {
     }
 }
