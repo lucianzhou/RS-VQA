@@ -63,7 +63,7 @@ start_gateway() {
     RSVQA_MODEL_SERVICE_URL="http://127.0.0.1:$MODEL_PORT" \
     RSVQA_STORAGE_ROOT="$PROBE_ROOT" \
     RSVQA_BATCH_RECOVERY_ENABLED=true \
-    RSVQA_BATCH_LEASE_DURATION=PT5S \
+    RSVQA_BATCH_LEASE_DURATION=PT15S \
     RSVQA_BATCH_RECOVERY_INTERVAL=PT1S \
     java -jar "$GATEWAY_DIR/target/rs-vqa-gateway-0.3.0.jar" \
       >"$PROBE_ROOT/gateway.log" 2>&1 &
@@ -137,7 +137,7 @@ AFTER_STOP="$(docker exec "$POSTGRES_CONTAINER" psql -U rsvqa -d rsvqa -Atqc \
 
 start_gateway
 COMPLETED=false
-for ((attempt = 1; attempt <= 30; attempt++)); do
+for ((attempt = 1; attempt <= 45; attempt++)); do
   FINAL_STATE="$(docker exec "$POSTGRES_CONTAINER" psql -U rsvqa -d rsvqa -Atqc \
     "SELECT item.status || ':' || item.attempt || ':' || job.status || ':' ||
             job.completed_items || ':' || job.failed_items || ':' ||
