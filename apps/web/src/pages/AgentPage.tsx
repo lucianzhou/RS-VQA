@@ -15,7 +15,7 @@ import {
   X,
   Workflow,
 } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import {
   archiveAgentSession,
@@ -252,6 +252,7 @@ function AgentActionCenter({
   onConfirm: (id: string) => void;
   onReject: (id: string) => void;
 }) {
+  const reduceMotion = useReducedMotion();
   const [actionName, setActionName] = useState<AgentActionName>(defaultAction(session.contextType));
   const [questions, setQuestions] = useState("图中有没有道路？\n图中有多少建筑物？");
   const [title, setTitle] = useState("");
@@ -287,10 +288,17 @@ function AgentActionCenter({
   return (
     <motion.section
       className="agent-action-center"
-      initial={{ opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: "auto" }}
-      exit={{ opacity: 0, height: 0 }}
-      transition={{ duration: 0.18 }}
+      initial={{ opacity: 0, transform: reduceMotion ? "none" : "translateY(-4px)" }}
+      animate={{
+        opacity: 1,
+        transform: "translateY(0)",
+        transition: { duration: reduceMotion ? 0.1 : 0.18, ease: [0.23, 1, 0.32, 1] },
+      }}
+      exit={{
+        opacity: 0,
+        transform: reduceMotion ? "none" : "translateY(-2px)",
+        transition: { duration: reduceMotion ? 0.1 : 0.12, ease: [0.23, 1, 0.32, 1] },
+      }}
     >
       <div className="agent-action-heading">
         <div><span className="agent-action-kicker"><ShieldCheck size={13} />受控操作</span><strong>需要副作用时，先提交提案再人工确认</strong></div>

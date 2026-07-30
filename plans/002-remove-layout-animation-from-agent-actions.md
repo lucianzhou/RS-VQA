@@ -1,6 +1,6 @@
 # 002 — Remove layout animation from Agent actions
 
-- **Status**: TODO
+- **Status**: DONE (`feature/trusted-application-p1`)
 - **Commit**: 8af68bb
 - **Severity**: HIGH
 - **Category**: Performance and interruptibility

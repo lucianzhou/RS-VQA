@@ -51,6 +51,45 @@ describe("feature pages", () => {
     expect(screen.getByRole("button", { name: "新建分析会话" })).toBeEnabled();
   });
 
+  it("keeps the controlled action form interactive through rapid reversals without height motion", async () => {
+    const now = new Date().toISOString();
+    const sessionSummary = {
+      id: "agent-session-1",
+      title: "城市土地利用分析",
+      contextType: "PROJECT",
+      contextId: "project-1",
+      contextLabel: "城市土地利用",
+      runCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith("/api/v1/agent/sessions")) return jsonResponse([sessionSummary]);
+      if (path.endsWith("/api/v1/agent/sessions/agent-session-1")) {
+        return jsonResponse({ ...sessionSummary, runs: [], suggestedPrompts: [] });
+      }
+      if (path.endsWith("/api/v1/projects")) {
+        return jsonResponse([{ id: "project-1", name: "城市土地利用", conversations: [], updatedAt: now }]);
+      }
+      return jsonResponse([]);
+    }));
+    const user = userEvent.setup();
+    const view = renderPage(<AgentPage />);
+    const toggle = await screen.findByRole("button", { name: "受控操作" });
+
+    await user.click(toggle);
+    const actionSelect = await screen.findByRole("combobox", { name: "选择受控操作" });
+    expect(view.container.querySelector(".agent-action-center")?.getAttribute("style") ?? "").not.toContain("height");
+    actionSelect.focus();
+    expect(actionSelect).toHaveFocus();
+
+    await user.click(toggle);
+    await user.click(toggle);
+
+    expect(await screen.findByRole("combobox", { name: "选择受控操作" })).toBeEnabled();
+  });
+
   it("shows indexed knowledge documents and exposes citation search", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse([{
       id: "doc-1",
