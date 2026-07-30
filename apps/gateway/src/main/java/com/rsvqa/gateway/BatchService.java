@@ -3,10 +3,12 @@ package com.rsvqa.gateway;
 import static com.rsvqa.gateway.BatchDtos.*;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.beans.factory.ObjectProvider;
@@ -30,6 +32,8 @@ import com.rsvqa.gateway.repository.ImageAssetRepository;
 import com.rsvqa.gateway.repository.ProjectRepository;
 import com.rsvqa.gateway.repository.UserRepository;
 
+import jakarta.persistence.EntityManager;
+
 @Service
 public class BatchService {
 
@@ -46,6 +50,9 @@ public class BatchService {
     private final FileStorageService storage;
     private final ObjectProvider<StringRedisTemplate> redisProvider;
     private final ObjectMapper objectMapper;
+    private final BatchLeaseStore leases;
+    private final BatchLeaseProperties leaseProperties;
+    private final EntityManager entityManager;
 
     public BatchService(
             UserRepository users,
@@ -55,7 +62,10 @@ public class BatchService {
             ImageAssetRepository images,
             FileStorageService storage,
             ObjectProvider<StringRedisTemplate> redisProvider,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            BatchLeaseStore leases,
+            BatchLeaseProperties leaseProperties,
+            EntityManager entityManager
     ) {
         this.users = users;
         this.projects = projects;
@@ -65,6 +75,9 @@ public class BatchService {
         this.storage = storage;
         this.redisProvider = redisProvider;
         this.objectMapper = objectMapper;
+        this.leases = leases;
+        this.leaseProperties = leaseProperties;
+        this.entityManager = entityManager;
     }
 
     @Transactional
@@ -217,47 +230,31 @@ public class BatchService {
         return csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
 
-    @Transactional
-    public void begin(UUID jobId) {
-        BatchJobEntity job = jobs.findById(jobId).orElseThrow();
-        if ("QUEUED".equals(job.getStatus())) {
-            job.start();
-            cacheProgress(job);
-        }
+    public Optional<BatchWorkItem> claimNext(UUID jobId, String leaseOwner) {
+        Instant expiresAt = Instant.now().plus(leaseProperties.leaseDuration());
+        Optional<BatchWorkItem> claimed = leases.claim(jobId, leaseOwner, expiresAt)
+                .map(item -> new BatchWorkItem(
+                        item.id(),
+                        item.attempt(),
+                        item.modelReleaseId(),
+                        item.storageKey(),
+                        item.filename(),
+                        item.contentType(),
+                        item.question(),
+                        item.leaseOwner()
+                ));
+        cacheProgress(jobId);
+        return claimed;
     }
 
     @Transactional
-    public Optional<BatchWorkItem> claimNext(UUID jobId) {
-        BatchJobEntity job = jobs.findById(jobId).orElseThrow();
-        if (job.isCancelRequested()) {
-            items.findByBatchJobIdAndStatusOrderByCreatedAtAsc(jobId, "QUEUED")
-                    .forEach(BatchItemEntity::cancel);
-            job.complete();
-            cacheProgress(job);
-            return Optional.empty();
+    public boolean succeed(UUID jobId, BatchWorkItem work, ApiPredictionResponse result) {
+        BatchItemEntity item = items.lockOwnedRunning(
+                jobId, work.id(), work.leaseOwner(), work.attempt()
+        ).orElse(null);
+        if (item == null) {
+            return false;
         }
-        List<BatchItemEntity> queued = items.findByBatchJobIdAndStatusOrderByCreatedAtAsc(jobId, "QUEUED");
-        if (queued.isEmpty()) {
-            job.complete();
-            cacheProgress(job);
-            return Optional.empty();
-        }
-        BatchItemEntity item = queued.getFirst();
-        item.start();
-        return Optional.of(new BatchWorkItem(
-                item.getId(),
-                job.getModelReleaseId(),
-                item.getStorageKey(),
-                item.getOriginalName(),
-                item.getMimeType(),
-                item.getQuestion()
-        ));
-    }
-
-    @Transactional
-    public void succeed(UUID jobId, UUID itemId, ApiPredictionResponse result) {
-        BatchJobEntity job = jobs.findById(jobId).orElseThrow();
-        BatchItemEntity item = items.findById(itemId).orElseThrow();
         verifyInputDigest(item.getSha256(), result.inputSha256());
         ApiPredictionResponse.QuestionUnderstanding understanding = result.understanding();
         ApiPredictionResponse.AnswerPresentation presentation = result.presentation();
@@ -289,17 +286,25 @@ public class BatchService {
                 result.manualReviewSignalEnabled(),
                 result.latencyMs()
         );
-        job.recordSuccess();
-        cacheProgress(job);
+        items.flush();
+        leases.refreshJob(jobId);
+        cacheProgress(jobId);
+        return true;
     }
 
     @Transactional
-    public void fail(UUID jobId, UUID itemId, RuntimeException error) {
-        BatchJobEntity job = jobs.findById(jobId).orElseThrow();
-        BatchItemEntity item = items.findById(itemId).orElseThrow();
+    public boolean fail(UUID jobId, BatchWorkItem work, RuntimeException error) {
+        BatchItemEntity item = items.lockOwnedRunning(
+                jobId, work.id(), work.leaseOwner(), work.attempt()
+        ).orElse(null);
+        if (item == null) {
+            return false;
+        }
         item.fail(error instanceof ModelServiceException ? "MODEL_SERVICE_ERROR" : "BATCH_ITEM_ERROR", error.getMessage());
-        job.recordFailure();
-        cacheProgress(job);
+        items.flush();
+        leases.refreshJob(jobId);
+        cacheProgress(jobId);
+        return true;
     }
 
     @Transactional
@@ -308,6 +313,10 @@ public class BatchService {
         if (!job.getStatus().startsWith("COMPLETED") && !"CANCELLED".equals(job.getStatus())) {
             job.requestCancel();
         }
+        jobs.flush();
+        leases.cancelQueuedIfRequested(jobId);
+        leases.refreshJob(jobId);
+        entityManager.refresh(job);
         cacheProgress(job);
         return toResponse(job);
     }
@@ -315,14 +324,34 @@ public class BatchService {
     @Transactional
     public BatchJobResponse retryFailed(UUID jobId) {
         BatchJobEntity job = ownedJob(jobId);
+        if (job.isArchived()) {
+            throw new RequestValidationException("已归档任务不能重试，请先恢复任务。");
+        }
+        if (!"COMPLETED_WITH_ERRORS".equals(job.getStatus())) {
+            throw new RequestValidationException("仅已完成且包含失败项的批量任务可以重试。");
+        }
         List<BatchItemEntity> failed = items.findByBatchJobIdAndStatusOrderByCreatedAtAsc(jobId, "FAILED");
         if (failed.isEmpty()) {
             throw new RequestValidationException("当前任务没有可重试的失败项。");
         }
         failed.forEach(BatchItemEntity::queueForRetry);
         job.retry(failed.size());
+        items.flush();
+        jobs.flush();
+        leases.refreshJob(jobId);
+        entityManager.refresh(job);
         cacheProgress(job);
         return toResponse(job);
+    }
+
+    Set<UUID> recoverExpiredLeases() {
+        Set<UUID> recovered = leases.recoverExpired(Instant.now());
+        recovered.forEach(this::cacheProgress);
+        return recovered;
+    }
+
+    List<UUID> runnableJobIds() {
+        return leases.runnableJobIds();
     }
 
     byte[] read(String storageKey) {
@@ -376,6 +405,10 @@ public class BatchService {
         } catch (RuntimeException ignored) {
             // PostgreSQL is authoritative; Redis is an acceleration/coordination layer only.
         }
+    }
+
+    private void cacheProgress(UUID jobId) {
+        jobs.findById(jobId).ifPresent(this::cacheProgress);
     }
 
     private String json(Object value) {
@@ -437,11 +470,13 @@ public class BatchService {
 
     public record BatchWorkItem(
             UUID id,
+            int attempt,
             String modelReleaseId,
             String storageKey,
             String filename,
             String contentType,
-            String question
+            String question,
+            String leaseOwner
     ) {
     }
 

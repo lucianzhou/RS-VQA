@@ -121,6 +121,10 @@ rsvqa:
     enabled: ${RSVQA_MCP_ENABLED:false}
     bearer-token: ${RSVQA_MCP_BEARER_TOKEN:}
     principal: ${RSVQA_MCP_PRINCIPAL:}
+  batch:
+    recovery-enabled: ${RSVQA_BATCH_RECOVERY_ENABLED:true}
+    lease-duration: ${RSVQA_BATCH_LEASE_DURATION:PT10M}
+    recovery-interval: ${RSVQA_BATCH_RECOVERY_INTERVAL:PT30S}
 
 management:
   endpoints:

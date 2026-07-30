@@ -1,5 +1,7 @@
 package com.rsvqa.gateway.domain;
 
+import java.time.Instant;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -30,8 +32,14 @@ public class BatchItemEntity extends BaseEntity {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
-    @Column(name = "attempt_count", nullable = false)
+    @Column(name = "attempt", nullable = false)
     private int attemptCount;
+
+    @Column(name = "lease_owner", length = 100)
+    private String leaseOwner;
+
+    @Column(name = "lease_expires_at")
+    private Instant leaseExpiresAt;
 
     @Column(name = "storage_key", length = 500)
     private String storageKey;
@@ -170,6 +178,14 @@ public class BatchItemEntity extends BaseEntity {
         return attemptCount;
     }
 
+    public String getLeaseOwner() {
+        return leaseOwner;
+    }
+
+    public Instant getLeaseExpiresAt() {
+        return leaseExpiresAt;
+    }
+
     public String getStorageKey() {
         return storageKey;
     }
@@ -286,13 +302,6 @@ public class BatchItemEntity extends BaseEntity {
         return manualReviewSignalEnabled;
     }
 
-    public void start() {
-        status = "RUNNING";
-        attemptCount++;
-        errorCode = null;
-        errorMessage = null;
-    }
-
     public void succeed(
             String answer,
             String predictionOrigin,
@@ -348,12 +357,14 @@ public class BatchItemEntity extends BaseEntity {
         this.confidenceDisplayEnabled = confidenceDisplayEnabled;
         this.manualReviewSignalEnabled = manualReviewSignalEnabled;
         this.latencyMs = latencyMs;
+        clearLease();
     }
 
     public void fail(String code, String message) {
         status = "FAILED";
         errorCode = code;
         errorMessage = message == null ? "处理失败。" : message.substring(0, Math.min(message.length(), 1000));
+        clearLease();
     }
 
     public void cancel() {
@@ -387,7 +398,13 @@ public class BatchItemEntity extends BaseEntity {
             manualReviewSignalEnabled = true;
             errorCode = null;
             errorMessage = null;
+            clearLease();
         }
+    }
+
+    private void clearLease() {
+        leaseOwner = null;
+        leaseExpiresAt = null;
     }
 
     public record FileDescriptor(

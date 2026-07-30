@@ -95,28 +95,11 @@ public class BatchJobEntity extends BaseEntity {
         archived = false;
     }
 
-    public void start() {
-        status = "RUNNING";
-    }
-
-    public void recordSuccess() {
-        completedItems++;
-    }
-
-    public void recordFailure() {
-        completedItems++;
-        failedItems++;
-    }
-
     public void requestCancel() {
         cancelRequested = true;
         if ("QUEUED".equals(status)) {
             status = "CANCELLED";
         }
-    }
-
-    public void complete() {
-        status = cancelRequested ? "CANCELLED" : (failedItems > 0 ? "COMPLETED_WITH_ERRORS" : "COMPLETED");
     }
 
     public void retry(int count) {
