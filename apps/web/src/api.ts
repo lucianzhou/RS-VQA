@@ -24,6 +24,48 @@ import type {
   UserSetting,
 } from "./types";
 
+type CsrfTokenResponse = {
+  token: string;
+  headerName: string;
+  parameterName: string;
+};
+
+let csrfTokenRequest: Promise<CsrfTokenResponse> | undefined;
+
+function isUnsafeMethod(method?: string) {
+  return !["GET", "HEAD", "OPTIONS", "TRACE"].includes((method ?? "GET").toUpperCase());
+}
+
+function csrfCookieValue() {
+  const prefix = "XSRF-TOKEN=";
+  const cookie = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix));
+  return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : undefined;
+}
+
+async function csrfToken(signal?: AbortSignal): Promise<CsrfTokenResponse> {
+  if (!csrfTokenRequest) {
+    csrfTokenRequest = fetch("/api/v1/auth/csrf", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+      signal,
+    }).then(async (response) => {
+      if (!response.ok) throw new Error(`无法建立安全请求上下文（${response.status}）`);
+      const contract = await response.json() as CsrfTokenResponse;
+      const cookieToken = csrfCookieValue();
+      if (!cookieToken) throw new Error("无法读取安全请求 Cookie。");
+      return { ...contract, token: cookieToken };
+    }).catch((error) => {
+      csrfTokenRequest = undefined;
+      throw error;
+    });
+  }
+  return csrfTokenRequest;
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit, timeoutMs = 30_000): Promise<T> {
   const requestController = new AbortController();
   let timedOut = false;
@@ -34,18 +76,32 @@ async function apiFetch<T>(path: string, init?: RequestInit, timeoutMs = 30_000)
     requestController.abort();
   }, timeoutMs);
   try {
+    const csrf = isUnsafeMethod(init?.method)
+      ? await csrfToken(requestController.signal)
+      : undefined;
     const response = await fetch(path, {
       credentials: "same-origin",
       ...init,
       signal: requestController.signal,
       headers: {
         ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+        ...(csrf ? { [csrf.headerName]: csrf.token } : {}),
         ...init?.headers,
       },
     });
     if (response.status === 204) return undefined as T;
-    const body = await response.json() as T | ApiError;
+    let body: T | ApiError;
+    try {
+      body = await response.json() as T | ApiError;
+    } catch {
+      if (!response.ok) {
+        if (response.status === 403) csrfTokenRequest = undefined;
+        throw new Error(`请求失败（${response.status}）`);
+      }
+      throw new Error("服务返回了无法解析的响应。");
+    }
     if (!response.ok) {
+      if (response.status === 403) csrfTokenRequest = undefined;
       const error = body as ApiError;
       throw new Error(error.message || `请求失败（${response.status}）`);
     }
@@ -235,6 +291,16 @@ export function createBatchJob(
   projectId: string | null,
   onProgress: (progress: number) => void,
 ): Promise<BatchJob> {
+  return createBatchJobWithCsrf(images, questions, projectId, onProgress);
+}
+
+async function createBatchJobWithCsrf(
+  images: File[],
+  questions: string[],
+  projectId: string | null,
+  onProgress: (progress: number) => void,
+): Promise<BatchJob> {
+  const csrf = await csrfToken();
   const body = new FormData();
   images.forEach((image) => body.append("images", image));
   questions.forEach((question) => body.append("questions", question));
@@ -243,6 +309,7 @@ export function createBatchJob(
     const request = new XMLHttpRequest();
     request.open("POST", "/api/v1/batch-jobs");
     request.withCredentials = true;
+    request.setRequestHeader(csrf.headerName, csrf.token);
     request.timeout = 120_000;
     request.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable) onProgress(Math.round(event.loaded * 100 / event.total));
@@ -295,10 +362,15 @@ export async function runTrustedAgentStream(
   onState: (event: string) => void,
   signal?: AbortSignal,
 ): Promise<AgentRun> {
+  const csrf = await csrfToken(signal);
   const response = await fetch("/api/v1/agent/runs/stream", {
     method: "POST",
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+      [csrf.headerName]: csrf.token,
+    },
     body: JSON.stringify(request),
     signal,
   });
@@ -426,5 +498,8 @@ export function listMyAuditEvents() {
 }
 
 export function logout() {
-  return apiFetch<void>("/api/v1/auth/logout", { method: "POST" });
+  return apiFetch<void>("/api/v1/auth/logout", { method: "POST" })
+    .finally(() => {
+      csrfTokenRequest = undefined;
+    });
 }

@@ -1,6 +1,14 @@
 server:
   port: 8080
   shutdown: graceful
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      timeout: 30m
+      tracking-modes: cookie
+      cookie:
+        http-only: true
+        same-site: lax
 
 spring:
   application:
@@ -47,7 +55,7 @@ spring:
               url: ${RSVQA_MCP_REMOTE_URL:http://localhost:18080}
               endpoint: ${RSVQA_MCP_REMOTE_ENDPOINT:/mcp}
       server:
-        enabled: ${RSVQA_MCP_ENABLED:true}
+        enabled: ${RSVQA_MCP_ENABLED:false}
         name: rs-vqa-readonly-tools
         version: 0.3.0
         protocol: STATELESS
@@ -108,13 +116,17 @@ rsvqa:
     timeout-seconds: 90
     default-index-version: ${RSVQA_KNOWLEDGE_INDEX_VERSION:rsvqa-knowledge-v2}
   demo-auth:
-    enabled: ${RSVQA_DEMO_AUTH:true}
+    enabled: ${RSVQA_DEMO_AUTH:false}
+  mcp:
+    enabled: ${RSVQA_MCP_ENABLED:false}
+    bearer-token: ${RSVQA_MCP_BEARER_TOKEN:}
+    principal: ${RSVQA_MCP_PRINCIPAL:}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus
+        include: health
   endpoint:
     health:
       probes:

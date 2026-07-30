@@ -1,7 +1,9 @@
 package com.rsvqa.gateway;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
@@ -10,6 +12,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.http.MediaType;
 
 @WebMvcTest(WorkspaceController.class)
 @Import(SecurityConfiguration.class)
@@ -30,6 +33,25 @@ class SecurityConfigurationTest {
     @Test
     void workspaceApiAllowsAuthenticatedUser() throws Exception {
         mockMvc.perform(get("/api/v1/projects").with(user("local-demo").roles("USER")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void authenticatedWriteWithoutCsrfIsRejected() throws Exception {
+        mockMvc.perform(post("/api/v1/projects")
+                        .with(user("local-demo").roles("USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"CSRF test\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void authenticatedWriteWithCsrfIsAllowed() throws Exception {
+        mockMvc.perform(post("/api/v1/projects")
+                        .with(user("local-demo").roles("USER"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"CSRF test\"}"))
                 .andExpect(status().isOk());
     }
 }

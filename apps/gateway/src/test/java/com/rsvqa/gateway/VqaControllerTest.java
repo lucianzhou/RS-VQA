@@ -3,6 +3,8 @@ package com.rsvqa.gateway;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -40,6 +42,8 @@ class VqaControllerTest {
 
         mockMvc.perform(multipart("/api/v1/vqa/answers")
                         .file(upload)
+                        .with(user("local-demo").roles("USER"))
+                        .with(csrf())
                         .param("question", "图中有没有道路？"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
@@ -71,6 +75,8 @@ class VqaControllerTest {
 
         mockMvc.perform(multipart("/api/v1/vqa/answers")
                         .file(upload)
+                        .with(user("local-demo").roles("USER"))
+                        .with(csrf())
                         .param("question", "图中有没有道路？"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.answer").value("yes"))

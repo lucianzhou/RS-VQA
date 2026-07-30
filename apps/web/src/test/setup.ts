@@ -1,8 +1,11 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterEach, vi } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 
 afterEach(() => cleanup());
+beforeEach(() => {
+  document.cookie = "XSRF-TOKEN=test-csrf-token; Path=/";
+});
 
 // Radix dispatches focus-scope events from a queued callback. Node 22 also
 // exposes its own Event implementation, which jsdom correctly rejects for DOM

@@ -2,16 +2,22 @@ server:
   servlet:
     session:
       cookie:
-        secure: false
+        secure: true
         http-only: true
         same-site: lax
 
 rsvqa:
   demo-auth:
-    enabled: ${RSVQA_DEMO_AUTH:true}
+    enabled: false
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus
+        include: health

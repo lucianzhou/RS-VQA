@@ -58,7 +58,7 @@ docker-compose --profile rag up -d --build
 ```bash
 docker-compose --profile rag ps
 curl http://127.0.0.1:8088/actuator/health/readiness
-curl http://127.0.0.1:8088/actuator/prometheus
+docker exec rs-vqa-gateway-1 wget -qO- http://127.0.0.1:8080/actuator/prometheus
 ```
 
 停止但保留数据：
@@ -179,6 +179,8 @@ mvn test
 
 # PostgreSQL、Flyway、Redis 与真实 MCP 协议集成
 RSVQA_COMPOSE_INTEGRATION=true RSVQA_RUN_MCP_INTEGRATION=true \
+RSVQA_MCP_INTEGRATION_URL=http://127.0.0.1:18080 \
+RSVQA_MCP_INTEGRATION_TOKEN=<same-server-side-test-token> \
   mvn -Dtest=PersistenceIntegrationTest,McpProtocolIntegrationTest test
 
 # 模型运行时契约

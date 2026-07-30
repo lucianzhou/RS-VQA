@@ -80,7 +80,13 @@ public class DemoAuthController {
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
-        request.getSession(true).setAttribute(
+        var session = request.getSession(false);
+        if (session != null) {
+            request.changeSessionId();
+        } else {
+            session = request.getSession(true);
+        }
+        session.setAttribute(
                 HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
                 context
         );

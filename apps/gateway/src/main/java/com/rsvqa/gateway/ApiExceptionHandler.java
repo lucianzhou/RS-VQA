@@ -11,6 +11,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -49,6 +51,21 @@ public class ApiExceptionHandler {
     ResponseEntity<ApiError> notFound(ResourceNotFoundException error) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiError.of("NOT_FOUND", error.getMessage(), false));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    ResponseEntity<ApiError> noResource() {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiError.of("NOT_FOUND", "请求的资源不存在。", false));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    ResponseEntity<ApiError> responseStatus(ResponseStatusException error) {
+        String message = error.getReason() == null || error.getReason().isBlank()
+                ? "请求的资源不可用。"
+                : error.getReason();
+        return ResponseEntity.status(error.getStatusCode())
+                .body(ApiError.of("HTTP_" + error.getStatusCode().value(), message, false));
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)

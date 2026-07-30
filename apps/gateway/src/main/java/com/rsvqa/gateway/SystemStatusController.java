@@ -22,17 +22,20 @@ public class SystemStatusController {
     private final StringRedisTemplate redis;
     private final VqaService vqa;
     private final WebClient knowledgeClient;
+    private final McpSecurityProperties mcp;
 
     public SystemStatusController(
             DataSource dataSource,
             StringRedisTemplate redis,
             VqaService vqa,
-            @Qualifier("knowledgeServiceClient") WebClient knowledgeClient
+            @Qualifier("knowledgeServiceClient") WebClient knowledgeClient,
+            McpSecurityProperties mcp
     ) {
         this.dataSource = dataSource;
         this.redis = redis;
         this.vqa = vqa;
         this.knowledgeClient = knowledgeClient;
+        this.mcp = mcp;
     }
 
     @GetMapping("/status")
@@ -43,7 +46,12 @@ public class SystemStatusController {
         services.put("model", checkModel());
         services.put("knowledge", checkKnowledge());
         services.put("agent", Map.of("status", "UP", "mode", "TRUSTED_SINGLE_AGENT", "provider", "UNCONFIGURED"));
-        services.put("mcp", Map.of("status", "UP", "mode", "STATELESS_READ_ONLY", "protocol", "MCP"));
+        services.put("mcp", Map.of(
+                "status", mcp.enabled() ? "UP" : "DISABLED",
+                "mode", "STATELESS_READ_ONLY",
+                "protocol", "MCP",
+                "access", mcp.enabled() ? "AUTHENTICATED_INTERNAL" : "OFF"
+        ));
         return Map.of("status", "UP", "version", "0.3.0", "services", services);
     }
 

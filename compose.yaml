@@ -65,6 +65,9 @@ services:
       RSVQA_MCP_CLIENT_ENABLED: ${RSVQA_MCP_CLIENT_ENABLED:-false}
       RSVQA_MCP_REMOTE_URL: ${RSVQA_MCP_REMOTE_URL:-http://host.docker.internal:18080}
       RSVQA_MCP_REMOTE_ENDPOINT: ${RSVQA_MCP_REMOTE_ENDPOINT:-/mcp}
+      RSVQA_MCP_ENABLED: ${RSVQA_MCP_ENABLED:-false}
+      RSVQA_MCP_BEARER_TOKEN: ${RSVQA_MCP_BEARER_TOKEN:-}
+      RSVQA_MCP_PRINCIPAL: ${RSVQA_MCP_PRINCIPAL:-}
       # Gemini relay. Defaults keep every role fail-closed; the base URL and key
       # come from an untracked environment file and are never defaulted here.
       RSVQA_GEMINI_ENABLED: ${RSVQA_GEMINI_ENABLED:-false}

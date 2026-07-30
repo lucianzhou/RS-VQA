@@ -55,18 +55,17 @@ public class AuditEventFilter extends OncePerRequestFilter {
                     UserRepository userRepository = users.getIfAvailable();
                     AuditEventRepository eventRepository = events.getIfAvailable();
                     if (userRepository != null && eventRepository != null) {
-                        userRepository.findByUsername(username).ifPresent(user -> {
-                            String path = request.getRequestURI().replaceAll("[\\r\\n]", "");
-                            eventRepository.save(new AuditEventEntity(
-                                    user,
-                                    request.getMethod() + " " + path,
-                                    "HTTP_REQUEST",
-                                    null,
-                                    TraceId.current(),
-                                    response.getStatus() < 400 ? "SUCCESS" : "FAILURE",
-                                    "status=" + response.getStatus()
-                            ));
-                        });
+                        var user = userRepository.findByUsername(username).orElse(null);
+                        String path = request.getRequestURI().replaceAll("[\\r\\n]", "");
+                        eventRepository.save(new AuditEventEntity(
+                                user,
+                                request.getMethod() + " " + path,
+                                "HTTP_REQUEST",
+                                null,
+                                TraceId.current(),
+                                response.getStatus() < 400 ? "SUCCESS" : "FAILURE",
+                                "status=" + response.getStatus()
+                        ));
                     }
                 } catch (RuntimeException ignored) {
                     // Audit persistence must not replace the original API response.
