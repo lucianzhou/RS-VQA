@@ -24,7 +24,7 @@ public record RsBotProperties(
      * persisted with each run so a stored answer can be traced to the
      * instructions that produced it.
      */
-    public static final String PROMPT_VERSION = "rs-bot/1.0.0";
+    public static final String PROMPT_VERSION = "rs-bot/1.1.0";
 
     public RsBotProperties {
         maxToolSteps = clamp(maxToolSteps, 1, 12, 6);

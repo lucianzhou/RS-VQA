@@ -214,12 +214,13 @@ RSVQA_MCP_INTEGRATION_TOKEN=<same-server-side-test-token> \
 cd ../../services/model-service
 .venv/bin/python -m pytest -q
 
-# RAG 检索基准（知识服务容器健康后）
+# RS-Bot 50 条冻结离线契约评测（不调用付费 Provider）
+cd ../gateway
+mvn -Dtest=RsBotOfflineEvaluationTest test
+
+# RAG 40 条真实 BGE/Milvus 基准（知识服务容器健康后）
 docker exec rs-vqa-knowledge-service-1 \
-  python scripts/evaluate_retrieval.py \
-  --base-url http://127.0.0.1:8010 \
-  --owner-id <authenticated-user-uuid> \
-  --index-version rsvqa-knowledge-v2
+  python scripts/evaluate_retrieval_v2.py
 
 # 产品对齐评测发布的只读校验与聚合验收
 services/model-service/.venv/bin/python scripts/product_aligned_acceptance.py \

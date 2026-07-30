@@ -287,6 +287,9 @@ class RsBotPlannerTest {
         assertThat(prompt).contains("不得改写");
         assertThat(prompt).contains("不得声称 SOTA");
         assertThat(prompt).contains("你没有任何写权限");
+        assertThat(prompt).contains("文档标题");
+        assertThat(prompt).contains("citations 为空");
+        assertThat(prompt).contains("不能替代当前图像的 VQA 结果");
         assertThat(prompt).contains(RsBotPrompt.TOOL_OUTPUT_OPEN);
     }
 

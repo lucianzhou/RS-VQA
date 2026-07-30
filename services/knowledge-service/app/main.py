@@ -16,6 +16,7 @@ from .chunking import chunk_text
 MODEL_NAME = os.getenv("RSVQA_BGE_MODEL", "BAAI/bge-small-zh-v1.5")
 MILVUS_URI = os.getenv("RSVQA_MILVUS_URI", "http://localhost:19530")
 COLLECTION = os.getenv("RSVQA_MILVUS_COLLECTION", "rsvqa_knowledge_v2")
+RELATIVE_SCORE_MARGIN = 0.08
 
 KnowledgeScope = Literal["PRIVATE", "PUBLIC"]
 
@@ -111,6 +112,18 @@ def ensure_collection() -> None:
         index_params=index_params,
         consistency_level="Strong",
     )
+
+
+def filter_relevant_hits(
+    hits: list[dict[str, Any]],
+    absolute_threshold: float,
+    relative_margin: float = RELATIVE_SCORE_MARGIN,
+) -> list[dict[str, Any]]:
+    if not hits:
+        return []
+    best_score = max(float(hit["distance"]) for hit in hits)
+    cutoff = max(absolute_threshold, best_score - relative_margin)
+    return [hit for hit in hits if float(hit["distance"]) >= cutoff]
 
 
 @app.get("/health")
@@ -220,6 +233,7 @@ def search(request: SearchRequest) -> dict[str, Any]:
         filter=filter_expression,
         output_fields=["document_id", "title", "chunk_index", "content", "index_version"],
     )
+    hits = filter_relevant_hits(results[0] if results else [], request.threshold)
     citations = [
         Citation(
             document_id=str(hit["entity"]["document_id"]),
@@ -229,8 +243,7 @@ def search(request: SearchRequest) -> dict[str, Any]:
             score=float(hit["distance"]),
             index_version=str(hit["entity"]["index_version"]),
         )
-        for hit in (results[0] if results else [])
-        if float(hit["distance"]) >= request.threshold
+        for hit in hits
     ]
     return {
         "request_id": str(uuid4()),
