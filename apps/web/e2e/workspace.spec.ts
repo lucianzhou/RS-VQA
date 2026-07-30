@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { readdirSync } from "node:fs";
 import path from "node:path";
 
@@ -11,6 +11,15 @@ const batchImagesOver32 = readdirSync(path.resolve("../../data/test-images/batch
   .filter((name) => /\.(?:png|jpe?g|webp)$/i.test(name))
   .slice(0, 40)
   .map((name) => path.resolve("../../data/test-images/batch", name));
+
+async function csrfHeaders(page: Page) {
+  const response = await page.request.get("/api/v1/auth/csrf");
+  expect(response.ok()).toBeTruthy();
+  const csrf = await response.json() as { headerName: string };
+  const cookie = (await page.context().cookies()).find(({ name }) => name === "XSRF-TOKEN");
+  expect(cookie).toBeDefined();
+  return { [csrf.headerName]: decodeURIComponent(cookie!.value) };
+}
 
 test("persists an image, multi-turn VQA, provenance, and agent tools", async ({ page }) => {
   await page.goto("/workspace");
@@ -73,6 +82,7 @@ test("requires confirmation before a trusted Agent archive action", async ({ pag
   await expect(page.getByRole("heading", { name: "分析会话" })).toBeVisible();
   const projectsResponse = await page.request.post("/api/v1/projects", {
     data: { name: `Agent action ${Date.now()}` },
+    headers: await csrfHeaders(page),
   });
   expect(projectsResponse.ok()).toBeTruthy();
   const project = await projectsResponse.json() as { id: string; name: string };
@@ -202,9 +212,11 @@ test("keeps Gemini fail-closed behind image consent and server configuration", a
 
   await page.request.patch("/api/v1/user/settings", {
     data: { externalImageOptIn: false },
+    headers: await csrfHeaders(page),
   });
   const consentBlocked = await page.request.post(`/api/v1/conversations/${conversationId}/questions`, {
     data: { question: "请描述这张图。", providerId: "gemini" },
+    headers: await csrfHeaders(page),
   });
   expect(consentBlocked.status()).toBe(400);
   expect((await consentBlocked.json()).code).toBe("INVALID_REQUEST");
@@ -221,9 +233,11 @@ test("keeps Gemini fail-closed behind image consent and server configuration", a
   if (gemini?.configurationState === "UNCONFIGURED") {
     await page.request.patch("/api/v1/user/settings", {
       data: { externalImageOptIn: true },
+      headers: await csrfHeaders(page),
     });
     const providerBlocked = await page.request.post(`/api/v1/conversations/${conversationId}/questions`, {
       data: { question: "请描述这张图。", providerId: "gemini" },
+      headers: await csrfHeaders(page),
     });
     expect(providerBlocked.status()).toBe(503);
     expect((await providerBlocked.json()).code).toBe("PROVIDER_NOT_CONFIGURED");
@@ -235,6 +249,7 @@ test("keeps Gemini fail-closed behind image consent and server configuration", a
   expect(after.messages).toHaveLength(beforeMessages);
   await page.request.patch("/api/v1/user/settings", {
     data: { externalImageOptIn: initialSettings.externalImageOptIn },
+    headers: await csrfHeaders(page),
   });
 });
 
