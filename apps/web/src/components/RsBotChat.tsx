@@ -7,9 +7,15 @@ import {
   Send,
   Square,
 } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import { RULE_BASED_NOTICE, stageLabel, stopReasonLabel, type RsBotStage } from "../rsbot";
+import {
+  RS_BOT_PROGRESS_STEPS,
+  RULE_BASED_NOTICE,
+  rsBotProgress,
+  stopReasonLabel,
+  type RsBotStage,
+} from "../rsbot";
 import type { AgentHistoryRun, AgentToolCall } from "../types";
 import { SafeMarkdown } from "./SafeMarkdown";
 
@@ -46,6 +52,9 @@ export function RsBotChat({
 }) {
   const [draft, setDraft] = useState("");
   const transcript = useRef<HTMLDivElement | null>(null);
+  const reduceMotion = useReducedMotion();
+  const progress = rsBotProgress(stage);
+  const activeProgressIndex = progress.activeIndex;
 
   // Keep the newest turn in view without stealing focus from the composer.
   useEffect(() => {
@@ -81,9 +90,48 @@ export function RsBotChat({
               {pendingQuestion && <article className="rsbot-question"><p>{pendingQuestion}</p></article>}
               <article className="rsbot-answer is-pending">
                 <span className="rsbot-avatar"><Bot size={compact ? 15 : 18} /></span>
-                <div>
-                  <strong>{stageLabel(stage)}</strong>
-                  <span className="rsbot-progress-line" />
+                <div
+                  className="rsbot-progress-status"
+                  role="status"
+                  aria-live="polite"
+                  aria-atomic="true"
+                  aria-label={`RS-Bot ${progress.label}`}
+                >
+                  <div aria-hidden="true">
+                    <span className="rsbot-stage-label">
+                      <AnimatePresence mode="sync" initial={false}>
+                        <motion.strong
+                          key={progress.key}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: reduceMotion ? 0.1 : 0.14, ease: [0.23, 1, 0.32, 1] }}
+                        >
+                          {progress.label}
+                        </motion.strong>
+                      </AnimatePresence>
+                    </span>
+                    {activeProgressIndex == null ? (
+                      <span className="rsbot-stage-neutral">处理中</span>
+                    ) : (
+                      <>
+                        <ol className="rsbot-stage-track">
+                          {RS_BOT_PROGRESS_STEPS.map((label, index) => (
+                            <li
+                              className={index < activeProgressIndex
+                                ? "is-complete"
+                                : index === activeProgressIndex ? "is-active" : ""}
+                              key={label}
+                            >
+                              <span>{index < activeProgressIndex ? <CheckCircle2 size={11} /> : index + 1}</span>
+                              <small>{label}</small>
+                            </li>
+                          ))}
+                        </ol>
+                        <span className="rsbot-progress-line" />
+                      </>
+                    )}
+                  </div>
                 </div>
               </article>
             </motion.div>

@@ -14,6 +14,15 @@ export const RS_BOT_SUBTITLE = "可信遥感分析助手";
 export const RULE_BASED_NOTICE = "RS-Bot 当前处于规则工具模式，未启用智能规划";
 
 export type RsBotStage = "" | "accepted" | "tool_started" | "completed" | "failed";
+export type RsBotProgressKey = "planning" | "tool" | "answer" | "neutral";
+
+export interface RsBotProgress {
+  key: RsBotProgressKey;
+  label: string;
+  activeIndex: number | null;
+}
+
+export const RS_BOT_PROGRESS_STEPS = ["规划", "调用工具", "组织回答"] as const;
 
 export interface RsBotContext {
   sessionId?: string;
@@ -203,10 +212,15 @@ export function useCreateRsBotSession() {
   });
 }
 
+export function rsBotProgress(stage: string): RsBotProgress {
+  if (stage === "accepted") return { key: "planning", label: "正在规划分析步骤", activeIndex: 0 };
+  if (stage === "tool_started") return { key: "tool", label: "正在调用已授权工具", activeIndex: 1 };
+  if (stage === "completed") return { key: "answer", label: "正在组织回答", activeIndex: 2 };
+  return { key: "neutral", label: "处理中", activeIndex: null };
+}
+
 export function stageLabel(stage: RsBotStage): string {
-  if (stage === "tool_started") return "正在执行工具";
-  if (stage === "accepted") return "正在建立受控执行";
-  return "正在分析";
+  return rsBotProgress(stage).label;
 }
 
 export function stopReasonLabel(reason?: string | null): string | null {

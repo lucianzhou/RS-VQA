@@ -144,11 +144,35 @@ describe("RsBotChat", () => {
     const user = userEvent.setup();
     const { onCancel } = renderChat({ isRunning: true, stage: "tool_started", pendingQuestion: "汇总" });
 
-    expect(screen.getByText("正在执行工具")).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "RS-Bot 正在调用已授权工具" })).toBeInTheDocument();
+    expect(document.querySelectorAll(".rsbot-stage-step")).toHaveLength(0);
+    expect(document.querySelectorAll(".rsbot-stage-track li")).toHaveLength(3);
+    expect(document.querySelectorAll(".rsbot-stage-track li.is-complete")).toHaveLength(1);
+    expect(document.querySelectorAll(".rsbot-stage-track li.is-active")).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "发送给 RS-Bot" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "停止 RS-Bot" }));
 
     expect(onCancel).toHaveBeenCalled();
+  });
+
+  it("crossfades only the stage label and falls back without invented progress", () => {
+    const props = {
+      runs: [],
+      isRunning: true,
+      pendingQuestion: "汇总",
+      placeholder: "p",
+      onAsk: vi.fn(),
+      onCancel: vi.fn(),
+    };
+    const { rerender } = render(<RsBotChat {...props} stage="accepted" />);
+
+    expect(screen.getByRole("status", { name: "RS-Bot 正在规划分析步骤" })).toBeInTheDocument();
+    expect(document.querySelector(".rsbot-stage-label strong")?.getAttribute("style") ?? "").not.toContain("transform");
+
+    rerender(<RsBotChat {...props} stage={"future_backend_stage" as never} />);
+    expect(screen.getByRole("status", { name: "RS-Bot 处理中" })).toBeInTheDocument();
+    expect(document.querySelector(".rsbot-stage-track")).toBeNull();
+    expect(document.querySelector(".rsbot-stage-neutral")).toHaveTextContent("处理中");
   });
 
   it("shows starter suggestions only before the first turn", () => {

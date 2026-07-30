@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { AgentHistoryRun, AgentSession, AgentSessionSummary } from "./types";
-import { latestSessionForContext, useRsBotSession } from "./rsbot";
+import { latestSessionForContext, rsBotProgress, useRsBotSession } from "./rsbot";
 
 const runA: AgentHistoryRun = {
   runId: "run-a",
@@ -118,6 +118,20 @@ describe("RS-Bot contextual session persistence", () => {
     expect(createCount).toBe(1);
     expect(result.current.sessionId).toBe("session-created");
     expect(result.current.runs[0]?.input).toBe("查询当前模型版本");
+  });
+});
+
+describe("RS-Bot progress stages", () => {
+  it.each([
+    ["accepted", "planning", "正在规划分析步骤", 0],
+    ["tool_started", "tool", "正在调用已授权工具", 1],
+    ["completed", "answer", "正在组织回答", 2],
+  ])("maps %s to a truthful progress phase", (stage, key, label, activeIndex) => {
+    expect(rsBotProgress(stage)).toEqual({ key, label, activeIndex });
+  });
+
+  it.each(["", "failed", "future_backend_stage"])("uses a neutral fallback for %s", (stage) => {
+    expect(rsBotProgress(stage)).toEqual({ key: "neutral", label: "处理中", activeIndex: null });
   });
 });
 
